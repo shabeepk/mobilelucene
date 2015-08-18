@@ -2249,6 +2249,48 @@ ${ant.project.name}.test.dependencies=${test.classpath.list}
     </sequential>
   </macrodef>
 
+  <macrodef name="mobile-modules-crawl">
+    <attribute name="target" default=""/>
+    <attribute name="failonerror" default="true"/>
+    <sequential>
+      <subant target="@{target}" failonerror="@{failonerror}" inheritall="false">
+        <propertyset refid="uptodate.and.compiled.properties"/>
+        <fileset dir=".">
+          <include name="analysis/common/build.xml" />
+          <include name="core/build.xml" />
+          <include name="highlighter/build.xml" />
+          <include name="join/build.xml" />
+          <include name="memory/build.xml" />
+          <include name="misc/build.xml" />
+          <include name="queries/build.xml" />
+          <include name="queryparser/build.xml" />
+          <include name="sandbox/build.xml" />
+          <include name="suggest/build.xml" />
+          <exclude name="build/**" />
+          <!-- <exclude name="core/**" /> -->
+          <exclude name="test-framework/**" />
+          <exclude name="tools/**" />
+        </fileset>
+      </subant>
+    </sequential>
+  </macrodef>
+
+  <property name="mobilejars" value="" />
+
+  <target name="mobile-copy-jar">
+    <fail message="Property mobilejars has no value">
+      <condition>
+        <equals arg1="${mobilejars}" arg2=""/>
+      </condition>
+    </fail>
+
+    <copy todir="${mobilejars}" verbose="yes" flatten="yes" failonerror="no">
+     <fileset dir="${build.dir}">
+        <include name="*.jar" />
+     </fileset>
+    </copy>
+  </target>
+
   <target name="download-java7-javadoc-packagelist" unless="javadoc.java7.packagelist.exists">
     <mkdir dir="${javadoc.packagelist.dir}/java7"/>
     <get src="${javadoc.link}/package-list"
