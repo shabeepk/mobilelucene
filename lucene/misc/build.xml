@@ -49,4 +49,21 @@
     </cc>
   </target>
 
+  <target name="compile-core" depends="init, clover" description="Compiles core classes">
+    <echo message="Ignoring: ${src.dir}/**/*.java" />
+    <compile srcdir="${src.dir}" destdir="${build.dir}/classes/java">
+      <classpath refid="classpath"/>
+
+      <!-- Exclude classes currently not compatible with portmobile -->
+      <include name="**/*.java"/>
+      <exclude name="**/store/*.java"/>
+      <exclude name="**/uninverting/*.java"/>
+    </compile>
+
+    <!-- Copy the resources folder (if existent) -->
+    <copy todir="${build.dir}/classes/java">
+      <fileset dir="${resources.dir}" erroronmissingdir="no"/>
+    </copy>
+  </target>
+
 </project>
