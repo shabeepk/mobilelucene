@@ -388,6 +388,12 @@ public final class IOUtils {
   public static void fsync(Path fileToSync, boolean isDir) throws IOException {
     IOException exc = null;
     
+
+    if (isDir) {
+      // Investigate this on OS X.
+      return;
+    }
+
     // If the file is a directory we have to open read-only, for regular files we must open r/w for the fsync to have an effect.
     // See http://blog.httrack.com/blog/2013/11/15/everything-you-always-wanted-to-know-about-fsync/
     try (final FileChannel file = FileChannel.open(fileToSync, isDir ? StandardOpenOption.READ : StandardOpenOption.WRITE)) {
@@ -481,6 +487,9 @@ public final class IOUtils {
   
   // note: requires a real or fake linux filesystem!
   static boolean spinsLinux(Path path) throws IOException {
+    return false;
+
+    /*
     FileStore store = getFileStore(path);
     
     // if fs type is tmpfs, it doesn't spin.
@@ -526,8 +535,10 @@ public final class IOUtils {
     try (InputStream stream = Files.newInputStream(rotational)) {
       return stream.read() == '1'; 
     }
+    */
   }
   
+  /*
   // Files.getFileStore(Path) useless here!
   // don't complain, just try it yourself
   static FileStore getFileStore(Path path) throws IOException {
@@ -568,4 +579,5 @@ public final class IOUtils {
       return desc;
     }
   }
+  */
 }
