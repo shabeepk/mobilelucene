@@ -1,3 +1,13 @@
+import re
+
+
+def multiline_escaped_re(exp):
+    """
+    Compile an escaped, multiline regular expression with . matching anything.
+    """
+    return re.compile(re.escape(exp), re.MULTILINE | re.DOTALL)
+
+
 LUCENE_SRC_PATHS = (
     './analysis/common/src/java',
     # './analysis/common/src/tools/java',
@@ -49,40 +59,4 @@ build/queries/lucene-queries-5.2.1-SNAPSHOT.jar
 build/queryparser/lucene-queryparser-5.2.1-SNAPSHOT.jar
 build/sandbox/lucene-sandbox-5.2.1-SNAPSHOT.jar
 build/spatial/lucene-spatial-5.2.1-SNAPSHOT.jar
-"""
-
-
-"""
-./analysis/common/src/java
-./analysis/common/src/tools/java
-./analysis/icu/src/java
-./analysis/icu/src/tools/java
-./analysis/kuromoji/src/java
-./analysis/kuromoji/src/tools/java
-./analysis/morfologik/src/java
-./analysis/phonetic/src/java
-./analysis/smartcn/src/java
-./analysis/stempel/src/java
-./analysis/uima/src/java
-./backward-codecs/src/java
-./benchmark/src/java
-./classification/src/java
-./codecs/src/java
-./core/src/java
-./demo/src/java
-./expressions/src/java
-./facet/src/java
-./grouping/src/java
-./highlighter/src/java
-./join/src/java
-./memory/src/java
-./misc/src/java
-./queries/src/java
-./queryparser/src/java
-./replicator/src/java
-./sandbox/src/java
-./spatial/src/java
-./suggest/src/java
-./test-framework/src/java
-./tools/src/java
 """
