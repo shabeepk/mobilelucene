@@ -186,7 +186,7 @@ public final class SPIClassIterator<S> implements Iterator<Class<? extends S>> {
     */
     list = new ArrayList<String>();
     hardCodedServices.put("org.apache.lucene.codecs.Codec", list);
-    list.add("org.apache.lucene.codecs.lucene50.Lucene50Codec");
+    list.add("org.apache.lucene.codecs.lucene53.Lucene53Codec");
 
     list = new ArrayList<String>();
     hardCodedServices.put("org.apache.lucene.codecs.DocValuesFormat", list);
