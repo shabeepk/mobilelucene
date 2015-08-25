@@ -1,6 +1,7 @@
 package org.lukhnos.portmobile.file;
 
 import org.lukhnos.portmobile.channels.utils.FileChannelUtils;
+import org.lukhnos.portmobile.file.attribute.BasicFileAttributes;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -160,6 +161,21 @@ public class Files {
         tmpFile.delete();
         tmpFile.mkdir();
         return new Path(tmpFile);
+    }
+
+    public static Path createTempDirectory(Path path, String prefix) throws IOException {
+        File tmpFile = File.createTempFile(prefix, "", path.toFile());
+        tmpFile.delete();
+        tmpFile.mkdir();
+        return new Path(tmpFile);
+    }
+
+    public static BasicFileAttributes readAttributes(Path path, Class<?> clz) throws NoSuchFileException {
+        if (exists(path)) {
+            return new BasicFileAttributes(path.toFile());
+        }
+
+        throw new NoSuchFileException();
     }
 
     public static void main(String args[]) {
