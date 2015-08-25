@@ -80,12 +80,16 @@ excluded = (
     './highlighter/src/java/org/apache/lucene/search/vectorhighlight/*.java',  # nopep8
 
     # Uses native methods.
-    './misc/src/java/org/apache/lucene/misc/store/*.java',
-    './misc/src/java/org/apache/lucene/misc/uninverting/*.java',
+    './misc/src/java/org/apache/lucene/store/*.java',
+    # './misc/src/java/org/apache/lucene/uninverting/*.java',
+
+    # './misc/src/java/org/apache/lucene/misc/store/*.java',
+    # './misc/src/java/org/apache/lucene/misc/uninverting/*.java',
 
     # Currently skipped; it relies on ./sandbox/lib/jakarta-regexp-1.4.jar
     # and we don't have that library translated to Objective-C yet.
-    './sandbox/src/java/org/apache/lucene/queries/regex/*.java',
+    './sandbox/src/java/org/apache/lucene/sandbox/queries/regex/*.java'
+    # './sandbox/src/java/org/apache/lucene/queries/regex/*.java',
 )
 
 cps = src_paths + extra_cps
