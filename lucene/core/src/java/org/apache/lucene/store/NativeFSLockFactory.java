@@ -187,10 +187,12 @@ public final class NativeFSLockFactory extends FSLockFactory {
       }
       // NOTE: we don't validate, as unlike SimpleFSLockFactory, we can't break others locks
       // first release the lock, then the channel
-      try (FileChannel channel = this.channel;
-           FileLock lock = this.lock) {
-        assert lock != null;
+      try (FileChannel channel = this.channel) {
+        assert this.lock != null;
         assert channel != null;
+
+        this.lock.release();
+
       } finally {
         closed = true;
         clearLockHeld(path);
