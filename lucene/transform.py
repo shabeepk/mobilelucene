@@ -22,6 +22,8 @@ import_map_re = {
 extra_imports = {
     'FileChannel.open': 'org.lukhnos.portmobile.channels.utils.FileChannelUtils',  # nopep8
     'new ClassValue': 'org.lukhnos.portmobile.lang.ClassValue',
+    '// j2objc:"Weak"': 'org.lukhnos.portmobile.j2objc.annotations.Weak',
+    '// j2objc:"WeakOuter"': 'org.lukhnos.portmobile.j2objc.annotations.WeakOuter',  # nopep8
 }
 
 extra_imports_re = {
@@ -29,7 +31,9 @@ extra_imports_re = {
 }
 
 method_calls = {
-    'FileChannel.open': 'FileChannelUtils.open'
+    'FileChannel.open': 'FileChannelUtils.open',
+    '// j2objc:"Weak"': '@Weak',
+    '// j2objc:"WeakOuter"': '@WeakOuter',
 }
 
 method_calls_re = {

@@ -63,6 +63,8 @@ extra_cps = (
 
 
 excluded = (
+    './core/src/java/org/lukhnos/portmobile/j2objc/*',
+
     # Currently skipped; these currently relies on JDK 7's BreakIterator,
     # which, although supported on Android, is not implemented by j2objc's
     # jre_emul. See the discussion here for porting considerations:
