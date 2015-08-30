@@ -1,4 +1,26 @@
 #!/usr/bin/env python
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This script translates Java to Objective-C using the j2objc transpiler.
+#
+# It assumes that you're running in Lucene's source root, not Lucene-Solr's
+# top-level directory.
+#
+# The script is a work in progress. It does not translate non-Lucene source
+# code as it has a lot of hard-coded dependency information. Nor does it
+# translate Lucene tests since they are not yet supported.
+
 import fnmatch
 import os
 import subprocess
@@ -63,6 +85,7 @@ extra_cps = (
 
 
 excluded = (
+    # No need to translate j2objc annotations to Objective-C.
     './core/src/java/org/lukhnos/portmobile/j2objc/*',
 
     # Currently skipped; these currently relies on JDK 7's BreakIterator,
@@ -96,8 +119,7 @@ excluded = (
 
 cps = src_paths + extra_cps
 classpaths = ':'.join(cps)
-print('%s' % classpaths)
-# sys.exit(1)
+print('classpaths: %s' % classpaths)
 
 dst = './build/objc'
 
@@ -147,27 +169,3 @@ for src in src_paths:
     for path in to_postprocess:
         print('postprocessing: %s' % path)
         postprocess_translated_objc(path)
-
-
-"""
-# TODO: Argparse
-# TODO: Support Gradle layout (src/main/java)
-
-TRANSLATE_TEST = False
-
-src = './src/java'
-dst = './src/objc'
-
-if TRANSLATE_TEST:
-    src = './src/test'
-    dst = './src/test-objc'
-
-if not os.path.exists(src):
-    print('Script must be run in the parent directory of src')
-    sys.exit(1)
-
-
-# TODO: Automatically collect package names and provide shortening.
-
-
-"""
