@@ -64,19 +64,25 @@ final class SegmentCoreReaders {
   // Thingy class holding fieldsReader, termVectorsReader,
   // normsProducer
 
-  final CloseableThreadLocal<StoredFieldsReader> fieldsReaderLocal = new CloseableThreadLocal<StoredFieldsReader>() {
+  // j2objc:"WeakOuter"
+  class FieldsReaderLocal extends CloseableThreadLocal<StoredFieldsReader> {
     @Override
     protected StoredFieldsReader initialValue() {
       return fieldsReaderOrig.clone();
     }
   };
-  
-  final CloseableThreadLocal<TermVectorsReader> termVectorsLocal = new CloseableThreadLocal<TermVectorsReader>() {
+
+  final CloseableThreadLocal<StoredFieldsReader> fieldsReaderLocal = new FieldsReaderLocal();
+
+  // j2objc:"WeakOuter"
+  class TermVectorsLocal extends CloseableThreadLocal<TermVectorsReader> {
     @Override
     protected TermVectorsReader initialValue() {
       return (termVectorsReaderOrig == null) ? null : termVectorsReaderOrig.clone();
     }
   };
+
+  final CloseableThreadLocal<TermVectorsReader> termVectorsLocal = new TermVectorsLocal();
 
   private final Set<CoreClosedListener> coreClosedListeners = 
       Collections.synchronizedSet(new LinkedHashSet<CoreClosedListener>());

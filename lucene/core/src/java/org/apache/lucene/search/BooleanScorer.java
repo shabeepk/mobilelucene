@@ -71,7 +71,9 @@ final class BooleanScorer extends BulkScorer {
     int freq;
   }
 
+  // j2objc:"WeakOuter"
   private class BulkScorerAndDoc {
+    // j2objc:"Weak"
     final BulkScorer scorer;
     final long cost;
     int next;
@@ -154,7 +156,9 @@ final class BooleanScorer extends BulkScorer {
   final int minShouldMatch;
   final long cost;
 
+  // j2objc:"WeakOuter"
   final class OrCollector implements LeafCollector {
+    // j2objc:"Weak"
     Scorer scorer;
 
     @Override

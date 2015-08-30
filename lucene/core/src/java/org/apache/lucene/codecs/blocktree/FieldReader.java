@@ -58,6 +58,7 @@ public final class FieldReader extends Terms implements Accountable {
   final BytesRef minTerm;
   final BytesRef maxTerm;
   final int longsSize;
+  // j2objc:"Weak"
   final BlockTreeTermsReader parent;
 
   final FST<BytesRef> index;

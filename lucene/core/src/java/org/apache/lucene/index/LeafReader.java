@@ -46,6 +46,7 @@ import java.io.IOException;
 */
 public abstract class LeafReader extends IndexReader {
 
+  // j2objc:"Weak"
   private final LeafReaderContext readerContext = new LeafReaderContext(this);
 
   /** Sole constructor. (For invocation by subclass

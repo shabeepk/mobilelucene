@@ -54,6 +54,7 @@ import org.apache.lucene.store.*;
 */
 public abstract class CompositeReader extends IndexReader {
 
+  // j2objc:"Weak"
   private volatile CompositeReaderContext readerContext = null; // lazy init
 
   /** Sole constructor. (For invocation by subclass 

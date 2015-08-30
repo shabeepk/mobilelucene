@@ -92,6 +92,7 @@ final class SegmentTermsEnumFrame {
   byte[] bytes = new byte[32];
   final ByteArrayDataInput bytesReader = new ByteArrayDataInput();
 
+  // j2objc:"Weak"
   private final SegmentTermsEnum ste;
 
   public SegmentTermsEnumFrame(SegmentTermsEnum ste, int ord) throws IOException {
