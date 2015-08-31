@@ -17,7 +17,7 @@ package org.apache.lucene.search;
  * limitations under the License.
  */
 
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 
 import org.apache.lucene.util.Bits;
 

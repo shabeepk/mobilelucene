@@ -18,8 +18,8 @@ package org.apache.lucene.search.suggest;
  */
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import org.lukhnos.portmobile.file.Files;
+import org.lukhnos.portmobile.file.Path;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Set;

@@ -28,6 +28,9 @@ import java.util.Set;
 
 import org.apache.lucene.analysis.TokenStream; // for javadocs
 
+// Extra imports by portmobile.
+import org.lukhnos.portmobile.lang.ClassValue;
+
 /**
  * An AttributeSource contains a list of different {@link AttributeImpl}s,
  * and methods to add and get them. There can only be a single instance

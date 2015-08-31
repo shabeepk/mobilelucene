@@ -31,10 +31,10 @@ package org.apache.lucene.search.suggest.jaspell;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import org.lukhnos.portmobile.charset.StandardCharsets;
 import java.util.Collections;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import org.lukhnos.portmobile.file.Files;
+import org.lukhnos.portmobile.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;

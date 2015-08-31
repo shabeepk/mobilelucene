@@ -18,7 +18,7 @@ package org.apache.lucene.document;
  */
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import org.lukhnos.portmobile.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;
 

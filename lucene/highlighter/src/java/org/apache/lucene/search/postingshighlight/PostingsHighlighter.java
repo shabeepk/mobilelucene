@@ -18,7 +18,7 @@ package org.apache.lucene.search.postingshighlight;
  */
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import org.lukhnos.portmobile.charset.StandardCharsets;
 import java.text.BreakIterator;
 import java.util.ArrayList;
 import java.util.Arrays;

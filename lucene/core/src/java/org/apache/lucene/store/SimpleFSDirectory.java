@@ -22,13 +22,13 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.ClosedChannelException; // javadoc @link
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
+import org.lukhnos.portmobile.file.Files;
+import org.lukhnos.portmobile.file.Path;
+import org.lukhnos.portmobile.file.StandardOpenOption;
 import java.util.concurrent.Future;
 
 /** A straightforward implementation of {@link FSDirectory}
- *  using {@link Files#newByteChannel(Path, java.nio.file.OpenOption...)}.  
+ *  using {@link Files#newByteChannel(Path, org.lukhnos.portmobile.file.StandardOpenOption)}  
  *  However, this class has
  *  poor concurrent performance (multiple threads will
  *  bottleneck) as it synchronizes when multiple threads

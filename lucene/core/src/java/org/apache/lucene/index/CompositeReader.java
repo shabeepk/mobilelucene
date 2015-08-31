@@ -21,6 +21,9 @@ import java.util.List;
 
 import org.apache.lucene.store.*;
 
+// Extra imports by portmobile.
+import org.lukhnos.portmobile.j2objc.annotations.Weak;
+
 /**
  Instances of this reader type can only
  be used to get stored fields from the underlying LeafReaders,
@@ -54,7 +57,7 @@ import org.apache.lucene.store.*;
 */
 public abstract class CompositeReader extends IndexReader {
 
-  // j2objc:"Weak"
+  @Weak
   private volatile CompositeReaderContext readerContext = null; // lazy init
 
   /** Sole constructor. (For invocation by subclass 

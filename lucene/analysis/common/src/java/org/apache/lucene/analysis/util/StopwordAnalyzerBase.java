@@ -19,9 +19,9 @@ package org.apache.lucene.analysis.util;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import org.lukhnos.portmobile.charset.StandardCharsets;
+import org.lukhnos.portmobile.file.Files;
+import org.lukhnos.portmobile.file.Path;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.util.IOUtils;

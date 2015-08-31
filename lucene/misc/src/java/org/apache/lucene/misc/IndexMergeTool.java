@@ -24,7 +24,7 @@ import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.SuppressForbidden;
 
 import java.io.IOException;
-import java.nio.file.Paths;
+import org.lukhnos.portmobile.file.Paths;
 
 /**
  * Merges indices specified on the command line into the index

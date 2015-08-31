@@ -21,7 +21,7 @@ import java.io.IOException;
 import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.IndexReader;

@@ -19,7 +19,7 @@ package org.apache.lucene.codecs;
 
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import org.lukhnos.portmobile.charset.StandardCharsets;
 import java.util.Arrays;
 
 import org.apache.lucene.index.CorruptIndexException;

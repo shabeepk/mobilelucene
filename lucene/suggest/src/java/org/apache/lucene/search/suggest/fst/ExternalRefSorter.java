@@ -19,8 +19,8 @@ package org.apache.lucene.search.suggest.fst;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import org.lukhnos.portmobile.file.Files;
+import org.lukhnos.portmobile.file.Path;
 import java.util.Comparator;
 
 import org.apache.lucene.util.BytesRef;

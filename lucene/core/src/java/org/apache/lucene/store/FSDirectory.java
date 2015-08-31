@@ -20,10 +20,10 @@ package org.apache.lucene.store;
 import java.io.FileOutputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
-import java.nio.file.DirectoryStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import org.lukhnos.portmobile.file.DirectoryStream;
+import org.lukhnos.portmobile.file.Files;
+import org.lukhnos.portmobile.file.Path;
+import org.lukhnos.portmobile.file.StandardCopyOption;
 import java.nio.channels.ClosedChannelException; // javadoc @link
 import java.util.ArrayList;
 import java.util.Collection;

@@ -22,7 +22,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.nio.charset.StandardCharsets;
+import org.lukhnos.portmobile.charset.StandardCharsets;
 import java.text.ParseException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -567,7 +567,7 @@ public class JavascriptCompiler {
         checkFunction(method, JavascriptCompiler.class.getClassLoader());
         map.put(call, method);
       }
-    } catch (ReflectiveOperationException | IOException e) {
+    } catch (Exception e) {
       throw new Error("Cannot resolve function", e);
     }
     DEFAULT_FUNCTIONS = Collections.unmodifiableMap(map);

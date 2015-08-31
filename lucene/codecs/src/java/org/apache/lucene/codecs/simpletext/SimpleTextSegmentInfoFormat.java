@@ -18,7 +18,7 @@ package org.apache.lucene.codecs.simpletext;
  */
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import org.lukhnos.portmobile.charset.StandardCharsets;
 import java.text.ParseException;
 import java.util.Arrays;
 import java.util.Collections;

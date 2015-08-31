@@ -35,6 +35,9 @@ import org.apache.lucene.util.automaton.CompiledAutomaton;
 import org.apache.lucene.util.fst.ByteSequenceOutputs;
 import org.apache.lucene.util.fst.FST;
 
+// Extra imports by portmobile.
+import org.lukhnos.portmobile.j2objc.annotations.Weak;
+
 /**
  * BlockTree's implementation of {@link Terms}.
  * @lucene.internal
@@ -58,7 +61,7 @@ public final class FieldReader extends Terms implements Accountable {
   final BytesRef minTerm;
   final BytesRef maxTerm;
   final int longsSize;
-  // j2objc:"Weak"
+  @Weak
   final BlockTreeTermsReader parent;
 
   final FST<BytesRef> index;

@@ -18,7 +18,7 @@ package org.apache.lucene.codecs.lucene50;
  */
 
 import java.io.IOException;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.StoredFieldsFormat;

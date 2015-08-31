@@ -19,7 +19,7 @@ package org.apache.lucene.util;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.nio.file.attribute.FileTime;
+import org.lukhnos.portmobile.file.attribute.FileTime;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**

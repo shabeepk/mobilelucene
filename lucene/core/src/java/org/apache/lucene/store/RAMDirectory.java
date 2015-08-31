@@ -19,7 +19,7 @@ package org.apache.lucene.store;
 
 import java.io.IOException;
 import java.io.FileNotFoundException;
-import java.nio.file.Files;
+import org.lukhnos.portmobile.file.Files;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;

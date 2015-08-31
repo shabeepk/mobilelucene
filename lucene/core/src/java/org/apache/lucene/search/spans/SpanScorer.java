@@ -18,7 +18,7 @@ package org.apache.lucene.search.spans;
  */
 
 import java.io.IOException;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.TwoPhaseIterator;

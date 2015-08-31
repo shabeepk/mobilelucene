@@ -33,7 +33,7 @@ import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.Version;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
+import org.lukhnos.portmobile.charset.StandardCharsets;
 
 /**
  * {@link Analyzer} for Czech language.

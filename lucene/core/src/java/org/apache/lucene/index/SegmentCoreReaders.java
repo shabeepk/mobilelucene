@@ -36,6 +36,9 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.util.CloseableThreadLocal;
 import org.apache.lucene.util.IOUtils;
 
+// Extra imports by portmobile.
+import org.lukhnos.portmobile.j2objc.annotations.WeakOuter;
+
 /** Holds core readers that are shared (unchanged) when
  * SegmentReader is cloned or reopened */
 final class SegmentCoreReaders {
@@ -64,7 +67,7 @@ final class SegmentCoreReaders {
   // Thingy class holding fieldsReader, termVectorsReader,
   // normsProducer
 
-  // j2objc:"WeakOuter"
+  @WeakOuter
   class FieldsReaderLocal extends CloseableThreadLocal<StoredFieldsReader> {
     @Override
     protected StoredFieldsReader initialValue() {
@@ -74,7 +77,7 @@ final class SegmentCoreReaders {
 
   final CloseableThreadLocal<StoredFieldsReader> fieldsReaderLocal = new FieldsReaderLocal();
 
-  // j2objc:"WeakOuter"
+  @WeakOuter
   class TermVectorsLocal extends CloseableThreadLocal<TermVectorsReader> {
     @Override
     protected TermVectorsReader initialValue() {

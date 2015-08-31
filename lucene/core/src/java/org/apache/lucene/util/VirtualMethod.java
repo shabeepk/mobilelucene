@@ -22,6 +22,9 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
+// Extra imports by portmobile.
+import org.lukhnos.portmobile.lang.ClassValue;
+
 /**
  * A utility for keeping backwards compatibility on previously abstract methods
  * (or similar replacements).

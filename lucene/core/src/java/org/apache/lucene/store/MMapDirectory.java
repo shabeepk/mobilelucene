@@ -23,8 +23,8 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.ClosedChannelException; // javadoc @link
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
+import org.lukhnos.portmobile.file.Path;
+import org.lukhnos.portmobile.file.StandardOpenOption;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.security.PrivilegedExceptionAction;
@@ -35,6 +35,9 @@ import java.lang.reflect.Method;
 
 import org.apache.lucene.store.ByteBufferIndexInput.BufferCleaner;
 import org.apache.lucene.util.Constants;
+
+// Extra imports by portmobile.
+import org.lukhnos.portmobile.channels.utils.FileChannelUtils;
 
 /** File-based {@link Directory} implementation that uses
  *  mmap for reading, and {@link
@@ -233,7 +236,7 @@ public class MMapDirectory extends FSDirectory {
   public IndexInput openInput(String name, IOContext context) throws IOException {
     ensureOpen();
     Path path = directory.resolve(name);
-    try (FileChannel c = FileChannel.open(path, StandardOpenOption.READ)) {
+    try (FileChannel c = FileChannelUtils.open(path, StandardOpenOption.READ)) {
       final String resourceDescription = "MMapIndexInput(path=\"" + path.toString() + "\")";
       final boolean useUnmap = getUseUnmap();
       return ByteBufferIndexInput.newInstance(resourceDescription,

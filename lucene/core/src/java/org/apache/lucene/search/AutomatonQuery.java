@@ -18,7 +18,7 @@ package org.apache.lucene.search;
  */
 
 import java.io.IOException;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.Terms;

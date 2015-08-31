@@ -21,7 +21,7 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.search.DocIdSetIterator;
 
 import java.io.IOException;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 
 /**
  * Expert:

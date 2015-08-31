@@ -19,7 +19,7 @@ package org.apache.lucene.index;
 
 import java.io.IOException;
 import java.util.Iterator;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 
 import org.apache.lucene.search.CachingWrapperQuery;
 import org.apache.lucene.util.AttributeSource;

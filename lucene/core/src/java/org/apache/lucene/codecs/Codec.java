@@ -17,7 +17,7 @@ package org.apache.lucene.codecs;
  * limitations under the License.
  */
 
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 import java.util.Set;
 import java.util.ServiceLoader; // javadocs
 

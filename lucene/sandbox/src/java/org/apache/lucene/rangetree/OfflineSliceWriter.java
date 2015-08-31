@@ -19,8 +19,8 @@ package org.apache.lucene.rangetree;
 
 import java.io.BufferedOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import org.lukhnos.portmobile.file.Files;
+import org.lukhnos.portmobile.file.Path;
 
 import org.apache.lucene.store.ByteArrayDataOutput;
 import org.apache.lucene.store.OutputStreamDataOutput;

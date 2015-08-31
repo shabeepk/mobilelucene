@@ -19,17 +19,20 @@ package org.apache.lucene.store;
 
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.nio.file.attribute.FileTime;
+import org.lukhnos.portmobile.file.Files;
+import org.lukhnos.portmobile.file.Path;
+import org.lukhnos.portmobile.file.StandardOpenOption;
+import org.lukhnos.portmobile.file.attribute.BasicFileAttributes;
+import org.lukhnos.portmobile.file.attribute.FileTime;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
 import org.apache.lucene.util.IOUtils;
+
+// Extra imports by portmobile.
+import org.lukhnos.portmobile.channels.utils.FileChannelUtils;
 
 /**
  * <p>Implements {@link LockFactory} using native OS file
@@ -110,7 +113,7 @@ public final class NativeFSLockFactory extends FSLockFactory {
       FileChannel channel = null;
       FileLock lock = null;
       try {
-        channel = FileChannel.open(realPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+        channel = FileChannelUtils.open(realPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
         lock = channel.tryLock();
         if (lock != null) {
           return new NativeFSLock(lock, channel, realPath, creationTime);

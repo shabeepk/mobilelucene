@@ -17,7 +17,7 @@ package org.apache.lucene.misc;
  * limitations under the License.
  */
 
-import java.nio.file.Paths;
+import org.lukhnos.portmobile.file.Paths;
 import java.util.Locale;
 
 import org.apache.lucene.store.Directory;

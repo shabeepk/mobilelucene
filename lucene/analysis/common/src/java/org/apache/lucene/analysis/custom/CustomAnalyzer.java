@@ -19,14 +19,14 @@ package org.apache.lucene.analysis.custom;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.nio.file.Path;
+import org.lukhnos.portmobile.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;

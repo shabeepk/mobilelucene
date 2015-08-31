@@ -24,6 +24,10 @@ import java.util.Collection;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.PriorityQueue;
 
+// Extra imports by portmobile.
+import org.lukhnos.portmobile.j2objc.annotations.Weak;
+import org.lukhnos.portmobile.j2objc.annotations.WeakOuter;
+
 /**
  * {@link BulkScorer} that is used for pure disjunctions and disjunctions
  * that have low values of {@link BooleanQuery.Builder#setMinimumNumberShouldMatch(int)}
@@ -71,9 +75,9 @@ final class BooleanScorer extends BulkScorer {
     int freq;
   }
 
-  // j2objc:"WeakOuter"
+  @WeakOuter
   private class BulkScorerAndDoc {
-    // j2objc:"Weak"
+    @Weak
     final BulkScorer scorer;
     final long cost;
     int next;
@@ -156,9 +160,9 @@ final class BooleanScorer extends BulkScorer {
   final int minShouldMatch;
   final long cost;
 
-  // j2objc:"WeakOuter"
+  @WeakOuter
   final class OrCollector implements LeafCollector {
-    // j2objc:"Weak"
+    @Weak
     Scorer scorer;
 
     @Override

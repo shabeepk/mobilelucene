@@ -22,6 +22,9 @@ import org.apache.lucene.util.Bits;
 
 import java.io.IOException;
 
+// Extra imports by portmobile.
+import org.lukhnos.portmobile.j2objc.annotations.Weak;
+
 /** {@code LeafReader} is an abstract class, providing an interface for accessing an
  index.  Search of an index is done entirely through this abstract interface,
  so that any subclass which implements it is searchable. IndexReaders implemented
@@ -46,7 +49,7 @@ import java.io.IOException;
 */
 public abstract class LeafReader extends IndexReader {
 
-  // j2objc:"Weak"
+  @Weak
   private final LeafReaderContext readerContext = new LeafReaderContext(this);
 
   /** Sole constructor. (For invocation by subclass

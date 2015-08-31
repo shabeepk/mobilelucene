@@ -39,7 +39,7 @@ import org.apache.lucene.util.Version;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.nio.charset.StandardCharsets;
+import org.lukhnos.portmobile.charset.StandardCharsets;
 
 /**
  * {@link Analyzer} for Dutch language. 

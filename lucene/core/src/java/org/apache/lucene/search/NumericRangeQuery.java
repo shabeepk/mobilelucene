@@ -19,7 +19,7 @@ package org.apache.lucene.search;
 
 import java.io.IOException;
 import java.util.LinkedList;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 
 import org.apache.lucene.analysis.NumericTokenStream; // for javadocs
 import org.apache.lucene.document.DoubleField; // for javadocs

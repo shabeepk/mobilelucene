@@ -20,8 +20,8 @@ package org.apache.lucene.bkdtree;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import org.lukhnos.portmobile.file.Files;
+import org.lukhnos.portmobile.file.Path;
 
 import org.apache.lucene.store.InputStreamDataInput;
 

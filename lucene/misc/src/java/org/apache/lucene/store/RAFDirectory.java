@@ -21,7 +21,7 @@ import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.nio.file.Path;
+import org.lukhnos.portmobile.file.Path;
 
 import org.apache.lucene.util.SuppressForbidden;
 

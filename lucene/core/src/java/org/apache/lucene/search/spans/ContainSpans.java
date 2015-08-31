@@ -19,7 +19,7 @@ package org.apache.lucene.search.spans;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 
 abstract class ContainSpans extends ConjunctionSpans {
   Spans sourceSpans;

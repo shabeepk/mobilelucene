@@ -20,7 +20,7 @@ package org.apache.lucene.analysis.core;
 import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
-import java.nio.file.Path;
+import org.lukhnos.portmobile.file.Path;
 import java.util.Arrays;
 import java.util.List;
 
