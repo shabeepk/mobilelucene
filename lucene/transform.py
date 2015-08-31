@@ -11,6 +11,8 @@ import_map = {
     'java.nio.file.': 'org.lukhnos.portmobile.file.',
     'java.nio.file.attribute.': 'org.lukhnos.portmobile.file.attribute.',
     'java.lang.invoke.': 'org.lukhnos.portmobile.invoke.',
+    'java.util.Objects': 'org.lukhnos.portmobile.util.Objects',
+    'java.nio.charset.StandardCharsets': 'org.lukhnos.portmobile.charset.StandardCharsets',  # nopep8
 }
 
 import_map_re = {
@@ -41,6 +43,10 @@ comments = {
 
 comments_re = {
     re.compile(re.escape(k), re.M | re.S): v for k, v in comments.items()
+}
+
+other_re = {
+    re.compile(r'ReflectiveOperationException(\s*\|\s*\w*?Exception)?', re.M | re.S): 'Exception',  # nopep8
 }
 
 extra_import_tagline = '// Extra imports by portmobile.'
@@ -83,6 +89,9 @@ def process_source(path):
         new_body = p.sub(r, new_body)
 
     for p, r in comments_re.items():
+        new_body = p.sub(r, new_body)
+
+    for p, r in other_re.items():
         new_body = p.sub(r, new_body)
 
     new_code = '\n'.join(new_head_lines) + new_body
