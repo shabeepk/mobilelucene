@@ -524,6 +524,7 @@ public class Builder<T> {
   /** Expert: holds a pending (seen but not yet serialized) arc. */
   public static class Arc<T> {
     public int label;                             // really an "unsigned" byte
+    // j2objc:"Weak"
     public Node target;
     public boolean isFinal;
     public T output;
@@ -552,6 +553,7 @@ public class Builder<T> {
 
   /** Expert: holds a pending (seen but not yet serialized) Node. */
   public static final class UnCompiledNode<T> implements Node {
+    // j2objc:"Weak"
     final Builder<T> owner;
     public int numArcs;
     public Arc<T>[] arcs;

@@ -69,6 +69,7 @@ final class DocumentsWriterFlushControl implements Accountable {
   private final DocumentsWriterPerThreadPool perThreadPool;
   private final FlushPolicy flushPolicy;
   private boolean closed = false;
+  // j2objc:"Weak"
   private final DocumentsWriter documentsWriter;
   private final LiveIndexWriterConfig config;
   private final BufferedUpdatesStream bufferedUpdatesStream;

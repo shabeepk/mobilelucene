@@ -121,6 +121,7 @@ final class DocumentsWriter implements Closeable, Accountable {
   final DocumentsWriterPerThreadPool perThreadPool;
   final FlushPolicy flushPolicy;
   final DocumentsWriterFlushControl flushControl;
+  // j2objc:"Weak"
   private final IndexWriter writer;
   private final Queue<Event> events;
 
