@@ -1,12 +1,16 @@
-import re
-
-
-def multiline_escaped_re(exp):
-    """
-    Compile an escaped, multiline regular expression with . matching anything.
-    """
-    return re.compile(re.escape(exp), re.MULTILINE | re.DOTALL)
-
+# The list below is based on the dependencies needed by
+# https://github.com/lukhnos/lucenestudy:
+#
+# lucene-analyzers-common-5.3.0-mobile-1.jar
+# lucene-core-5.3.0-mobile-1.jar
+# lucene-highlighter-5.3.0-mobile-1.jar
+# lucene-join-5.3.0-mobile-1.jar
+# lucene-memory-5.3.0-mobile-1.jar
+# lucene-misc-5.3.0-mobile-1.jar
+# lucene-queries-5.3.0-mobile-1.jar
+# lucene-queryparser-5.3.0-mobile-1.jar
+# lucene-sandbox-5.3.0-mobile-1.jar
+# lucene-suggest-5.3.0-mobile-1.jar
 
 LUCENE_SRC_PATHS = (
     './analysis/common/src/java',
@@ -23,10 +27,10 @@ LUCENE_SRC_PATHS = (
     # './backward-codecs/src/java',
     # './benchmark/src/java',
     # './classification/src/java',
-    './codecs/src/java',
+    # './codecs/src/java',
     './core/src/java',
     # './demo/src/java',
-    './expressions/src/java',
+    # './expressions/src/java',
     # './facet/src/java',
     './grouping/src/java',
     './highlighter/src/java',
@@ -42,21 +46,3 @@ LUCENE_SRC_PATHS = (
     # './test-framework/src/java',
     # './tools/src/java',
 )
-
-
-"""
-build/analysis/common/lucene-analyzers-common-5.2.1-SNAPSHOT.jar
-build/codecs/lucene-codecs-5.2.1-SNAPSHOT.jar
-build/core/lucene-core-5.2.1-SNAPSHOT.jar
-build/expressions/lucene-expressions-5.2.1-SNAPSHOT.jar
-build/facet/lucene-facet-5.2.1-SNAPSHOT.jar
-build/grouping/lucene-grouping-5.2.1-SNAPSHOT.jar
-build/highlighter/lucene-highlighter-5.2.1-SNAPSHOT.jar
-build/join/lucene-join-5.2.1-SNAPSHOT.jar
-build/memory/lucene-memory-5.2.1-SNAPSHOT.jar
-build/misc/lucene-misc-5.2.1-SNAPSHOT.jar
-build/queries/lucene-queries-5.2.1-SNAPSHOT.jar
-build/queryparser/lucene-queryparser-5.2.1-SNAPSHOT.jar
-build/sandbox/lucene-sandbox-5.2.1-SNAPSHOT.jar
-build/spatial/lucene-spatial-5.2.1-SNAPSHOT.jar
-"""

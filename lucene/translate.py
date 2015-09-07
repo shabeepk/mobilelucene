@@ -26,7 +26,6 @@ import os
 import subprocess
 import sys
 
-# from translate_common import multiline_escaped_re
 from translate_common import LUCENE_SRC_PATHS
 
 # These two classes should really be put into their own respective .java
@@ -47,6 +46,10 @@ def postprocess_translated_objc(path):
     """
     Postprocess translated Objective-C code.
     """
+
+    if not os.path.exists(path):
+        print('skipped')
+        return
 
     with open(path) as f:
         code = f.read()
@@ -104,10 +107,18 @@ excluded = (
     './highlighter/src/java/org/apache/lucene/search/postingshighlight/*.java',  # nopep8
     './highlighter/src/java/org/apache/lucene/search/vectorhighlight/*.java',  # nopep8
 
+    # Not used.
+    './grouping/src/java/org/apache/lucene/search/grouping/*.java',
+    './grouping/src/java/org/apache/lucene/search/grouping/function/*.java',
+    './grouping/src/java/org/apache/lucene/search/grouping/term/*.java',
+
     # Uses native methods.
     './misc/src/java/org/apache/lucene/store/*.java',
-    # './misc/src/java/org/apache/lucene/uninverting/*.java',
 
+    # Not used.
+    './misc/src/java/org/apache/lucene/uninverting/*.java',
+
+    # Gone from 5.3.x (used to be in Lucene 5.2.1)
     # './misc/src/java/org/apache/lucene/misc/store/*.java',
     # './misc/src/java/org/apache/lucene/misc/uninverting/*.java',
 
@@ -162,7 +173,11 @@ for src in src_paths:
         ]
         args.extend(sys.argv[1:])
         args.extend(to_compile)
-        subprocess.call(args)
+        ec = subprocess.call(args)
+        print('exit code: %d' % ec)
+        if ec:
+            print('has error!')
+            sys.exit(1)
         # TODO: Check error code
 
     # TODO: Only transform successful code
