@@ -120,6 +120,7 @@ class BinaryDocValuesWriter extends DocValuesWriter {
                                 public Iterator<BytesRef> iterator() {
                                    return new BytesIterator(maxDoc, lengths);
                                 }
+// j2objc:"NoFastEnumeration"
                               });
   }
 
