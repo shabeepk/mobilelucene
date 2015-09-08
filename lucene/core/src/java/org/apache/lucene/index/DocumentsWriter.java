@@ -37,6 +37,9 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.InfoStream;
 
+// Extra imports by portmobile.
+import org.lukhnos.portmobile.j2objc.annotations.Weak;
+
 /**
  * This class accepts multiple added documents and directly
  * writes segment files.
@@ -121,7 +124,7 @@ final class DocumentsWriter implements Closeable, Accountable {
   final DocumentsWriterPerThreadPool perThreadPool;
   final FlushPolicy flushPolicy;
   final DocumentsWriterFlushControl flushControl;
-  // j2objc:"Weak"
+  @Weak
   private final IndexWriter writer;
   private final Queue<Event> events;
 

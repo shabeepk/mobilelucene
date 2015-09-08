@@ -27,6 +27,9 @@ import java.io.Reader;
 import java.util.HashMap;
 import java.util.Map;
 
+// Extra imports by portmobile.
+import org.lukhnos.portmobile.j2objc.annotations.Weak;
+
 /**
  * An Analyzer builds TokenStreams, which analyze text.  It thus represents a
  * policy for extracting index terms from text.
@@ -272,17 +275,17 @@ public abstract class Analyzer implements Closeable {
     /**
      * Original source of the tokens.
      */
-    // j2objc:"Weak"
+    @Weak
     protected final Tokenizer source;
     /**
      * Sink tokenstream, such as the outer tokenfilter decorating
      * the chain. This can be the source if there are no filters.
      */
-    // j2objc:"Weak"
+    @Weak
     protected final TokenStream sink;
     
     /** Internal cache only used by {@link Analyzer#tokenStream(String, String)}. */
-    // j2objc:"Weak"
+    @Weak
     transient ReusableStringReader reusableStringReader;
 
     /**

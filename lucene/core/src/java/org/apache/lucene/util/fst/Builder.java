@@ -26,6 +26,9 @@ import org.apache.lucene.util.RamUsageEstimator;
 import org.apache.lucene.util.fst.FST.INPUT_TYPE; // javadoc
 import org.apache.lucene.util.packed.PackedInts;
 
+// Extra imports by portmobile.
+import org.lukhnos.portmobile.j2objc.annotations.Weak;
+
 // TODO: could we somehow stream an FST to disk while we
 // build it?
 
@@ -524,7 +527,7 @@ public class Builder<T> {
   /** Expert: holds a pending (seen but not yet serialized) arc. */
   public static class Arc<T> {
     public int label;                             // really an "unsigned" byte
-    // j2objc:"Weak"
+    @Weak
     public Node target;
     public boolean isFinal;
     public T output;
@@ -553,7 +556,7 @@ public class Builder<T> {
 
   /** Expert: holds a pending (seen but not yet serialized) Node. */
   public static final class UnCompiledNode<T> implements Node {
-    // j2objc:"Weak"
+    @Weak
     final Builder<T> owner;
     public int numArcs;
     public Arc<T>[] arcs;

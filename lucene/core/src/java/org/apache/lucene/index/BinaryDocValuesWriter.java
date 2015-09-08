@@ -120,7 +120,13 @@ class BinaryDocValuesWriter extends DocValuesWriter {
                                 public Iterator<BytesRef> iterator() {
                                    return new BytesIterator(maxDoc, lengths);
                                 }
-// j2objc:"NoFastEnumeration"
+/*-[
+- (NSUInteger)countByEnumeratingWithState:(NSFastEnumerationState *)state objects:(__unsafe_unretained id *)stackbuf count:(NSUInteger)len {
+  // Essentially disables fast-enumeration for correctness.
+  return JreDefaultFastEnumeration(self, state, stackbuf, 1);
+}
+]-*/
+
                               });
   }
 

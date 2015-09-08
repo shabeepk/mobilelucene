@@ -32,6 +32,9 @@ import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.InfoStream;
 import org.apache.lucene.util.ThreadInterruptedException;
 
+// Extra imports by portmobile.
+import org.lukhnos.portmobile.j2objc.annotations.Weak;
+
 /**
  * This class controls {@link DocumentsWriterPerThread} flushing during
  * indexing. It tracks the memory consumption per
@@ -69,7 +72,7 @@ final class DocumentsWriterFlushControl implements Accountable {
   private final DocumentsWriterPerThreadPool perThreadPool;
   private final FlushPolicy flushPolicy;
   private boolean closed = false;
-  // j2objc:"Weak"
+  @Weak
   private final DocumentsWriter documentsWriter;
   private final LiveIndexWriterConfig config;
   private final BufferedUpdatesStream bufferedUpdatesStream;
