@@ -112,6 +112,9 @@ excluded = (
     './grouping/src/java/org/apache/lucene/search/grouping/function/*.java',
     './grouping/src/java/org/apache/lucene/search/grouping/term/*.java',
 
+    # Depends on Grouping
+    './join/src/java/org/apache/lucene/search/join/ToParentBlockJoinCollector.java',  # nopep8
+
     # Uses native methods.
     './misc/src/java/org/apache/lucene/store/*.java',
 
