@@ -272,17 +272,14 @@ public abstract class Analyzer implements Closeable {
     /**
      * Original source of the tokens.
      */
-    // j2objc:"Weak"
     protected final Tokenizer source;
     /**
      * Sink tokenstream, such as the outer tokenfilter decorating
      * the chain. This can be the source if there are no filters.
      */
-    // j2objc:"Weak"
     protected final TokenStream sink;
     
     /** Internal cache only used by {@link Analyzer#tokenStream(String, String)}. */
-    // j2objc:"Weak"
     transient ReusableStringReader reusableStringReader;
 
     /**
