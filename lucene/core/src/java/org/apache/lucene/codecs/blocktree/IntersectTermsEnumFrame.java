@@ -108,6 +108,7 @@ final class IntersectTermsEnumFrame {
   // True if the term we are currently on is an auto-prefix term:
   boolean isAutoPrefixTerm;
 
+  // j2objc:"Weak"
   private final IntersectTermsEnum ite;
 
   public IntersectTermsEnumFrame(IntersectTermsEnum ite, int ord) throws IOException {

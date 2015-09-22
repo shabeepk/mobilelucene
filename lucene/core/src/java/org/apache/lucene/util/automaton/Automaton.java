@@ -371,7 +371,8 @@ public class Automaton implements Accountable {
   }
 
   /** Sorts transitions by dest, ascending, then min label ascending, then max label ascending */
-  private final Sorter destMinMaxSorter = new InPlaceMergeSorter() {
+  // j2objc:"WeakOuter"
+  class DestMinMaxSorter extends InPlaceMergeSorter {
 
       private void swapOne(int i, int j) {
         int x = transitions[i];
@@ -422,10 +423,12 @@ public class Automaton implements Accountable {
 
         return 0;
       }
-    };
+  }
+  private final Sorter destMinMaxSorter = new DestMinMaxSorter();
 
   /** Sorts transitions by min label, ascending, then max label ascending, then dest ascending */
-  private final Sorter minMaxDestSorter = new InPlaceMergeSorter() {
+  // j2objc:"WeakOuter"
+  class MinMaxDestSorter extends InPlaceMergeSorter {
 
       private void swapOne(int i, int j) {
         int x = transitions[i];
@@ -476,7 +479,8 @@ public class Automaton implements Accountable {
 
         return 0;
       }
-    };
+  }
+  private final Sorter minMaxDestSorter = new MinMaxDestSorter();
 
   /** Initialize the provided Transition to iterate through all transitions
    *  leaving the specified state.  You must call {@link #getNextTransition} to
@@ -745,7 +749,8 @@ public class Automaton implements Accountable {
 
     /** Sorts transitions first then min label ascending, then
      *  max label ascending, then dest ascending */
-    private final Sorter sorter = new InPlaceMergeSorter() {
+    // j2objc:"WeakOuter"
+    class OurSorter extends InPlaceMergeSorter {
 
         private void swapOne(int i, int j) {
           int x = transitions[i];
@@ -806,7 +811,8 @@ public class Automaton implements Accountable {
 
           return 0;
         }
-      };
+    }
+    private final Sorter sorter = new OurSorter();
 
     /** Compiles all added states and transitions into a new {@code Automaton}
      *  and returns it. */
