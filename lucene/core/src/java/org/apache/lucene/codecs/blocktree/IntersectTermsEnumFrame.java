@@ -27,6 +27,9 @@ import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.automaton.Transition;
 import org.apache.lucene.util.fst.FST;
 
+// Extra imports by portmobile.
+import org.lukhnos.portmobile.j2objc.annotations.Weak;
+
 // TODO: can we share this with the frame in STE?
 final class IntersectTermsEnumFrame {
   final int ord;
@@ -108,7 +111,7 @@ final class IntersectTermsEnumFrame {
   // True if the term we are currently on is an auto-prefix term:
   boolean isAutoPrefixTerm;
 
-  // j2objc:"Weak"
+  @Weak
   private final IntersectTermsEnum ite;
 
   public IntersectTermsEnumFrame(IntersectTermsEnum ite, int ord) throws IOException {

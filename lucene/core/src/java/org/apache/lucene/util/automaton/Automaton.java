@@ -33,6 +33,9 @@ import org.apache.lucene.util.InPlaceMergeSorter;
 import org.apache.lucene.util.RamUsageEstimator;
 import org.apache.lucene.util.Sorter;
 
+// Extra imports by portmobile.
+import org.lukhnos.portmobile.j2objc.annotations.WeakOuter;
+
 
 
 
@@ -371,7 +374,7 @@ public class Automaton implements Accountable {
   }
 
   /** Sorts transitions by dest, ascending, then min label ascending, then max label ascending */
-  // j2objc:"WeakOuter"
+  @WeakOuter
   class DestMinMaxSorter extends InPlaceMergeSorter {
 
       private void swapOne(int i, int j) {
@@ -427,7 +430,7 @@ public class Automaton implements Accountable {
   private final Sorter destMinMaxSorter = new DestMinMaxSorter();
 
   /** Sorts transitions by min label, ascending, then max label ascending, then dest ascending */
-  // j2objc:"WeakOuter"
+  @WeakOuter
   class MinMaxDestSorter extends InPlaceMergeSorter {
 
       private void swapOne(int i, int j) {
@@ -749,7 +752,7 @@ public class Automaton implements Accountable {
 
     /** Sorts transitions first then min label ascending, then
      *  max label ascending, then dest ascending */
-    // j2objc:"WeakOuter"
+    @WeakOuter
     class OurSorter extends InPlaceMergeSorter {
 
         private void swapOne(int i, int j) {
