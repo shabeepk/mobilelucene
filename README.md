@@ -19,11 +19,13 @@ a high-level overview.
 Quick Start
 -----------
 
-To build the JARs, use the command:
+To build the JARs, use the commands:
 
-    ant -Dmobilejars=<destination> clean mobile-build-modules-without-test
+    cd lucene
+    ant -Dmobilejars=../build/<destination> clean mobile-build-modules-without-test
 
-Where `<destination>` is a directory of your choice.
+Where `<destination>` is a directory of your choice. The prefix `../build/`
+is a trick to gather JARs to a unified folder under `lucene/build/`
 
 Currently, the original Lucene tests don't run with this fork. Many `ant`
 tasks are also potentially broken.
