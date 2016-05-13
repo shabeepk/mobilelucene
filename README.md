@@ -70,8 +70,10 @@ garbage collection, we need to break a few cyclic references using j2objc's
 weak reference annotations (Java `WeakReference` is not used to minimize
 source code changes).
 
-First, execute `setup-j2objc.sh` in order to fetch and setup j2objc correctly.
+First, within the lucene directory execute `setup-j2objc.sh` in order to
+fetch and setup j2objc correctly:
 
+	$> cd lucene
 	$> ./setup-j2objc.sh
 
 Then run the `translate.py` script to generate new obj-c classes. The classes
