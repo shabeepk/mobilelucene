@@ -58,3 +58,6 @@ objc
 
 # Python
 *.pyc
+
+# Ignore j2objc files
+lucene/j2objc

@@ -26,6 +26,7 @@ import os
 import subprocess
 import sys
 
+from subprocess import call
 from translate_common import LUCENE_SRC_PATHS
 
 # These two classes should really be put into their own respective .java
@@ -72,11 +73,6 @@ def postprocess_translated_objc(path):
     if new_code != code:
         with open(path, 'w') as f:
             f.write(new_code)
-
-
-# excluded = ()
-
-src_paths = LUCENE_SRC_PATHS
 
 extra_cps = (
     # Should not be needed if we skip sandbox/queries/regex
@@ -131,17 +127,26 @@ excluded = (
     # './sandbox/src/java/org/apache/lucene/queries/regex/*.java',
 )
 
-cps = src_paths + extra_cps
-classpaths = ':'.join(cps)
-print('classpaths: %s' % classpaths)
 
 dst = './build/objc'
+j2objc = './j2objc/j2objc'
+
+if not os.path.exists(j2objc):
+    print('j2objc not found. Please execute the following script to fetch and setup the latest version of j2objc:')
+    print('$> ./setup-j2objc.sh')
+    sys.exit(1)
 
 if not os.path.exists(dst):
-    os.mkdir(dst)
-    print('%s created' % dst)
+    os.makedirs(dst)
+    print('Destination directory created: %s\n' % dst)
 
-for src in src_paths:
+classpaths = LUCENE_SRC_PATHS + extra_cps
+print('using path:\n%s\n' % '\n'.join(classpaths))
+
+total_compiled_files = 0
+total_translated_files = 0
+
+for src in classpaths:
     to_compile = []
     to_postprocess = []
 
@@ -154,36 +159,35 @@ for src in src_paths:
             if any(fnmatch.fnmatch(full_path_java, ptn) for ptn in excluded):
                 continue
 
-            full_path_m = full_path_java.replace(
-                src, dst).replace(".java", ".m")
+            full_path_m = full_path_java.replace(src, dst).replace(".java", ".m")
             if os.path.exists(full_path_m):
                 if os.path.getmtime(full_path_m) >= os.path.getmtime(full_path_java):  # nopep8
                     continue
             to_compile.append(full_path_java)
-            to_postprocess.append(full_path_m)
+            #to_postprocess.append(full_path_m)
 
-    print('%s => %s files to compile' % (src, len(to_compile)))
+    print('\nProcessing: %s, %d java files to compile.\n' % (src, len(to_compile)))
 
-    if to_compile:
-        print('Compiling %d java files' % len(to_compile))
+    for file_to_compile in to_compile:
+        print('Compiling: ' + file_to_compile)
         args = [
-            'j2objc',
-            # '-use-arc',
-            '-classpath', classpaths,
-            '--segmented-headers',
-            '-sourcepath', src,
+            j2objc,
             '-d', dst,
+            '-sourcepath', ' '.join(classpaths),
+            '-use-arc', '--swift-friendly', '--nullability', '--doc-comments', '--no-extract-unsequenced', '--segmented-headers', file_to_compile
         ]
-        args.extend(sys.argv[1:])
-        args.extend(to_compile)
         ec = subprocess.call(args)
         print('exit code: %d' % ec)
-        if ec:
-            print('has error!')
-            sys.exit(1)
+        if ec == 0:
+            to_postprocess.append(file_to_compile)
         # TODO: Check error code
 
-    # TODO: Only transform successful code
+    total_compiled_files += len(to_compile)
+    total_translated_files += len(to_postprocess)
+
+    print("Did translate %d java files" % len(to_postprocess))
     for path in to_postprocess:
         print('postprocessing: %s' % path)
         postprocess_translated_objc(path)
+
+print("Done. %d files processed and %d translated to objc." % (total_compiled_files, total_translated_files))

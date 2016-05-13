@@ -142,7 +142,7 @@ def process_folder(src_path, count, modified):
             if 'test' in full_path_java:
                 #print('ignoring test file: ' + full_path_java)
                 continue
-            #print('processing: ' + full_path_java)
+            print('processing: ' + full_path_java)
             count += 1
             modified += process_source(full_path_java)
     return (count, modified)
