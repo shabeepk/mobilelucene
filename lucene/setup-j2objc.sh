@@ -14,7 +14,10 @@ curl -L -o "${FILE}" "${URL}"
 echo Unzipping ${FILE}
 unzip "${FILE}"
 
-echo Moving ${DIR} to ${TARGET}
+echo Remove old ${TARGET} directory
+rm -rf "${TARGET}"
+
+echo Rename ${DIR} into ${TARGET}
 mv "${DIR}" "${TARGET}"
 
 echo Moving ${FILE} archive to ${TARGET}
