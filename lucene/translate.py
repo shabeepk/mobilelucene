@@ -164,7 +164,6 @@ for src in classpaths:
                 if os.path.getmtime(full_path_m) >= os.path.getmtime(full_path_java):  # nopep8
                     continue
             to_compile.append(full_path_java)
-            #to_postprocess.append(full_path_m)
 
     print('\nProcessing: %s, %d java files to compile.\n' % (src, len(to_compile)))
 
