@@ -176,6 +176,7 @@ for src in classpaths:
             '-sourcepath', ' '.join(classpaths),
             '-use-arc', '--swift-friendly', '--nullability', '--doc-comments', '--no-extract-unsequenced', '--segmented-headers', file_to_compile
         ]
+        # print(' '.join(args))
         ec = subprocess.call(args)
         print('exit code: %d' % ec)
         if ec == 0:
