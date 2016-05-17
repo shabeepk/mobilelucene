@@ -63,7 +63,7 @@ def postprocess_translated_objc(path):
     # One-off fix for hunspell.
     new_code = new_code.replace(
         '#include "org/apache/lucene/analysis/hunspell/ISO8859_14Decoder.h"',
-        '// disabled by translate.py'
+        '// #include "org/apache/lucene/analysis/hunspell/ISO8859_14Decoder.h" // disabled by translate.py'
     )
     new_code = new_code.replace(
         'return [new_OrgApacheLuceneAnalysisHunspellISO8859_14Decoder_init() autorelease];',  # nopep8
