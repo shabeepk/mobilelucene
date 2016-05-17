@@ -49,8 +49,8 @@ def postprocess_translated_objc(path):
     """
 
     if not os.path.exists(path):
-        print('skipped')
-        return
+        print('Error: file does not exist at path: %s' % path)
+        return 0
 
     with open(path) as f:
         code = f.read()
@@ -72,7 +72,10 @@ def postprocess_translated_objc(path):
 
     if new_code != code:
         with open(path, 'w') as f:
+            print('Post processing Objective-C code: %s' % path)
             f.write(new_code)
+            return 1
+    return 0
 
 extra_cps = (
     # Should not be needed if we skip sandbox/queries/regex
@@ -81,7 +84,6 @@ extra_cps = (
     # fix ConstDoubleDocValues
     './build/queries/classes/java'
 )
-
 
 excluded = (
     # No need to translate j2objc annotations to Objective-C.
@@ -127,7 +129,6 @@ excluded = (
     # './sandbox/src/java/org/apache/lucene/queries/regex/*.java',
 )
 
-
 dst = './build/objc'
 j2objc = './j2objc/j2objc'
 
@@ -144,7 +145,7 @@ classpaths = LUCENE_SRC_PATHS + extra_cps
 print('using path:\n%s\n' % '\n'.join(classpaths))
 
 total_compiled_files = 0
-total_translated_files = 0
+total_post_processed_files = 0
 
 for src in classpaths:
     to_compile = []
@@ -164,30 +165,34 @@ for src in classpaths:
                 if os.path.getmtime(full_path_m) >= os.path.getmtime(full_path_java):  # nopep8
                     continue
             to_compile.append(full_path_java)
+            to_postprocess.append(full_path_m)
 
-    print('\nProcessing: %s, %d java files to compile.\n' % (src, len(to_compile)))
+    print('\nTranslating: %s with %d java files to compile.\n' % (src, len(to_compile)))
 
-    for file_to_compile in to_compile:
-        print('Compiling: ' + file_to_compile)
+    if to_compile:
         args = [
             j2objc,
             '-d', dst,
-            '-sourcepath', ' '.join(classpaths),
-            '-use-arc', '--swift-friendly', '--nullability', '--doc-comments', '--no-extract-unsequenced', '--segmented-headers', file_to_compile
+            '-classpath', ':'.join(classpaths),
+            '--swift-friendly',
+            '--nullability',
+            '--doc-comments',
+            '--no-extract-unsequenced'
         ]
-        # print(' '.join(args))
+        args.extend(to_compile)
         ec = subprocess.call(args)
-        print('exit code: %d' % ec)
-        if ec == 0:
-            to_postprocess.append(file_to_compile)
+        if ec != 0:
+            print('\nExit with error code: %d\n' % ec)
+            sys.exit(1)
         # TODO: Check error code
 
     total_compiled_files += len(to_compile)
-    total_translated_files += len(to_postprocess)
 
-    print("Did translate %d java files" % len(to_postprocess))
+    post_processed_files = 0
     for path in to_postprocess:
-        print('postprocessing: %s' % path)
-        postprocess_translated_objc(path)
+        post_processed_files += postprocess_translated_objc(path)
 
-print("Done. %d files processed and %d translated to objc." % (total_compiled_files, total_translated_files))
+    print('Did post process %d obj-c files.\n' % post_processed_files)
+    total_post_processed_files += post_processed_files
+
+print("\nDone. %d files compiled into Objective-C including %d post processed files.\n" % (total_compiled_files, total_post_processed_files))
