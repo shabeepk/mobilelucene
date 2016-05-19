@@ -1,6 +1,7 @@
 # .
 /eclipse-build
 /classes
+**/build
 /idea-build
 **/dist
 **/lib
@@ -48,6 +49,7 @@ solr/contrib/morphlines-core/test-lib/
 solr/core/test-lib/
 
 # Lucene 5 port work additions
+objc
 /solr/server/start.jar
 .idea
 
