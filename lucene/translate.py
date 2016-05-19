@@ -25,6 +25,7 @@ import fnmatch
 import os
 import subprocess
 import sys
+import re
 
 from subprocess import call
 from translate_common import LUCENE_SRC_PATHS
@@ -42,6 +43,12 @@ FAULTY_INCLUDES = (
 
 FAULTY_INCLUDE_FIX = '#include "org/apache/lucene/queries/function/valuesource/DocFreqValueSource.h"  // fixed by translate.py'  # nopep8
 
+DISABLE_INCLUDE = (
+    '#include "org/apache/lucene/analysis/hunspell/ISO8859_14Decoder.h"',
+    '+ (jint)PAGE_SIZE;'
+)
+
+FAULTY_HEADER_FILE = './build/objc/org/apache/lucene/index/DocValuesFieldUpdates.h'
 
 def postprocess_translated_objc(path):
     """
@@ -60,13 +67,15 @@ def postprocess_translated_objc(path):
     for substr in FAULTY_INCLUDES:
         new_code = new_code.replace(substr, FAULTY_INCLUDE_FIX)
 
-    # One-off fix for hunspell.
+    for substr in DISABLE_INCLUDE:
+        new_code = new_code.replace(substr, '// ' + substr + ' // disabled by translate.py')
+
+    page_size_line = re.search(r'^\+ \(jint\)PAGE_SIZE[ ]*{[A-Za-z_ \n;]+}$', new_code, re.M|re.I)
+    if page_size_line:
+        new_code = new_code.replace(page_size_line.group(), '/* ' + page_size_line.group() + '*/ // disabled by translate.py')
+
     new_code = new_code.replace(
-        '#include "org/apache/lucene/analysis/hunspell/ISO8859_14Decoder.h"',
-        '// #include "org/apache/lucene/analysis/hunspell/ISO8859_14Decoder.h" // disabled by translate.py'
-    )
-    new_code = new_code.replace(
-        'return [new_OrgApacheLuceneAnalysisHunspellISO8859_14Decoder_init() autorelease];',  # nopep8
+        'return create_OrgApacheLuceneAnalysisHunspellISO8859_14Decoder_init();', # nopep8
         '@throw [new_JavaLangRuntimeException_initWithNSString_(@"Not translated to Objective-C") autorelease];  // disabled by translate.py'  # nopep8
     )
 
@@ -164,6 +173,7 @@ for src in classpaths:
             if os.path.exists(full_path_m):
                 if os.path.getmtime(full_path_m) >= os.path.getmtime(full_path_java):  # nopep8
                     continue
+
             to_compile.append(full_path_java)
             to_postprocess.append(full_path_m)
 
@@ -194,5 +204,8 @@ for src in classpaths:
 
     print('Did post process %d obj-c files.\n' % post_processed_files)
     total_post_processed_files += post_processed_files
+
+# Post process specific header files.
+post_processed_files += postprocess_translated_objc(FAULTY_HEADER_FILE)
 
 print("\nDone. %d files compiled into Objective-C including %d post processed files.\n" % (total_compiled_files, total_post_processed_files))
