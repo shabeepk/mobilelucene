@@ -109,7 +109,7 @@ def process_source(path):
         if p.search(body):
             extras.append('import %s;' % i)
 
-    if extras and not extra_import_tagline in head_lines:
+    if (extras and not extra_import_tagline) in head_lines:
         new_head_lines.append(extra_import_tagline)
         new_head_lines.extend(extras)
         new_head_lines.append('')
@@ -133,6 +133,7 @@ def process_source(path):
             return 1
     return 0
 
+
 def process_folder(src_path, count, modified):
     for base, dirs, files in os.walk(src_path):
         for file_path in files:
@@ -140,7 +141,7 @@ def process_folder(src_path, count, modified):
                 continue
             full_path_java = os.path.join(base, file_path)
             if 'test' in full_path_java:
-                #print('ignoring test file: ' + full_path_java)
+                # print('ignoring test file: ' + full_path_java)
                 continue
             print('processing: ' + full_path_java)
             count += 1
@@ -158,5 +159,4 @@ else:
     for src_path in src_paths:
         (count, modified) = process_folder(src_path, count, modified)
 
-print("Done: %i files processed, %i files modified" % (count , modified))
-
+print("Done: %i files processed, %i files modified" % (count, modified))
