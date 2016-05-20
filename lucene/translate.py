@@ -41,14 +41,24 @@ FAULTY_INCLUDES = (
     '#include "org/apache/lucene/queries/function/valuesource/ConstIntDocValues.h"',  # nopep8
 )
 
+
 FAULTY_INCLUDE_FIX = '#include "org/apache/lucene/queries/function/valuesource/DocFreqValueSource.h"  // fixed by translate.py'  # nopep8
+
 
 DISABLE_INCLUDE = (
     '#include "org/apache/lucene/analysis/hunspell/ISO8859_14Decoder.h"',
     '+ (jint)PAGE_SIZE;'
 )
 
-FAULTY_HEADER_FILE = './build/objc/org/apache/lucene/index/DocValuesFieldUpdates.h'
+
+FAULTY_HEADER_FILE = './build/objc/org/apache/lucene/index/DocValuesFieldUpdates.h'  # nopep8
+
+
+FAULTY_INCLUDE_REGEX = r'^\+ \(jint\)PAGE_SIZE[ ]*{[A-Za-z_ \n;]+}$'
+
+
+DISABLE_SUFFIX = ' // disabled by translate.py'
+
 
 def postprocess_translated_objc(path):
     """
@@ -68,15 +78,15 @@ def postprocess_translated_objc(path):
         new_code = new_code.replace(substr, FAULTY_INCLUDE_FIX)
 
     for substr in DISABLE_INCLUDE:
-        new_code = new_code.replace(substr, '// ' + substr + ' // disabled by translate.py')
+        new_code = new_code.replace(substr, '// ' + substr + DISABLE_SUFFIX)
 
-    page_size_line = re.search(r'^\+ \(jint\)PAGE_SIZE[ ]*{[A-Za-z_ \n;]+}$', new_code, re.M|re.I)
+    page_size_line = re.search(FAULTY_INCLUDE_REGEX, new_code, re.M | re.I)
     if page_size_line:
-        new_code = new_code.replace(page_size_line.group(), '/* ' + page_size_line.group() + '*/ // disabled by translate.py')
+        new_code = new_code.replace(page_size_line.group(), '/* ' + page_size_line.group() + ' */' + DISABLE_SUFFIX)  # nopep8
 
     new_code = new_code.replace(
-        'return create_OrgApacheLuceneAnalysisHunspellISO8859_14Decoder_init();', # nopep8
-        '@throw [new_JavaLangRuntimeException_initWithNSString_(@"Not translated to Objective-C") autorelease];  // disabled by translate.py'  # nopep8
+        'return create_OrgApacheLuceneAnalysisHunspellISO8859_14Decoder_init();',  # nopep8
+        '@throw [new_JavaLangRuntimeException_initWithNSString_(@"Not translated to Objective-C") autorelease];' + DISABLE_SUFFIX  # nopep8
     )
 
     if new_code != code:
@@ -142,7 +152,7 @@ dst = './build/objc'
 j2objc = './j2objc/j2objc'
 
 if not os.path.exists(j2objc):
-    print('j2objc not found. Please execute the following script to fetch and setup the latest version of j2objc:')
+    print('j2objc not found. Please execute the following script to fetch and setup the latest version of j2objc:')  # nopep8
     print('$> ./setup-j2objc.sh')
     sys.exit(1)
 
@@ -169,7 +179,7 @@ for src in classpaths:
             if any(fnmatch.fnmatch(full_path_java, ptn) for ptn in excluded):
                 continue
 
-            full_path_m = full_path_java.replace(src, dst).replace(".java", ".m")
+            full_path_m = full_path_java.replace(src, dst).replace(".java", ".m")  # nopep8
             if os.path.exists(full_path_m):
                 if os.path.getmtime(full_path_m) >= os.path.getmtime(full_path_java):  # nopep8
                     continue
@@ -177,7 +187,7 @@ for src in classpaths:
             to_compile.append(full_path_java)
             to_postprocess.append(full_path_m)
 
-    print('\nTranslating: %s with %d java files to compile.\n' % (src, len(to_compile)))
+    print('\nTranslating: %s with %d java files to compile.\n' % (src, len(to_compile)))  # nopep8
 
     if to_compile:
         args = [
@@ -208,4 +218,4 @@ for src in classpaths:
 # Post process specific header files.
 post_processed_files += postprocess_translated_objc(FAULTY_HEADER_FILE)
 
-print("\nDone. %d files compiled into Objective-C including %d post processed files.\n" % (total_compiled_files, total_post_processed_files))
+print("\nDone. %d files compiled into Objective-C including %d post processed files.\n" % (total_compiled_files, total_post_processed_files))  # nopep8
