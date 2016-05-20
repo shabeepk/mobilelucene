@@ -21,8 +21,10 @@ Quick Start
 
 To build the JARs, use the commands:
 
-    $> cd lucene
-    $> ant -Dmobilejars=../build/<destination> clean mobile-build-modules-without-test
+```bash
+cd lucene
+ant -Dmobilejars=../build/<destination> clean mobile-build-modules-without-test
+```
 
 Where `<destination>` is a directory of your choice. The prefix `../build/`
 is a trick to gather JARs to a unified folder under `lucene/build/`
@@ -73,13 +75,17 @@ source code changes).
 First, within the lucene directory execute `setup-j2objc.sh` in order to
 fetch and setup j2objc correctly:
 
-	$> cd lucene
-	$> ./setup-j2objc.sh
+```bash
+cd lucene
+./setup-j2objc.sh
+```
 
 Then run the `translate.py` script to generate new obj-c classes. The classes
 are generated within the folder: `./build/objc/`.
 
-	$> ./translate.py
+```bash
+./translate.py
+```
 
 Ported Packages
 ---------------
