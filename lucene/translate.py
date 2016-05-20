@@ -27,7 +27,6 @@ import subprocess
 import sys
 import re
 
-from subprocess import call
 from translate_common import LUCENE_SRC_PATHS
 
 # These two classes should really be put into their own respective .java
