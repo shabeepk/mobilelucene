@@ -195,8 +195,7 @@ for src in classpaths:
             '-classpath', ':'.join(classpaths),
             '--swift-friendly',
             '--nullability',
-            '--doc-comments',
-            '--no-extract-unsequenced'
+            '--doc-comments'
         ]
         args.extend(to_compile)
         ec = subprocess.call(args)
