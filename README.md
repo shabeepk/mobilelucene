@@ -21,8 +21,10 @@ Quick Start
 
 To build the JARs, use the commands:
 
-    cd lucene
-    ant -Dmobilejars=../build/<destination> clean mobile-build-modules-without-test
+```bash
+cd lucene
+ant -Dmobilejars=../build/<destination> clean mobile-build-modules-without-test
+```
 
 Where `<destination>` is a directory of your choice. The prefix `../build/`
 is a trick to gather JARs to a unified folder under `lucene/build/`
@@ -59,6 +61,7 @@ want to develop your Lucene app in the latest Java, NIO.2 and all, then
 create an automated fork using this transformation tool that imports the
 mobile version of Lucene.
 
+This script _transforms_ the java code to make it compatible with j2objc.
 
 Porting to Objective-C
 ----------------------
@@ -69,6 +72,20 @@ garbage collection, we need to break a few cyclic references using j2objc's
 weak reference annotations (Java `WeakReference` is not used to minimize
 source code changes).
 
+First, within the lucene directory execute `setup-j2objc.sh` in order to
+fetch and setup j2objc correctly:
+
+```bash
+cd lucene
+./setup-j2objc.sh
+```
+
+Then run the `translate.py` script to generate new obj-c classes. The classes
+are generated within the folder: `./build/objc/`.
+
+```bash
+./translate.py
+```
 
 Ported Packages
 ---------------
