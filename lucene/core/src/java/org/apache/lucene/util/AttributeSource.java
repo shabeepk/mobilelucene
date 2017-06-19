@@ -24,7 +24,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 import java.util.Set;
 
 import org.apache.lucene.analysis.TokenStream; // for javadocs

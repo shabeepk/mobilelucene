@@ -17,7 +17,7 @@
 package org.apache.lucene.index;
 
 import java.io.IOException;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.RAMFile;

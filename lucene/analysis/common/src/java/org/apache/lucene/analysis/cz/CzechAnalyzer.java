@@ -18,7 +18,7 @@ package org.apache.lucene.analysis.cz;
 
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
+import org.lukhnos.portmobile.charset.StandardCharsets;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.CharArraySet;

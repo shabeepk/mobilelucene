@@ -19,10 +19,10 @@ package org.apache.lucene.store;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.file.FileAlreadyExistsException;
-import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
-import java.nio.file.Path;
+import org.lukhnos.portmobile.file.FileAlreadyExistsException;
+import org.lukhnos.portmobile.file.Files;
+import org.lukhnos.portmobile.file.NoSuchFileException;
+import org.lukhnos.portmobile.file.Path;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 

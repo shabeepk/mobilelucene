@@ -18,7 +18,7 @@ package org.apache.lucene.store;
 
 import java.io.IOException;
 import java.io.EOFException;
-import java.nio.file.Path;
+import org.lukhnos.portmobile.file.Path;
 
 import org.apache.lucene.store.Directory; // javadoc
 

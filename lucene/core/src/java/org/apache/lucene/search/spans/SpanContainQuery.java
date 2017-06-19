@@ -27,7 +27,7 @@ import org.apache.lucene.search.Query;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Map;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 import java.util.Set;
 
 abstract class SpanContainQuery extends SpanQuery implements Cloneable {

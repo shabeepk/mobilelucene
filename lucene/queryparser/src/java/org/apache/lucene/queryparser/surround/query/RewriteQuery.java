@@ -16,7 +16,7 @@
  */
 package org.apache.lucene.queryparser.surround.query;
 import java.io.IOException;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.Query;

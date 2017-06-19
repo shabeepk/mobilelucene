@@ -182,7 +182,7 @@ public final class RamUsageEstimator {
             compressedOops = Boolean.parseBoolean(
                 vmOption.getClass().getMethod("getValue").invoke(vmOption).toString()
             );
-          } catch (ReflectiveOperationException | RuntimeException e) {
+          } catch (Exception e) {
             isHotspot = false;
           }
           try {
@@ -190,11 +190,11 @@ public final class RamUsageEstimator {
             objectAlignment = Integer.parseInt(
                 vmOption.getClass().getMethod("getValue").invoke(vmOption).toString()
             );
-          } catch (ReflectiveOperationException | RuntimeException e) {
+          } catch (Exception e) {
             isHotspot = false;
           }
         }
-      } catch (ReflectiveOperationException | RuntimeException e) {
+      } catch (Exception e) {
         isHotspot = false;
       }
       JVM_IS_HOTSPOT_64BIT = isHotspot;

@@ -16,7 +16,7 @@
  */
 package org.apache.lucene.codecs.lucene62;
 
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CompoundFormat;

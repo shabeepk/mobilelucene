@@ -18,7 +18,7 @@ package org.apache.lucene.index;
 
 
 import java.util.Map;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 
 /**
  *  Access to the Field Info file that describes document fields and whether or

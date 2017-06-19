@@ -17,9 +17,9 @@
 package org.apache.lucene.util;
 
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
+import org.lukhnos.portmobile.invoke.MethodHandle;
+import org.lukhnos.portmobile.invoke.MethodHandles;
+import org.lukhnos.portmobile.invoke.MethodType;
 
 /**
  * An AttributeFactory creates instances of {@link AttributeImpl}s.

@@ -22,7 +22,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 import java.util.LinkedHashMap;
 import java.util.Set;
 import java.util.ServiceConfigurationError;
@@ -143,7 +143,7 @@ public final class AnalysisSPILoader<S extends AbstractAnalysisFactory> {
         throw (Error) cause;
       }
       throw new RuntimeException("Unexpected checked exception while calling constructor of "+clazz.getName(), cause);
-    } catch (ReflectiveOperationException e) {
+    } catch (Exception e) {
       throw new UnsupportedOperationException("Factory "+clazz.getName()+" cannot be instantiated. This is likely due to missing Map<String,String> constructor.", e);
     }
   }

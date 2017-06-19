@@ -19,8 +19,8 @@ package org.apache.lucene.analysis.hunspell;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import org.lukhnos.portmobile.file.Files;
+import org.lukhnos.portmobile.file.Path;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;

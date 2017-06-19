@@ -17,8 +17,8 @@
 package org.apache.lucene.store;
 
  
-import static java.lang.invoke.MethodHandles.*;
-import static java.lang.invoke.MethodType.methodType;
+import static org.lukhnos.portmobile.invoke.MethodHandles.*;
+import static org.lukhnos.portmobile.invoke.MethodType.methodType;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -26,14 +26,14 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.ClosedChannelException; // javadoc @link
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
+import org.lukhnos.portmobile.file.Path;
+import org.lukhnos.portmobile.file.StandardOpenOption;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Locale;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 import java.util.concurrent.Future;
-import java.lang.invoke.MethodHandle;
+import org.lukhnos.portmobile.invoke.MethodHandle;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
@@ -235,7 +235,7 @@ public class MMapDirectory extends FSDirectory {
     ensureOpen();
     ensureCanRead(name);
     Path path = directory.resolve(name);
-    try (FileChannel c = FileChannel.open(path, StandardOpenOption.READ)) {
+    try (FileChannel c = FileChannelUtils.open(path, StandardOpenOption.READ)) {
       final String resourceDescription = "MMapIndexInput(path=\"" + path.toString() + "\")";
       final boolean useUnmap = getUseUnmap();
       return ByteBufferIndexInput.newInstance(resourceDescription,
@@ -354,7 +354,7 @@ public class MMapDirectory extends FSDirectory {
       } catch (SecurityException se) {
         // rethrow to report errors correctly (we need to catch it here, as we also catch RuntimeException below!):
         throw se;
-      } catch (ReflectiveOperationException | RuntimeException e) {
+      } catch (Exception e) {
         // *** sun.misc.Cleaner unmapping (Java 8) ***
         final Class<?> directBufferClass = Class.forName("java.nio.DirectByteBuffer");
         
@@ -385,7 +385,7 @@ public class MMapDirectory extends FSDirectory {
       return "Unmapping is not supported, because not all required permissions are given to the Lucene JAR file: " + se +
           " [Please grant at least the following permissions: RuntimePermission(\"accessClassInPackage.sun.misc\") " +
           " and ReflectPermission(\"suppressAccessChecks\")]";
-    } catch (ReflectiveOperationException | RuntimeException e) {
+    } catch (Exception e) {
       return "Unmapping is not supported on this platform, because internal Java APIs are not compatible with this Lucene version: " + e; 
     }
   }

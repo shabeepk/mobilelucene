@@ -18,7 +18,7 @@
 package org.apache.lucene.search;
 
 import java.io.IOException;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 import java.util.function.DoubleToLongFunction;
 import java.util.function.DoubleUnaryOperator;
 import java.util.function.LongToDoubleFunction;

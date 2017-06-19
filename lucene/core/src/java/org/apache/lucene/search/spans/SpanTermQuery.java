@@ -20,7 +20,7 @@ package org.apache.lucene.search.spans;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 import java.util.Set;
 
 import org.apache.lucene.index.IndexReaderContext;

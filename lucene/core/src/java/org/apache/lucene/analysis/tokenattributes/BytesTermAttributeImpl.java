@@ -17,7 +17,7 @@
 package org.apache.lucene.analysis.tokenattributes;
 
 
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 
 import org.apache.lucene.util.AttributeImpl;
 import org.apache.lucene.util.AttributeReflector;

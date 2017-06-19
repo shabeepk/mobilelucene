@@ -31,9 +31,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 package org.tartarus.snowball;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
+import org.lukhnos.portmobile.invoke.MethodHandle;
+import org.lukhnos.portmobile.invoke.MethodHandles;
+import org.lukhnos.portmobile.invoke.MethodType;
 import java.util.Locale;
 
 /**

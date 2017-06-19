@@ -22,7 +22,7 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 
 import java.io.IOException;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 
 /**
  * <p>Wrapper to allow {@link SpanQuery} objects participate in composite 

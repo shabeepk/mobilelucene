@@ -26,7 +26,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.Arrays;
 import java.util.Set;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 
 /**
  * A simple wrapper for MoreLikeThis for use in scenarios where a Query object is required eg

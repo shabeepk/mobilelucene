@@ -16,7 +16,7 @@
  */
 package org.apache.lucene.misc;
 
-import java.nio.file.Paths;
+import org.lukhnos.portmobile.file.Paths;
 import java.util.Locale;
 
 import org.apache.lucene.store.Directory;

@@ -21,8 +21,8 @@ package org.apache.lucene.search.suggest.analyzing;
 //   - add pruning of low-freq ngrams?
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import org.lukhnos.portmobile.file.Files;
+import org.lukhnos.portmobile.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;

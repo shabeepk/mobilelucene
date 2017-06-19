@@ -20,7 +20,7 @@ package org.apache.lucene.util;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 import java.util.LinkedHashMap;
 import java.util.Set;
 import java.util.ServiceConfigurationError;

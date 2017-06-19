@@ -19,7 +19,7 @@ package org.apache.lucene.analysis.core;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.nio.file.Path;
+import org.lukhnos.portmobile.file.Path;
 
 import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.LowerCaseFilter;

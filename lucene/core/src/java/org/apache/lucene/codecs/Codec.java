@@ -17,7 +17,7 @@
 package org.apache.lucene.codecs;
 
 
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 import java.util.ServiceLoader; // javadocs
 import java.util.Set;
 

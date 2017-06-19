@@ -21,8 +21,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException; // javadoc @link
 import java.nio.channels.FileChannel;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
+import org.lukhnos.portmobile.file.Path;
+import org.lukhnos.portmobile.file.StandardOpenOption;
 import java.util.concurrent.Future; // javadoc
 
 /**
@@ -78,7 +78,7 @@ public class NIOFSDirectory extends FSDirectory {
     ensureOpen();
     ensureCanRead(name);
     Path path = getDirectory().resolve(name);
-    FileChannel fc = FileChannel.open(path, StandardOpenOption.READ);
+    FileChannel fc = FileChannelUtils.open(path, StandardOpenOption.READ);
     return new NIOFSIndexInput("NIOFSIndexInput(path=\"" + path + "\")", fc, context);
   }
   

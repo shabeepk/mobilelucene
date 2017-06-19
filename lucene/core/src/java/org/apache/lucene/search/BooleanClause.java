@@ -17,7 +17,7 @@
 package org.apache.lucene.search;
 
 
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 
 /** A clause in a BooleanQuery. */
 public final class BooleanClause {

@@ -22,8 +22,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import org.lukhnos.portmobile.file.Path;
+import org.lukhnos.portmobile.file.Paths;
 import java.util.Random;
 
 import org.apache.lucene.util.SuppressForbidden;
@@ -133,14 +133,14 @@ public class LockStressTest {
     // try to get static INSTANCE field of class
     try {
       return (FSLockFactory) Class.forName(lockFactoryClassName).getField("INSTANCE").get(null);
-    } catch (ReflectiveOperationException e) {
+    } catch (Exception e) {
       // fall-through
     }
     
     // try to create a new instance
     try {
       return Class.forName(lockFactoryClassName).asSubclass(FSLockFactory.class).newInstance();
-    } catch (ReflectiveOperationException | ClassCastException e) {
+    } catch (Exception e) {
       // fall-through
     }
 

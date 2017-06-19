@@ -19,7 +19,7 @@ package org.apache.lucene.util;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.nio.file.Path;
+import org.lukhnos.portmobile.file.Path;
 
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
@@ -116,7 +116,7 @@ public final class CommandLineUtil {
    * @throws InvocationTargetException If the constructor throws an exception
    */
   public static FSDirectory newFSDirectory(Class<? extends FSDirectory> clazz, Path path) 
-      throws ReflectiveOperationException {
+      throws Exception {
     return newFSDirectory(clazz, path, FSLockFactory.getDefault());
   }
   
@@ -132,7 +132,7 @@ public final class CommandLineUtil {
    * @throws InvocationTargetException If the constructor throws an exception
    */
   public static FSDirectory newFSDirectory(Class<? extends FSDirectory> clazz, Path path, LockFactory lf) 
-      throws ReflectiveOperationException {
+      throws Exception {
     // Assuming every FSDirectory has a ctor(Path):
     Constructor<? extends FSDirectory> ctor = clazz.getConstructor(Path.class, LockFactory.class);
     return ctor.newInstance(path, lf);

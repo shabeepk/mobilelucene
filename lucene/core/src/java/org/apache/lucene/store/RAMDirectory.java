@@ -19,8 +19,8 @@ package org.apache.lucene.store;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.file.FileAlreadyExistsException;
-import java.nio.file.Files;
+import org.lukhnos.portmobile.file.FileAlreadyExistsException;
+import org.lukhnos.portmobile.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;

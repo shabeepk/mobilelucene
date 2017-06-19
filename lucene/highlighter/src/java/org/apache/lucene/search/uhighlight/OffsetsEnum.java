@@ -19,7 +19,7 @@ package org.apache.lucene.search.uhighlight;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.util.BytesRef;

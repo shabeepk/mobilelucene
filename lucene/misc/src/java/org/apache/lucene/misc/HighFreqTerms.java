@@ -29,7 +29,7 @@ import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.SuppressForbidden;
 
 import java.io.IOException;
-import java.nio.file.Paths;
+import org.lukhnos.portmobile.file.Paths;
 import java.util.Comparator;
 import java.util.Locale;
 

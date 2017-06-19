@@ -20,9 +20,9 @@ package org.apache.lucene.analysis.util;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
-import java.nio.file.Path;
+import org.lukhnos.portmobile.file.Files;
+import org.lukhnos.portmobile.file.NoSuchFileException;
+import org.lukhnos.portmobile.file.Path;
 
 /**
  * Simple {@link ResourceLoader} that opens resource files

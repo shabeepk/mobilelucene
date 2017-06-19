@@ -17,7 +17,7 @@
 package org.apache.lucene.queryparser.flexible.standard.config;
 
 import java.text.NumberFormat;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.FieldType.LegacyNumericType;

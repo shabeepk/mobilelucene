@@ -27,15 +27,15 @@ import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.DirectoryStream;
-import java.nio.file.FileStore;
-import java.nio.file.FileVisitResult;
-import java.nio.file.FileVisitor;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.BasicFileAttributes;
+import org.lukhnos.portmobile.charset.StandardCharsets;
+import org.lukhnos.portmobile.file.DirectoryStream;
+import org.lukhnos.portmobile.file.FileStore;
+import org.lukhnos.portmobile.file.FileVisitResult;
+import org.lukhnos.portmobile.file.FileVisitor;
+import org.lukhnos.portmobile.file.Files;
+import org.lukhnos.portmobile.file.Path;
+import org.lukhnos.portmobile.file.StandardOpenOption;
+import org.lukhnos.portmobile.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -468,7 +468,7 @@ public final class IOUtils {
   public static void fsync(Path fileToSync, boolean isDir) throws IOException {
     // If the file is a directory we have to open read-only, for regular files we must open r/w for the fsync to have an effect.
     // See http://blog.httrack.com/blog/2013/11/15/everything-you-always-wanted-to-know-about-fsync/
-    try (final FileChannel file = FileChannel.open(fileToSync, isDir ? StandardOpenOption.READ : StandardOpenOption.WRITE)) {
+    try (final FileChannel file = FileChannelUtils.open(fileToSync, isDir ? StandardOpenOption.READ : StandardOpenOption.WRITE)) {
       file.force(true);
     } catch (IOException ioe) {
       if (isDir) {

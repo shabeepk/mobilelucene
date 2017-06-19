@@ -18,7 +18,7 @@ package org.apache.lucene.queries.payloads;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import org.lukhnos.portmobile.util.Objects;
 import java.util.Set;
 
 import org.apache.lucene.index.IndexReader;

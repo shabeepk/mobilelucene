@@ -19,7 +19,7 @@ package org.apache.lucene.search.suggest.analyzing;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.StringReader;
-import java.nio.file.Path;
+import org.lukhnos.portmobile.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;

@@ -17,7 +17,7 @@
 package org.apache.lucene.search.suggest;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
+import org.lukhnos.portmobile.charset.StandardCharsets;
 import java.util.Set;
 
 import org.apache.lucene.search.spell.Dictionary;

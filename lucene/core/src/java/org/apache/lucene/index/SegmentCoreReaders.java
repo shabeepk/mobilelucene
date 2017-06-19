@@ -20,7 +20,7 @@ package org.apache.lucene.index;
 import java.io.EOFException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.file.NoSuchFileException;
+import org.lukhnos.portmobile.file.NoSuchFileException;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;

@@ -460,6 +460,12 @@
     <modules-crawl target="build-artifacts-and-tests"/>
   </target>
 
+  <target name="mobile-build-modules-without-test" depends="jar-core"
+          description="Builds all mobile additional modules without their tests">
+    <mobile-modules-crawl target="default"/>
+    <mobile-modules-crawl target="mobile-copy-jar"/>
+  </target>
+
   <target name="compile-test" description="Builds core, codecs, test-framework, and modules tests">
     <sequential>
       <ant dir="core" target="compile-test" inheritall="false">
