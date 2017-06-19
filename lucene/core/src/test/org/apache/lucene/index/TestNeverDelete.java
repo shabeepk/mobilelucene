@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.nio.file.Path;
 import java.util.HashSet;
@@ -25,8 +25,6 @@ import org.apache.lucene.analysis.MockAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.store.BaseDirectoryWrapper;
-import org.apache.lucene.store.MockDirectoryWrapper;
-import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.util.TestUtil;
 
@@ -39,12 +37,6 @@ public class TestNeverDelete extends LuceneTestCase {
     final Path tmpDir = createTempDir("TestNeverDelete");
     final BaseDirectoryWrapper d = newFSDirectory(tmpDir);
 
-    // We want to "see" files removed if Lucene removed
-    // them.  This is still worth running on Windows since
-    // some files the IR opens and closes.
-    if (d instanceof MockDirectoryWrapper) {
-      ((MockDirectoryWrapper)d).setNoDeleteOpenFile(false);
-    }
     final RandomIndexWriter w = new RandomIndexWriter(random(),
                                                       d,
                                                       newIndexWriterConfig(new MockAnalyzer(random()))
@@ -107,7 +99,5 @@ public class TestNeverDelete extends LuceneTestCase {
     }
     w.close();
     d.close();
-
-    IOUtils.rm(tmpDir);
   }
 }

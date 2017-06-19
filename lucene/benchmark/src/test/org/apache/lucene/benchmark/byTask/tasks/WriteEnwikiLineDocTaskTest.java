@@ -1,5 +1,3 @@
-package org.apache.lucene.benchmark.byTask.tasks;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,12 +14,10 @@ package org.apache.lucene.benchmark.byTask.tasks;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.benchmark.byTask.tasks;
+
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;

@@ -1,5 +1,3 @@
-package org.apache.lucene.queryparser.flexible.standard;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,8 +14,7 @@ package org.apache.lucene.queryparser.flexible.standard;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-import java.io.Reader;
+package org.apache.lucene.queryparser.flexible.standard;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.MockAnalyzer;
@@ -156,22 +153,18 @@ public class TestStandardQP extends QueryParserTestBase {
   
   @Override
   public void testCollatedRange() throws Exception {
-    try {
+    expectThrows(UnsupportedOperationException.class, () -> {
       setAnalyzeRangeTerms(getParser(null), true);
       super.testCollatedRange();
-    } catch (UnsupportedOperationException e) {
-      // expected
-    }
+    });
   }
   
   @Override
   public void testAutoGeneratePhraseQueriesOn() throws Exception {
-    try {
+    expectThrows(UnsupportedOperationException.class, () -> {
       setAutoGeneratePhraseQueries(getParser(null), true);
       super.testAutoGeneratePhraseQueriesOn();
-    } catch (UnsupportedOperationException e) {
-      // expected
-    }
+    });
   }
   
   @Override
@@ -210,4 +203,15 @@ public class TestStandardQP extends QueryParserTestBase {
     //TODO test something like "SmartQueryParser()"
   }
 
+  // TODO: Remove this specialization once the flexible standard parser gets multi-word synonym support
+  @Override
+  public void testQPA() throws Exception {
+    super.testQPA();
+
+    assertQueryEquals("term phrase term", qpAnalyzer, "term (phrase1 phrase2) term");
+
+    CommonQueryParserConfiguration cqpc = getParserConfig(qpAnalyzer);
+    setDefaultOperatorAND(cqpc);
+    assertQueryEquals(cqpc, "field", "term phrase term", "+term +(+phrase1 +phrase2) +term");
+  }
 }

@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.core;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,8 +14,12 @@ package org.apache.lucene.analysis.core;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.core;
+
 
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.LowerCaseFilter;
+import org.apache.lucene.analysis.TokenStream;
 
 /** An {@link Analyzer} that filters {@link LetterTokenizer} 
  *  with {@link LowerCaseFilter} 
@@ -33,5 +35,10 @@ public final class SimpleAnalyzer extends Analyzer {
   @Override
   protected TokenStreamComponents createComponents(final String fieldName) {
     return new TokenStreamComponents(new LowerCaseTokenizer());
+  }
+
+  @Override
+  protected TokenStream normalize(String fieldName, TokenStream in) {
+    return new LowerCaseFilter(in);
   }
 }

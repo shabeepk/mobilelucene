@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -30,12 +30,11 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.RandomIndexWriter;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause.Occur;
-import org.apache.lucene.search.similarities.DefaultSimilarity;
+import org.apache.lucene.search.similarities.ClassicSimilarity;
 import org.apache.lucene.search.spans.SpanNearQuery;
 import org.apache.lucene.search.spans.SpanQuery;
 import org.apache.lucene.search.spans.SpanTermQuery;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.util.TestUtil;
 
@@ -45,7 +44,7 @@ public class TestQueryRescorer extends LuceneTestCase {
     IndexSearcher searcher = newSearcher(r);
 
     // We rely on more tokens = lower score:
-    searcher.setSimilarity(new DefaultSimilarity());
+    searcher.setSimilarity(new ClassicSimilarity());
 
     return searcher;
   }
@@ -71,7 +70,7 @@ public class TestQueryRescorer extends LuceneTestCase {
     bq.add(new TermQuery(new Term("field", "wizard")), Occur.SHOULD);
     bq.add(new TermQuery(new Term("field", "oz")), Occur.SHOULD);
     IndexSearcher searcher = getSearcher(r);
-    searcher.setSimilarity(new DefaultSimilarity());
+    searcher.setSimilarity(new ClassicSimilarity());
 
     TopDocs hits = searcher.search(bq.build(), 10);
     assertEquals(2, hits.totalHits);
@@ -126,7 +125,7 @@ public class TestQueryRescorer extends LuceneTestCase {
     bq.add(new TermQuery(new Term("field", "wizard")), Occur.SHOULD);
     bq.add(new TermQuery(new Term("field", "oz")), Occur.SHOULD);
     IndexSearcher searcher = getSearcher(r);
-    searcher.setSimilarity(new DefaultSimilarity());
+    searcher.setSimilarity(new ClassicSimilarity());
 
     TopDocs hits = searcher.search(bq.build(), 10);
     assertEquals(2, hits.totalHits);
@@ -447,23 +446,34 @@ public class TestQueryRescorer extends LuceneTestCase {
             }
 
             @Override
-            public long cost() {
-              return 1;
-            }
+            public DocIdSetIterator iterator() {
+              return new DocIdSetIterator() {
 
-            @Override
-            public int nextDoc() {
-              docID++;
-              if (docID >= context.reader().maxDoc()) {
-                return NO_MORE_DOCS;
-              }
-              return docID;
-            }
+                @Override
+                public int docID() {
+                  return docID;
+                }
 
-            @Override
-            public int advance(int target) {
-              docID = target;
-              return docID;
+                @Override
+                public long cost() {
+                  return 1;
+                }
+
+                @Override
+                public int nextDoc() {
+                  docID++;
+                  if (docID >= context.reader().maxDoc()) {
+                    return NO_MORE_DOCS;
+                  }
+                  return docID;
+                }
+
+                @Override
+                public int advance(int target) {
+                  docID = target;
+                  return docID;
+                }
+              };
             }
 
             @Override
@@ -493,30 +503,27 @@ public class TestQueryRescorer extends LuceneTestCase {
     }
 
     @Override
-    public boolean equals(Object o) {
-      if ((o instanceof FixedScoreQuery) == false) {
-        return false;
-      }
-      FixedScoreQuery other = (FixedScoreQuery) o;
-      return super.equals(o) &&
-        reverse == other.reverse &&
-        Arrays.equals(idToNum, other.idToNum);
+    public boolean equals(Object other) {
+      return sameClassAs(other) &&
+             equalsTo(getClass().cast(other));
+    }
+
+    private boolean equalsTo(FixedScoreQuery other) {
+      return reverse == other.reverse && 
+             Arrays.equals(idToNum, other.idToNum);
+    }
+
+    @Override
+    public int hashCode() {
+      int hash = classHash();
+      hash = 31 * hash + (reverse ? 0 : 1);
+      hash = 31 * hash + Arrays.hashCode(idToNum);
+      return hash;
     }
 
     @Override
     public Query clone() {
       return new FixedScoreQuery(idToNum, reverse);
-    }
-
-    @Override
-    public int hashCode() {
-      int PRIME = 31;
-      int hash = super.hashCode();
-      if (reverse) {
-        hash = PRIME * hash + 3623;
-      }
-      hash = PRIME * hash + Arrays.hashCode(idToNum);
-      return hash;
     }
   }
 }

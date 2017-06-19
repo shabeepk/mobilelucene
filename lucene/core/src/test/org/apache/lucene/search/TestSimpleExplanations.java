@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,8 +14,13 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
+
+import java.util.Arrays;
 
 import org.apache.lucene.index.Term;
+import org.junit.Test;
 
 /**
  * TestExplanations subclass focusing on basic query types
@@ -36,8 +39,7 @@ public class TestSimpleExplanations extends BaseExplanationTestCase {
   }
   public void testT2() throws Exception {
     TermQuery termQuery = new TermQuery(new Term(FIELD, "w1"));
-    termQuery.setBoost(100);
-    qtest(termQuery, new int[] { 0,1,2,3 });
+    qtest(new BoostQuery(termQuery, 100), new int[] { 0,1,2,3 });
   }
   
   /* MatchAllDocs */
@@ -47,8 +49,7 @@ public class TestSimpleExplanations extends BaseExplanationTestCase {
   }
   public void testMA2() throws Exception {
     Query q=new MatchAllDocsQuery();
-    q.setBoost(1000);
-    qtest(q, new int[] { 0,1,2,3 });
+    qtest(new BoostQuery(q, 1000), new int[] { 0,1,2,3 });
   }
 
   /* some simple phrase tests */
@@ -82,36 +83,6 @@ public class TestSimpleExplanations extends BaseExplanationTestCase {
     qtest(phraseQuery, new int[] { 0,1,2,3 });
   }
 
-  /* some simple filtered query tests */
-  
-  public void testFQ1() throws Exception {
-    qtest(new FilteredQuery(new TermQuery(new Term(FIELD, "w1")),
-                            new QueryWrapperFilter(matchTheseItems(new int[] {0,1,2,3}))),
-          new int[] {0,1,2,3});
-  }
-  public void testFQ2() throws Exception {
-    qtest(new FilteredQuery(new TermQuery(new Term(FIELD, "w1")),
-                            new QueryWrapperFilter(matchTheseItems(new int[] {0,2,3}))),
-          new int[] {0,2,3});
-  }
-  public void testFQ3() throws Exception {
-    qtest(new FilteredQuery(new TermQuery(new Term(FIELD, "xx")),
-                            new QueryWrapperFilter(matchTheseItems(new int[] {1,3}))),
-          new int[] {3});
-  }
-  public void testFQ4() throws Exception {
-    TermQuery termQuery = new TermQuery(new Term(FIELD, "xx"));
-    termQuery.setBoost(1000);
-    qtest(new FilteredQuery(termQuery, new QueryWrapperFilter(matchTheseItems(new int[] {1,3}))),
-          new int[] {3});
-  }
-  public void testFQ6() throws Exception {
-    Query q = new FilteredQuery(new TermQuery(new Term(FIELD, "xx")),
-                                new QueryWrapperFilter(matchTheseItems(new int[] {1,3})));
-    q.setBoost(1000);
-    qtest(q, new int[] {3});
-  }
-
   /* ConstantScoreQueries */
   
   public void testCSQ1() throws Exception {
@@ -124,100 +95,105 @@ public class TestSimpleExplanations extends BaseExplanationTestCase {
   }
   public void testCSQ3() throws Exception {
     Query q = new ConstantScoreQuery(matchTheseItems(new int[] {0,2}));
-    q.setBoost(1000);
-    qtest(q, new int[] {0,2});
+    qtest(new BoostQuery(q, 1000), new int[] {0,2});
   }
   
   /* DisjunctionMaxQuery */
   
   public void testDMQ1() throws Exception {
-    DisjunctionMaxQuery q = new DisjunctionMaxQuery(0.0f);
-    q.add(new TermQuery(new Term(FIELD, "w1")));
-    q.add(new TermQuery(new Term(FIELD, "w5")));
+    DisjunctionMaxQuery q = new DisjunctionMaxQuery(
+        Arrays.asList(
+            new TermQuery(new Term(FIELD, "w1")),
+            new TermQuery(new Term(FIELD, "w5"))),
+        0.0f);
     qtest(q, new int[] { 0,1,2,3 });
   }
   public void testDMQ2() throws Exception {
-    DisjunctionMaxQuery q = new DisjunctionMaxQuery(0.5f);
-    q.add(new TermQuery(new Term(FIELD, "w1")));
-    q.add(new TermQuery(new Term(FIELD, "w5")));
+    DisjunctionMaxQuery q = new DisjunctionMaxQuery(
+        Arrays.asList(
+            new TermQuery(new Term(FIELD, "w1")),
+            new TermQuery(new Term(FIELD, "w5"))),
+        0.5f);
     qtest(q, new int[] { 0,1,2,3 });
   }
   public void testDMQ3() throws Exception {
-    DisjunctionMaxQuery q = new DisjunctionMaxQuery(0.5f);
-    q.add(new TermQuery(new Term(FIELD, "QQ")));
-    q.add(new TermQuery(new Term(FIELD, "w5")));
+    DisjunctionMaxQuery q = new DisjunctionMaxQuery(
+        Arrays.asList(
+            new TermQuery(new Term(FIELD, "QQ")),
+            new TermQuery(new Term(FIELD, "w5"))),
+        0.5f);
     qtest(q, new int[] { 0 });
   }
   public void testDMQ4() throws Exception {
-    DisjunctionMaxQuery q = new DisjunctionMaxQuery(0.5f);
-    q.add(new TermQuery(new Term(FIELD, "QQ")));
-    q.add(new TermQuery(new Term(FIELD, "xx")));
+    DisjunctionMaxQuery q = new DisjunctionMaxQuery(
+        Arrays.asList(
+            new TermQuery(new Term(FIELD, "QQ")),
+            new TermQuery(new Term(FIELD, "xx"))),
+        0.5f);
     qtest(q, new int[] { 2,3 });
   }
   public void testDMQ5() throws Exception {
-    DisjunctionMaxQuery q = new DisjunctionMaxQuery(0.5f);
-
     BooleanQuery.Builder booleanQuery = new BooleanQuery.Builder();
     booleanQuery.add(new TermQuery(new Term(FIELD, "yy")), BooleanClause.Occur.SHOULD);
     booleanQuery.add(new TermQuery(new Term(FIELD, "QQ")), BooleanClause.Occur.MUST_NOT);
 
-    q.add(booleanQuery.build());
-    q.add(new TermQuery(new Term(FIELD, "xx")));
+    DisjunctionMaxQuery q = new DisjunctionMaxQuery(
+        Arrays.asList(
+            booleanQuery.build(),
+            new TermQuery(new Term(FIELD, "xx"))),
+        0.5f);
     qtest(q, new int[] { 2,3 });
   }
   public void testDMQ6() throws Exception {
-    DisjunctionMaxQuery q = new DisjunctionMaxQuery(0.5f);
-
     BooleanQuery.Builder booleanQuery = new BooleanQuery.Builder();
     booleanQuery.add(new TermQuery(new Term(FIELD, "yy")), BooleanClause.Occur.MUST_NOT);
     booleanQuery.add(new TermQuery(new Term(FIELD, "w3")), BooleanClause.Occur.SHOULD);
 
-    q.add(booleanQuery.build());
-    q.add(new TermQuery(new Term(FIELD, "xx")));
+    DisjunctionMaxQuery q = new DisjunctionMaxQuery(
+        Arrays.asList(
+            booleanQuery.build(),
+            new TermQuery(new Term(FIELD, "xx"))),
+        0.5f);
     qtest(q, new int[] { 0,1,2,3 });
   }
   public void testDMQ7() throws Exception {
-    DisjunctionMaxQuery q = new DisjunctionMaxQuery(0.5f);
-
     BooleanQuery.Builder booleanQuery = new BooleanQuery.Builder();
     booleanQuery.add(new TermQuery(new Term(FIELD, "yy")), BooleanClause.Occur.MUST_NOT);
     booleanQuery.add(new TermQuery(new Term(FIELD, "w3")), BooleanClause.Occur.SHOULD);
 
-    q.add(booleanQuery.build());
-    q.add(new TermQuery(new Term(FIELD, "w2")));
+    DisjunctionMaxQuery q = new DisjunctionMaxQuery(
+        Arrays.asList(
+            booleanQuery.build(),
+            new TermQuery(new Term(FIELD, "w2"))),
+        0.5f);
     qtest(q, new int[] { 0,1,2,3 });
   }
   public void testDMQ8() throws Exception {
-    DisjunctionMaxQuery q = new DisjunctionMaxQuery(0.5f);
-
     BooleanQuery.Builder booleanQuery = new BooleanQuery.Builder();
     booleanQuery.add(new TermQuery(new Term(FIELD, "yy")), BooleanClause.Occur.SHOULD);
 
     TermQuery boostedQuery = new TermQuery(new Term(FIELD, "w5"));
-    boostedQuery.setBoost(100);
-    booleanQuery.add(boostedQuery, BooleanClause.Occur.SHOULD);
-    q.add(booleanQuery.build());
+    booleanQuery.add(new BoostQuery(boostedQuery, 100), BooleanClause.Occur.SHOULD);
 
     TermQuery xxBoostedQuery = new TermQuery(new Term(FIELD, "xx"));
-    xxBoostedQuery.setBoost(100000);
-    q.add(xxBoostedQuery);
-    
+
+    DisjunctionMaxQuery q = new DisjunctionMaxQuery(
+        Arrays.asList(booleanQuery.build(), new BoostQuery(xxBoostedQuery, 100000)),
+        0.5f);
     qtest(q, new int[] { 0,2,3 });
   }
   public void testDMQ9() throws Exception {
-    DisjunctionMaxQuery q = new DisjunctionMaxQuery(0.5f);
-
     BooleanQuery.Builder booleanQuery = new BooleanQuery.Builder();
     booleanQuery.add(new TermQuery(new Term(FIELD, "yy")), BooleanClause.Occur.SHOULD);
 
     TermQuery boostedQuery = new TermQuery(new Term(FIELD, "w5"));
-    boostedQuery.setBoost(100);
-    booleanQuery.add(boostedQuery, BooleanClause.Occur.SHOULD);
-    q.add(booleanQuery.build());
+    booleanQuery.add(new BoostQuery(boostedQuery, 100), BooleanClause.Occur.SHOULD);
 
     TermQuery xxBoostedQuery = new TermQuery(new Term(FIELD, "xx"));
-    xxBoostedQuery.setBoost(0);
-    q.add(xxBoostedQuery);
+
+    DisjunctionMaxQuery q = new DisjunctionMaxQuery(
+        Arrays.asList(booleanQuery.build(), new BoostQuery(xxBoostedQuery, 0)),
+        0.5f);
 
     qtest(q, new int[] { 0,2,3 });
   }
@@ -225,42 +201,42 @@ public class TestSimpleExplanations extends BaseExplanationTestCase {
   /* MultiPhraseQuery */
   
   public void testMPQ1() throws Exception {
-    MultiPhraseQuery q = new MultiPhraseQuery();
-    q.add(ta(new String[] {"w1"}));
-    q.add(ta(new String[] {"w2","w3", "xx"}));
-    qtest(q, new int[] { 0,1,2,3 });
+    MultiPhraseQuery.Builder qb = new MultiPhraseQuery.Builder();
+    qb.add(ta(new String[] {"w1"}));
+    qb.add(ta(new String[] {"w2","w3", "xx"}));
+    qtest(qb.build(), new int[] { 0,1,2,3 });
   }
   public void testMPQ2() throws Exception {
-    MultiPhraseQuery q = new MultiPhraseQuery();
-    q.add(ta(new String[] {"w1"}));
-    q.add(ta(new String[] {"w2","w3"}));
-    qtest(q, new int[] { 0,1,3 });
+    MultiPhraseQuery.Builder qb = new MultiPhraseQuery.Builder();
+    qb.add(ta(new String[] {"w1"}));
+    qb.add(ta(new String[] {"w2","w3"}));
+    qtest(qb.build(), new int[] { 0,1,3 });
   }
   public void testMPQ3() throws Exception {
-    MultiPhraseQuery q = new MultiPhraseQuery();
-    q.add(ta(new String[] {"w1","xx"}));
-    q.add(ta(new String[] {"w2","w3"}));
-    qtest(q, new int[] { 0,1,2,3 });
+    MultiPhraseQuery.Builder qb = new MultiPhraseQuery.Builder();
+    qb.add(ta(new String[] {"w1","xx"}));
+    qb.add(ta(new String[] {"w2","w3"}));
+    qtest(qb.build(), new int[] { 0,1,2,3 });
   }
   public void testMPQ4() throws Exception {
-    MultiPhraseQuery q = new MultiPhraseQuery();
-    q.add(ta(new String[] {"w1"}));
-    q.add(ta(new String[] {"w2"}));
-    qtest(q, new int[] { 0 });
+    MultiPhraseQuery.Builder qb = new MultiPhraseQuery.Builder();
+    qb.add(ta(new String[] {"w1"}));
+    qb.add(ta(new String[] {"w2"}));
+    qtest(qb.build(), new int[] { 0 });
   }
   public void testMPQ5() throws Exception {
-    MultiPhraseQuery q = new MultiPhraseQuery();
-    q.add(ta(new String[] {"w1"}));
-    q.add(ta(new String[] {"w2"}));
-    q.setSlop(1);
-    qtest(q, new int[] { 0,1,2 });
+    MultiPhraseQuery.Builder qb = new MultiPhraseQuery.Builder();
+    qb.add(ta(new String[] {"w1"}));
+    qb.add(ta(new String[] {"w2"}));
+    qb.setSlop(1);
+    qtest(qb.build(), new int[] { 0,1,2 });
   }
   public void testMPQ6() throws Exception {
-    MultiPhraseQuery q = new MultiPhraseQuery();
-    q.add(ta(new String[] {"w1","w3"}));
-    q.add(ta(new String[] {"w2"}));
-    q.setSlop(1);
-    qtest(q, new int[] { 0,1,2,3 });
+    MultiPhraseQuery.Builder qb = new MultiPhraseQuery.Builder();
+    qb.add(ta(new String[] {"w1","w3"}));
+    qb.add(ta(new String[] {"w2"}));
+    qb.setSlop(1);
+    qtest(qb.build(), new int[] { 0,1,2,3 });
   }
 
   /* some simple tests of boolean queries containing term queries */
@@ -321,6 +297,7 @@ public class TestSimpleExplanations extends BaseExplanationTestCase {
     outerQuery.add(new TermQuery(new Term(FIELD, "w1")), BooleanClause.Occur.MUST);
 
     BooleanQuery.Builder innerQuery = new BooleanQuery.Builder();
+    innerQuery.setDisableCoord(random().nextBoolean());
     innerQuery.add(new TermQuery(new Term(FIELD, "qq")), BooleanClause.Occur.SHOULD);
 
     BooleanQuery.Builder childLeft = new BooleanQuery.Builder();
@@ -342,6 +319,7 @@ public class TestSimpleExplanations extends BaseExplanationTestCase {
     outerQuery.add(new TermQuery(new Term(FIELD, "w1")), BooleanClause.Occur.MUST);
 
     BooleanQuery.Builder innerQuery = new BooleanQuery.Builder();
+    innerQuery.setDisableCoord(random().nextBoolean());
     innerQuery.add(new TermQuery(new Term(FIELD, "qq")), BooleanClause.Occur.SHOULD);
 
     BooleanQuery.Builder childLeft = new BooleanQuery.Builder();
@@ -363,6 +341,7 @@ public class TestSimpleExplanations extends BaseExplanationTestCase {
     outerQuery.add(new TermQuery(new Term(FIELD, "w1")), BooleanClause.Occur.MUST);
 
     BooleanQuery.Builder innerQuery = new BooleanQuery.Builder();
+    innerQuery.setDisableCoord(random().nextBoolean());
     innerQuery.add(new TermQuery(new Term(FIELD, "qq")), BooleanClause.Occur.SHOULD);
 
     BooleanQuery.Builder childLeft = new BooleanQuery.Builder();
@@ -384,6 +363,7 @@ public class TestSimpleExplanations extends BaseExplanationTestCase {
     outerQuery.add(new TermQuery(new Term(FIELD, "w1")), BooleanClause.Occur.MUST);
 
     BooleanQuery.Builder innerQuery = new BooleanQuery.Builder();
+    innerQuery.setDisableCoord(random().nextBoolean());
     innerQuery.add(new TermQuery(new Term(FIELD, "qq")), BooleanClause.Occur.SHOULD);
 
     BooleanQuery.Builder childLeft = new BooleanQuery.Builder();
@@ -402,30 +382,30 @@ public class TestSimpleExplanations extends BaseExplanationTestCase {
   }
   public void testBQ11() throws Exception {
     BooleanQuery.Builder query = new BooleanQuery.Builder();
+    query.setDisableCoord(random().nextBoolean());
     query.add(new TermQuery(new Term(FIELD, "w1")), BooleanClause.Occur.SHOULD);
     TermQuery boostedQuery = new TermQuery(new Term(FIELD, "w1"));
-    boostedQuery.setBoost(1000);
-    query.add(boostedQuery, BooleanClause.Occur.SHOULD);
+    query.add(new BoostQuery(boostedQuery, 1000), BooleanClause.Occur.SHOULD);
 
     qtest(query.build(), new int[] { 0,1,2,3 });
   }
   public void testBQ14() throws Exception {
     BooleanQuery.Builder q = new BooleanQuery.Builder();
-    q.setDisableCoord(true);
+    q.setDisableCoord(random().nextBoolean());
     q.add(new TermQuery(new Term(FIELD, "QQQQQ")), BooleanClause.Occur.SHOULD);
     q.add(new TermQuery(new Term(FIELD, "w1")), BooleanClause.Occur.SHOULD);
     qtest(q.build(), new int[] { 0,1,2,3 });
   }
   public void testBQ15() throws Exception {
     BooleanQuery.Builder q = new BooleanQuery.Builder();
-    q.setDisableCoord(true);
+    q.setDisableCoord(random().nextBoolean());
     q.add(new TermQuery(new Term(FIELD, "QQQQQ")), BooleanClause.Occur.MUST_NOT);
     q.add(new TermQuery(new Term(FIELD, "w1")), BooleanClause.Occur.SHOULD);
     qtest(q.build(), new int[] { 0,1,2,3 });
   }
   public void testBQ16() throws Exception {
     BooleanQuery.Builder q = new BooleanQuery.Builder();
-    q.setDisableCoord(true);
+    q.setDisableCoord(random().nextBoolean());
     q.add(new TermQuery(new Term(FIELD, "QQQQQ")), BooleanClause.Occur.SHOULD);
 
     BooleanQuery.Builder booleanQuery = new BooleanQuery.Builder();
@@ -437,7 +417,7 @@ public class TestSimpleExplanations extends BaseExplanationTestCase {
   }
   public void testBQ17() throws Exception {
     BooleanQuery.Builder q = new BooleanQuery.Builder();
-    q.setDisableCoord(true);
+    q.setDisableCoord(random().nextBoolean());
     q.add(new TermQuery(new Term(FIELD, "w2")), BooleanClause.Occur.SHOULD);
 
     BooleanQuery.Builder booleanQuery = new BooleanQuery.Builder();
@@ -457,6 +437,7 @@ public class TestSimpleExplanations extends BaseExplanationTestCase {
   
   public void testBQ20() throws Exception {
     BooleanQuery.Builder q = new BooleanQuery.Builder();
+    q.setDisableCoord(random().nextBoolean());
     q.setMinimumNumberShouldMatch(2);
     q.add(new TermQuery(new Term(FIELD, "QQQQQ")), BooleanClause.Occur.SHOULD);
     q.add(new TermQuery(new Term(FIELD, "yy")), BooleanClause.Occur.SHOULD);
@@ -465,6 +446,16 @@ public class TestSimpleExplanations extends BaseExplanationTestCase {
     q.add(new TermQuery(new Term(FIELD, "w4")), BooleanClause.Occur.SHOULD);
     
     qtest(q.build(), new int[] { 0,3 });
+    
+  }
+  
+  public void testBQ21() throws Exception {
+    BooleanQuery.Builder q = new BooleanQuery.Builder();
+    q.setDisableCoord(random().nextBoolean());
+    q.add(new TermQuery(new Term(FIELD, "yy")), BooleanClause.Occur.SHOULD);
+    q.add(new TermQuery(new Term(FIELD, "zz")), BooleanClause.Occur.SHOULD);
+    
+    qtest(q.build(), new int[] { 1,2,3 });
     
   }
 
@@ -514,6 +505,7 @@ public class TestSimpleExplanations extends BaseExplanationTestCase {
   }
   public void testMultiFieldBQ3() throws Exception {
     BooleanQuery.Builder query = new BooleanQuery.Builder();
+    query.setDisableCoord(random().nextBoolean());
     query.add(new TermQuery(new Term(FIELD, "yy")), BooleanClause.Occur.SHOULD);
     query.add(new TermQuery(new Term(ALTFIELD, "w3")), BooleanClause.Occur.MUST);
 
@@ -521,6 +513,7 @@ public class TestSimpleExplanations extends BaseExplanationTestCase {
   }
   public void testMultiFieldBQ4() throws Exception {
     BooleanQuery.Builder outerQuery = new BooleanQuery.Builder();
+    outerQuery.setDisableCoord(random().nextBoolean());
     outerQuery.add(new TermQuery(new Term(FIELD, "w1")), BooleanClause.Occur.SHOULD);
 
     BooleanQuery.Builder innerQuery = new BooleanQuery.Builder();
@@ -532,6 +525,7 @@ public class TestSimpleExplanations extends BaseExplanationTestCase {
   }
   public void testMultiFieldBQ5() throws Exception {
     BooleanQuery.Builder outerQuery = new BooleanQuery.Builder();
+    outerQuery.setDisableCoord(random().nextBoolean());
     outerQuery.add(new TermQuery(new Term(FIELD, "w1")), BooleanClause.Occur.SHOULD);
 
     BooleanQuery.Builder innerQuery = new BooleanQuery.Builder();
@@ -715,6 +709,39 @@ public class TestSimpleExplanations extends BaseExplanationTestCase {
     query.add(rightChild, BooleanClause.Occur.SHOULD);
 
     qtest(query.build(), new int[] { 0,1,2,3 });
+  }
+  
+  public void testSynonymQuery() throws Exception {
+    SynonymQuery query = new SynonymQuery(new Term(FIELD, "w1"), new Term(FIELD, "w2"));
+    qtest(query, new int[] { 0,1,2,3 });
+  }
+
+  @Test
+  public void testEquality() {
+
+    Explanation e1 = Explanation.match(1f, "an explanation");
+    Explanation e2 = Explanation.match(1f, "an explanation", Explanation.match(1f, "a subexplanation"));
+    Explanation e25 = Explanation.match(1f, "an explanation",
+        Explanation.match(1f, "a subexplanation", Explanation.match(1f, "a subsubexplanation")));
+    Explanation e3 = Explanation.match(1f, "an explanation");
+    Explanation e4 = Explanation.match(2f, "an explanation");
+    Explanation e5 = Explanation.noMatch("an explanation");
+    Explanation e6 = Explanation.noMatch("an explanation", Explanation.match(1f, "a subexplanation"));
+    Explanation e7 = Explanation.noMatch("an explanation");
+    Explanation e8 = Explanation.match(1f, "another explanation");
+
+    assertEquals(e1, e3);
+    assertFalse(e1.equals(e2));
+    assertFalse(e2.equals(e25));
+    assertFalse(e1.equals(e4));
+    assertFalse(e1.equals(e5));
+    assertEquals(e5, e7);
+    assertFalse(e5.equals(e6));
+    assertFalse(e1.equals(e8));
+
+    assertEquals(e1.hashCode(), e3.hashCode());
+    assertEquals(e5.hashCode(), e7.hashCode());
+
   }
 
 }

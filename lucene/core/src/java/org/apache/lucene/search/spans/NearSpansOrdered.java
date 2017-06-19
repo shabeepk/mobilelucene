@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spans;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search.spans;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spans;
+
 
 import java.io.IOException;
 import java.util.List;
@@ -42,15 +42,18 @@ import java.util.List;
  * Expert:
  * Only public for subclassing.  Most implementations should not need this class
  */
-public class NearSpansOrdered extends NearSpans {
+public class NearSpansOrdered extends ConjunctionSpans {
 
   protected int matchStart = -1;
   protected int matchEnd = -1;
   protected int matchWidth = -1;
 
-  public NearSpansOrdered(SpanNearQuery query, List<Spans> subSpans) throws IOException {
-    super(query, subSpans);
+  private final int allowedSlop;
+
+  public NearSpansOrdered(int allowedSlop, List<Spans> subSpans) throws IOException {
+    super(subSpans);
     this.atFirstInCurrentDoc = true; // -1 startPosition/endPosition also at doc -1
+    this.allowedSlop = allowedSlop;
   }
 
   @Override
@@ -142,14 +145,9 @@ public class NearSpansOrdered extends NearSpans {
 
   @Override
   public void collect(SpanCollector collector) throws IOException {
-    for (Spans spans : subSpans) {
-      spans.collect(collector);
+    for (Spans span : subSpans) {
+      span.collect(collector);
     }
-  }
-
-  @Override
-  public String toString() {
-    return "NearSpansOrdered("+query.toString()+")@"+docID()+": "+startPosition()+" - "+endPosition();
   }
 
 }

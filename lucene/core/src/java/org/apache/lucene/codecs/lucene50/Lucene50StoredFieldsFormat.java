@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.lucene50;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,9 +14,11 @@ package org.apache.lucene.codecs.lucene50;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.lucene50;
+
 
 import java.io.IOException;
-import org.lukhnos.portmobile.util.Objects;
+import java.util.Objects;
 
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.StoredFieldsFormat;
@@ -53,9 +53,9 @@ import org.apache.lucene.util.packed.PackedInts;
  * These two options can be configured like this:
  * <pre class="prettyprint">
  *   // the default: for high performance
- *   indexWriterConfig.setCodec(new Lucene53Codec(Mode.BEST_SPEED));
+ *   indexWriterConfig.setCodec(new Lucene54Codec(Mode.BEST_SPEED));
  *   // instead for higher performance (but slower):
- *   // indexWriterConfig.setCodec(new Lucene53Codec(Mode.BEST_COMPRESSION));
+ *   // indexWriterConfig.setCodec(new Lucene54Codec(Mode.BEST_COMPRESSION));
  * </pre>
  * <p><b>File formats</b>
  * <p>Stored fields are represented by two files:
@@ -176,7 +176,7 @@ public final class Lucene50StoredFieldsFormat extends StoredFieldsFormat {
   @Override
   public StoredFieldsWriter fieldsWriter(Directory directory, SegmentInfo si, IOContext context) throws IOException {
     String previous = si.putAttribute(MODE_KEY, mode.name());
-    if (previous != null) {
+    if (previous != null && previous.equals(mode.name()) == false) {
       throw new IllegalStateException("found existing value for " + MODE_KEY + " for segment: " + si.name +
                                       "old=" + previous + ", new=" + mode.name());
     }

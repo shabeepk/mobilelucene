@@ -1,5 +1,3 @@
-package org.apache.lucene.search.highlight;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,10 +14,13 @@ package org.apache.lucene.search.highlight;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.highlight;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 import com.carrotsearch.randomizedtesting.annotations.Repeat;
+
 import org.apache.lucene.analysis.BaseTokenStreamTestCase;
 import org.apache.lucene.analysis.CannedTokenStream;
 import org.apache.lucene.analysis.MockAnalyzer;
@@ -118,9 +119,11 @@ public class TokenSourcesTest extends BaseTokenStreamTestCase {
     assertEquals(1, indexReader.numDocs());
     final IndexSearcher indexSearcher = newSearcher(indexReader);
     try {
-      final DisjunctionMaxQuery query = new DisjunctionMaxQuery(1);
-      query.add(new SpanTermQuery(new Term(FIELD, "{fox}")));
-      query.add(new SpanTermQuery(new Term(FIELD, "fox")));
+      final DisjunctionMaxQuery query = new DisjunctionMaxQuery(
+          Arrays.asList(
+              new SpanTermQuery(new Term(FIELD, "{fox}")),
+              new SpanTermQuery(new Term(FIELD, "fox"))),
+          1);
         // final Query phraseQuery = new SpanNearQuery(new SpanQuery[] {
         // new SpanTermQuery(new Term(FIELD, "{fox}")),
         // new SpanTermQuery(new Term(FIELD, "fox")) }, 0, true);
@@ -161,9 +164,11 @@ public class TokenSourcesTest extends BaseTokenStreamTestCase {
     try {
       assertEquals(1, indexReader.numDocs());
       final IndexSearcher indexSearcher = newSearcher(indexReader);
-      final DisjunctionMaxQuery query = new DisjunctionMaxQuery(1);
-      query.add(new SpanTermQuery(new Term(FIELD, "{fox}")));
-      query.add(new SpanTermQuery(new Term(FIELD, "fox")));
+      final DisjunctionMaxQuery query = new DisjunctionMaxQuery(
+          Arrays.asList(
+              new SpanTermQuery(new Term(FIELD, "{fox}")),
+              new SpanTermQuery(new Term(FIELD, "fox"))),
+          1);
       // final Query phraseQuery = new SpanNearQuery(new SpanQuery[] {
       // new SpanTermQuery(new Term(FIELD, "{fox}")),
       // new SpanTermQuery(new Term(FIELD, "fox")) }, 0, true);

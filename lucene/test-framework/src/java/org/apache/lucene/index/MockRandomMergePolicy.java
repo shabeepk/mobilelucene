@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -25,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
+import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.util.TestUtil;
 
 /**
@@ -138,7 +138,6 @@ public class MockRandomMergePolicy extends MergePolicy {
   
   static class MockRandomOneMerge extends OneMerge {
     final Random r;
-    ArrayList<CodecReader> readers;
 
     MockRandomOneMerge(List<SegmentCommitInfo> segments, long seed) {
       super(segments);
@@ -146,28 +145,31 @@ public class MockRandomMergePolicy extends MergePolicy {
     }
 
     @Override
-    public List<CodecReader> getMergeReaders() throws IOException {
-      if (readers == null) {
-        readers = new ArrayList<CodecReader>(super.getMergeReaders());
-        for (int i = 0; i < readers.size(); i++) {
-          // wrap it (e.g. prevent bulk merge etc)
-          // TODO: cut this over to FilterCodecReader api, we can explicitly
-          // enable/disable bulk merge for portions of the index we want.
-          int thingToDo = r.nextInt(7);
-          if (thingToDo == 0) {
-            // simple no-op FilterReader
-            readers.set(i, SlowCodecReaderWrapper.wrap(new FilterLeafReader(readers.get(i))));
-          } else if (thingToDo == 1) {
-            // renumber fields
-            // NOTE: currently this only "blocks" bulk merges just by
-            // being a FilterReader. But it might find bugs elsewhere, 
-            // and maybe the situation can be improved in the future.
-            readers.set(i, SlowCodecReaderWrapper.wrap(new MismatchedLeafReader(readers.get(i), r)));
-          }
-          // otherwise, reader is unchanged
+    public CodecReader wrapForMerge(CodecReader reader) throws IOException {
+
+      // wrap it (e.g. prevent bulk merge etc)
+      // TODO: cut this over to FilterCodecReader api, we can explicitly
+      // enable/disable bulk merge for portions of the index we want.
+      int thingToDo = r.nextInt(7);
+      if (thingToDo == 0) {
+        // simple no-op FilterReader
+        if (LuceneTestCase.VERBOSE) {
+          System.out.println("NOTE: MockRandomMergePolicy now swaps in a SlowCodecReaderWrapper for merging reader=" + reader);
         }
+        return SlowCodecReaderWrapper.wrap(new FilterLeafReader(new MergeReaderWrapper(reader)) {});
+      } else if (thingToDo == 1) {
+        // renumber fields
+        // NOTE: currently this only "blocks" bulk merges just by
+        // being a FilterReader. But it might find bugs elsewhere, 
+        // and maybe the situation can be improved in the future.
+        if (LuceneTestCase.VERBOSE) {
+          System.out.println("NOTE: MockRandomMergePolicy now swaps in a MismatchedLeafReader for merging reader=" + reader);
+        }
+        return SlowCodecReaderWrapper.wrap(new MismatchedLeafReader(new MergeReaderWrapper(reader), r));
+      } else {
+        // otherwise, reader is unchanged
+        return reader;
       }
-      return readers;
     }
   }
 }

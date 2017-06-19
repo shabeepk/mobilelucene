@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spans;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,14 +14,15 @@ package org.apache.lucene.search.spans;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spans;
+
+import java.io.IOException;
 
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.TwoPhaseIterator;
 
-import java.io.IOException;
-
 /** 
- * Wraps a Spans with additional asserts 
+ * Wraps a Spans with additional asserts
  */
 class AssertingSpans extends Spans {
   final Spans in;
@@ -187,7 +186,15 @@ class AssertingSpans extends Spans {
   public long cost() {
     return in.cost();
   }
-  
+
+  @Override
+  public float positionsCost() {
+    float cost = in.positionsCost();
+    assert ! Float.isNaN(cost) : "positionsCost() should not be NaN";
+    assert cost > 0 : "positionsCost() must be positive";
+    return cost;
+  }
+
   @Override
   public TwoPhaseIterator asTwoPhaseIterator() {
     final TwoPhaseIterator iterator = in.asTwoPhaseIterator();
@@ -196,7 +203,7 @@ class AssertingSpans extends Spans {
     }
     return new AssertingTwoPhaseView(iterator);
   }
-  
+
   class AssertingTwoPhaseView extends TwoPhaseIterator {
     final TwoPhaseIterator in;
     int lastDoc = -1;
@@ -220,6 +227,18 @@ class AssertingSpans extends Spans {
         state = State.POS_START;
       }
       return v;
+    }
+
+    @Override
+    public float matchCost() {
+      float cost = in.matchCost();
+      if (Float.isNaN(cost)) {
+        throw new AssertionError("matchCost()=" + cost + " should not be NaN on doc ID " + approximation.docID());
+      }
+      if (cost < 0) {
+        throw new AssertionError("matchCost()=" + cost + " should be non negative on doc ID " + approximation.docID());
+      }
+      return cost;
     }
   }
   

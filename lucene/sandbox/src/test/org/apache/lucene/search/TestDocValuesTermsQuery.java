@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -39,6 +38,7 @@ public class TestDocValuesTermsQuery extends LuceneTestCase {
 
   public void testEquals() {
     assertEquals(new DocValuesTermsQuery("foo", "bar"), new DocValuesTermsQuery("foo", "bar"));
+    assertEquals(new DocValuesTermsQuery("foo", "bar"), new DocValuesTermsQuery("foo", "bar", "bar"));
     assertEquals(new DocValuesTermsQuery("foo", "bar", "baz"), new DocValuesTermsQuery("foo", "baz", "bar"));
     assertFalse(new DocValuesTermsQuery("foo", "bar").equals(new DocValuesTermsQuery("foo2", "bar")));
     assertFalse(new DocValuesTermsQuery("foo", "bar").equals(new DocValuesTermsQuery("foo", "baz")));
@@ -88,66 +88,12 @@ public class TestDocValuesTermsQuery extends LuceneTestCase {
         for (Term term : queryTerms) {
           bq.add(new TermQuery(term), Occur.SHOULD);
         }
-        Query q1 = new ConstantScoreQuery(bq.build());
-        q1.setBoost(boost);
+        Query q1 = new BoostQuery(new ConstantScoreQuery(bq.build()), boost);
         List<String> bytesTerms = new ArrayList<>();
         for (Term term : queryTerms) {
           bytesTerms.add(term.text());
         }
-        final Query q2 = new DocValuesTermsQuery("f", bytesTerms.toArray(new String[0]));
-        q2.setBoost(boost);
-        assertSameMatches(searcher, q1, q2, true);
-      }
-
-      reader.close();
-      dir.close();
-    }
-  }
-
-  public void testDuelFilter() throws IOException {
-    final int iters = atLeast(2);
-    for (int iter = 0; iter < iters; ++iter) {
-      final List<Term> allTerms = new ArrayList<>();
-      final int numTerms = TestUtil.nextInt(random(), 1, 1 << TestUtil.nextInt(random(), 1, 10));
-      for (int i = 0; i < numTerms; ++i) {
-        final String value = TestUtil.randomAnalysisString(random(), 10, true);
-        allTerms.add(new Term("f", value));
-      }
-      Directory dir = newDirectory();
-      RandomIndexWriter iw = new RandomIndexWriter(random(), dir);
-      final int numDocs = atLeast(100);
-      for (int i = 0; i < numDocs; ++i) {
-        Document doc = new Document();
-        final Term term = allTerms.get(random().nextInt(allTerms.size()));
-        doc.add(new SortedDocValuesField(term.field(), new BytesRef(term.text())));
-        iw.addDocument(doc);
-      }
-      if (numTerms > 1 && random().nextBoolean()) {
-        iw.deleteDocuments(new TermQuery(allTerms.get(0)));
-      }
-      iw.commit();
-      final IndexReader reader = iw.getReader();
-      final IndexSearcher searcher = newSearcher(reader);
-      iw.close();
-
-      if (reader.numDocs() == 0) {
-        // may occasionally happen if all documents got the same term
-        IOUtils.close(reader, dir);
-        continue;
-      }
-
-      for (int i = 0; i < 100; ++i) {
-        final int numQueryTerms = TestUtil.nextInt(random(), 1, 1 << TestUtil.nextInt(random(), 1, 8));
-        List<Term> queryTerms = new ArrayList<>();
-        for (int j = 0; j < numQueryTerms; ++j) {
-          queryTerms.add(allTerms.get(random().nextInt(allTerms.size())));
-        }
-        List<String> bytesTerms = new ArrayList<>();
-        for (Term term : queryTerms) {
-          bytesTerms.add(term.text());
-        }
-        final Query q1 = new ConstantScoreQuery(new DocValuesTermsFilter("f", bytesTerms.toArray(new String[0])));
-        final Query q2 = new DocValuesTermsQuery("f", bytesTerms.toArray(new String[0]));
+        final Query q2 = new BoostQuery(new DocValuesTermsQuery("f", bytesTerms.toArray(new String[0])), boost);
         assertSameMatches(searcher, q1, q2, true);
       }
 
@@ -200,14 +146,12 @@ public class TestDocValuesTermsQuery extends LuceneTestCase {
         for (Term term : queryTerms) {
           bq.add(new TermQuery(term), Occur.SHOULD);
         }
-        Query q1 = new ConstantScoreQuery(bq.build());
-        q1.setBoost(boost);
+        Query q1 = new BoostQuery(new ConstantScoreQuery(bq.build()), boost);
         List<String> bytesTerms = new ArrayList<>();
         for (Term term : queryTerms) {
           bytesTerms.add(term.text());
         }
-        final Query q2 = new DocValuesTermsQuery("f", bytesTerms.toArray(new String[0]));
-        q2.setBoost(boost);
+        final Query q2 = new BoostQuery(new DocValuesTermsQuery("f", bytesTerms.toArray(new String[0])), boost);
 
         BooleanQuery.Builder bq1 = new BooleanQuery.Builder();
         bq1.add(q1, Occur.MUST);

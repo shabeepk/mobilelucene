@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.icu.segmentation;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.analysis.icu.segmentation;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.icu.segmentation;
+
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.BaseTokenStreamTestCase;
@@ -42,7 +42,7 @@ public class TestICUTokenizer extends BaseTokenStreamTestCase {
     sb.append(whitespace);
     sb.append("testing 1234");
     String input = sb.toString();
-    ICUTokenizer tokenizer = new ICUTokenizer(newAttributeFactory(), new DefaultICUTokenizerConfig(false));
+    ICUTokenizer tokenizer = new ICUTokenizer(newAttributeFactory(), new DefaultICUTokenizerConfig(false, true));
     tokenizer.setReader(new StringReader(input));
     assertTokenStreamContents(tokenizer, new String[] { "testing", "1234" });
   }
@@ -53,7 +53,7 @@ public class TestICUTokenizer extends BaseTokenStreamTestCase {
       sb.append('a');
     }
     String input = sb.toString();
-    ICUTokenizer tokenizer = new ICUTokenizer(newAttributeFactory(), new DefaultICUTokenizerConfig(false));
+    ICUTokenizer tokenizer = new ICUTokenizer(newAttributeFactory(), new DefaultICUTokenizerConfig(false, true));
     tokenizer.setReader(new StringReader(input));
     char token[] = new char[4096];
     Arrays.fill(token, 'a');
@@ -75,7 +75,7 @@ public class TestICUTokenizer extends BaseTokenStreamTestCase {
     a = new Analyzer() {
       @Override
       protected TokenStreamComponents createComponents(String fieldName) {
-        Tokenizer tokenizer = new ICUTokenizer(newAttributeFactory(), new DefaultICUTokenizerConfig(false));
+        Tokenizer tokenizer = new ICUTokenizer(newAttributeFactory(), new DefaultICUTokenizerConfig(false, true));
         TokenFilter filter = new ICUNormalizer2Filter(tokenizer);
         return new TokenStreamComponents(tokenizer, filter);
       }
@@ -129,6 +129,9 @@ public class TestICUTokenizer extends BaseTokenStreamTestCase {
         "σημαίνει", "ότι", "άρθρα", "μπορεί", "να", "προστεθούν", "ή", "να", "αλλάξουν", "από", "τον", "καθένα" });
   }
   
+  public void testKhmer() throws Exception {
+    assertAnalyzesTo(a, "ផ្ទះស្កឹមស្កៃបីបួនខ្នងនេះ", new String[] { "ផ្ទះ", "ស្កឹមស្កៃ", "បី", "បួន", "ខ្នង", "នេះ" });
+  }
   public void testLao() throws Exception {
     assertAnalyzesTo(a, "ກວ່າດອກ", new String[] { "ກວ່າ", "ດອກ" });
     assertAnalyzesTo(a, "ພາສາລາວ", new String[] { "ພາສາ", "ລາວ"}, new String[] { "<ALPHANUM>", "<ALPHANUM>" });

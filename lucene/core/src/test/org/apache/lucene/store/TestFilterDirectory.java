@@ -1,5 +1,3 @@
-package org.apache.lucene.store;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.store;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.store;
+
 
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -29,7 +29,7 @@ public class TestFilterDirectory extends BaseDirectoryTestCase {
 
   @Override
   protected Directory getDirectory(Path path) throws IOException {
-    return new FilterDirectory(new RAMDirectory());
+    return new FilterDirectory(new RAMDirectory()) {};
   }
   
   @Test
@@ -39,6 +39,7 @@ public class TestFilterDirectory extends BaseDirectoryTestCase {
     Set<Method> exclude = new HashSet<>();
     exclude.add(Directory.class.getMethod("copyFrom", Directory.class, String.class, String.class, IOContext.class));
     exclude.add(Directory.class.getMethod("openChecksumInput", String.class, IOContext.class));
+    exclude.add(Directory.class.getMethod("renameFile", String.class, String.class));
     for (Method m : FilterDirectory.class.getMethods()) {
       if (m.getDeclaringClass() == Directory.class) {
         assertTrue("method " + m.getName() + " not overridden!", exclude.contains(m));
@@ -48,7 +49,7 @@ public class TestFilterDirectory extends BaseDirectoryTestCase {
 
   public void testUnwrap() throws IOException {
     Directory dir = FSDirectory.open(createTempDir());
-    FilterDirectory dir2 = new FilterDirectory(dir);
+    FilterDirectory dir2 = new FilterDirectory(dir) {};
     assertEquals(dir, dir2.getDelegate());
     assertEquals(dir, FilterDirectory.unwrap(dir2));
     dir2.close();

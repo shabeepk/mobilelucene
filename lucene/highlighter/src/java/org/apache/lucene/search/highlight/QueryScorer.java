@@ -1,5 +1,3 @@
-package org.apache.lucene.search.highlight;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.highlight;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.highlight;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -216,10 +215,10 @@ public class QueryScorer implements Scorer {
     qse.setWrapIfNotCachingTokenFilter(wrapToCaching);
     qse.setUsePayloads(usePayloads);
     if (reader == null) {
-      this.fieldWeightedSpanTerms = qse.getWeightedSpanTerms(query,
+      this.fieldWeightedSpanTerms = qse.getWeightedSpanTerms(query, 1f,
           tokenStream, field);
     } else {
-      this.fieldWeightedSpanTerms = qse.getWeightedSpanTermsWithScores(query,
+      this.fieldWeightedSpanTerms = qse.getWeightedSpanTermsWithScores(query, 1f,
           tokenStream, field, reader);
     }
     if(qse.isCachedTokenStream()) {

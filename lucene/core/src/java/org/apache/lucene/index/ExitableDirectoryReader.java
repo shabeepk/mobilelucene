@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import org.apache.lucene.index.FilterLeafReader.FilterFields;
 import org.apache.lucene.index.FilterLeafReader.FilterTerms;
@@ -80,7 +80,13 @@ public class ExitableDirectoryReader extends FilterDirectoryReader {
 
     @Override
     public Fields fields() throws IOException {
-      return new ExitableFields(super.fields(), queryTimeout);
+      Fields fields = super.fields();
+      if (queryTimeout.isTimeoutEnabled()) {
+        return new ExitableFields(fields, queryTimeout);
+      }
+      else {
+        return fields;  // break out of wrapper as soon as possible
+      }
     }
     
     @Override

@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
 
 import java.io.BufferedReader;
 import java.io.Closeable;
@@ -37,12 +36,13 @@ import java.util.zip.GZIPInputStream;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
-import org.apache.lucene.document.IntField;
+import org.apache.lucene.document.IntPoint;
 import org.apache.lucene.document.NumericDocValuesField;
 import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexOptions;
+import org.apache.lucene.index.IndexableField;
 
 /** Minimal port of benchmark's LneDocSource +
  * DocMaker, so tests can enum docs from a line file created
@@ -53,22 +53,18 @@ public class LineFileDocs implements Closeable {
   private final static int BUFFER_SIZE = 1 << 16;     // 64K
   private final AtomicInteger id = new AtomicInteger();
   private final String path;
-  private final boolean useDocValues;
+  private final Random random;
 
   /** If forever is true, we rewind the file at EOF (repeat
    * the docs over and over) */
-  public LineFileDocs(Random random, String path, boolean useDocValues) throws IOException {
+  public LineFileDocs(Random random, String path) throws IOException {
     this.path = path;
-    this.useDocValues = useDocValues;
+    this.random = new Random(random.nextLong());
     open(random);
   }
 
   public LineFileDocs(Random random) throws IOException {
-    this(random, LuceneTestCase.TEST_LINE_DOCS_FILE, true);
-  }
-
-  public LineFileDocs(Random random, boolean useDocValues) throws IOException {
-    this(random, LuceneTestCase.TEST_LINE_DOCS_FILE, useDocValues);
+    this(random, LuceneTestCase.TEST_LINE_DOCS_FILE);
   }
 
   @Override
@@ -165,7 +161,7 @@ public class LineFileDocs implements Closeable {
     final Field idNumDV;
     final Field date;
 
-    public DocState(boolean useDocValues) {
+    public DocState() {
       doc = new Document();
       
       title = new StringField("title", "", Field.Store.NO);
@@ -186,21 +182,16 @@ public class LineFileDocs implements Closeable {
       id = new StringField("docid", "", Field.Store.YES);
       doc.add(id);
 
-      idNum = new IntField("docid_int", 0, Field.Store.NO);
+      idNum = new IntPoint("docid_int", 0);
       doc.add(idNum);
 
       date = new StringField("date", "", Field.Store.YES);
       doc.add(date);
 
-      if (useDocValues) {
-        titleDV = new SortedDocValuesField("titleDV", new BytesRef());
-        idNumDV = new NumericDocValuesField("docid_intDV", 0);
-        doc.add(titleDV);
-        doc.add(idNumDV);
-      } else {
-        titleDV = null;
-        idNumDV = null;
-      }
+      titleDV = new SortedDocValuesField("titleDV", new BytesRef());
+      idNumDV = new NumericDocValuesField("docid_intDV", 0);
+      doc.add(titleDV);
+      doc.add(idNumDV);
     }
   }
 
@@ -225,7 +216,7 @@ public class LineFileDocs implements Closeable {
 
     DocState docState = threadDocs.get();
     if (docState == null) {
-      docState = new DocState(useDocValues);
+      docState = new DocState();
       threadDocs.set(docState);
     }
 
@@ -252,6 +243,32 @@ public class LineFileDocs implements Closeable {
     if (docState.idNumDV != null) {
       docState.idNumDV.setLongValue(i);
     }
+
+    if (random.nextInt(5) == 4) {
+      // Make some sparse fields
+      Document doc = new Document();
+      for(IndexableField field : docState.doc) {
+        doc.add(field);
+      }
+
+      if (random.nextInt(3) == 1) {
+        int x = random.nextInt(4);
+        doc.add(new IntPoint("docLength" + x, line.length()));
+      }
+
+      if (random.nextInt(3) == 1) {
+        int x = random.nextInt(4);
+        doc.add(new IntPoint("docTitleLength" + x, title.length()));
+      }
+
+      if (random.nextInt(3) == 1) {
+        int x = random.nextInt(4);
+        doc.add(new NumericDocValuesField("docLength" + x, line.length()));
+      }
+
+      // TODO: more random sparse fields here too
+    }
+
     return docState.doc;
   }
 }

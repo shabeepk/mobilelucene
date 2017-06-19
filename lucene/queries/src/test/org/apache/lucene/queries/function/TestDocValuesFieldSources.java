@@ -1,5 +1,3 @@
-package org.apache.lucene.queries.function;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.queries.function;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queries.function;
 
 import java.io.IOException;
 
@@ -25,6 +24,7 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.NumericDocValuesField;
 import org.apache.lucene.document.SortedDocValuesField;
+import org.apache.lucene.document.SortedNumericDocValuesField;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.DocValuesType;
@@ -32,6 +32,8 @@ import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.RandomIndexWriter;
 import org.apache.lucene.queries.function.valuesource.BytesRefFieldSource;
 import org.apache.lucene.queries.function.valuesource.LongFieldSource;
+import org.apache.lucene.queries.function.valuesource.MultiValuedLongFieldSource;
+import org.apache.lucene.search.SortedNumericSelector.Type;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefBuilder;
@@ -39,11 +41,12 @@ import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.util.TestUtil;
 import org.apache.lucene.util.packed.PackedInts;
 
-import com.carrotsearch.randomizedtesting.generators.RandomInts;
+import com.carrotsearch.randomizedtesting.generators.RandomNumbers;
 
 
 public class TestDocValuesFieldSources extends LuceneTestCase {
 
+  @SuppressWarnings("fallthrough")
   public void test(DocValuesType type) throws IOException {
     Directory d = newDirectory();
     IndexWriterConfig iwConfig = newIndexWriterConfig(new MockAnalyzer(random()));
@@ -59,6 +62,9 @@ public class TestDocValuesFieldSources extends LuceneTestCase {
         break;
       case NUMERIC:
         f = new NumericDocValuesField("dv", 0);
+        break;
+      case SORTED_NUMERIC:
+        f = new SortedNumericDocValuesField("dv", 0);
         break;
       default:
         throw new AssertionError();
@@ -81,7 +87,8 @@ public class TestDocValuesFieldSources extends LuceneTestCase {
           f.setBytesValue(new BytesRef((String) vals[i]));
           break;
         case NUMERIC:
-          final int bitsPerValue = RandomInts.randomIntBetween(random(), 1, 31); // keep it an int
+        case SORTED_NUMERIC:
+          final int bitsPerValue = RandomNumbers.randomIntBetween(random(), 1, 31); // keep it an int
           vals[i] = (long) random().nextInt((int) PackedInts.maxValue(bitsPerValue));
           f.setLongValue((Long) vals[i]);
           break;
@@ -105,6 +112,10 @@ public class TestDocValuesFieldSources extends LuceneTestCase {
         case NUMERIC:
           vs = new LongFieldSource("dv");
           break;
+        case SORTED_NUMERIC:
+          // Since we are not indexing multiple values, MIN and MAX should work the same way
+          vs = random().nextBoolean()? new MultiValuedLongFieldSource("dv", Type.MIN): new MultiValuedLongFieldSource("dv", Type.MAX);
+          break;
         default:
           throw new AssertionError();
       }
@@ -126,6 +137,7 @@ public class TestDocValuesFieldSources extends LuceneTestCase {
           case SORTED:
             values.ordVal(i); // no exception
             assertTrue(values.numOrd() >= 1);
+            // fall-through
           case BINARY:
             assertEquals(expected, values.objectVal(i));
             assertEquals(expected, values.strVal(i));
@@ -135,6 +147,7 @@ public class TestDocValuesFieldSources extends LuceneTestCase {
             assertEquals(new BytesRef((String) expected), bytes.get());
             break;
           case NUMERIC:
+          case SORTED_NUMERIC:
             assertEquals(((Number) expected).longValue(), values.longVal(i));
             break;
         }
@@ -146,7 +159,7 @@ public class TestDocValuesFieldSources extends LuceneTestCase {
 
   public void test() throws IOException {
     for (DocValuesType type : DocValuesType.values()) {
-      if (type != DocValuesType.SORTED_SET && type != DocValuesType.SORTED_NUMERIC && type != DocValuesType.NONE) {
+      if (type != DocValuesType.SORTED_SET && type != DocValuesType.NONE) {
         test(type);
       }
     }

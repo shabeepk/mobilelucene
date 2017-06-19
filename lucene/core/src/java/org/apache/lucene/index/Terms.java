@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 
@@ -37,10 +37,7 @@ public abstract class Terms {
   }
 
   /** Returns an iterator that will step through all
-   *  terms. This method will not return null.  If you have
-   *  a previous TermsEnum, for example from a different
-   *  field, you can pass it for possible reuse if the
-   *  implementation can do so. */
+   *  terms. This method will not return null. */
   public abstract TermsEnum iterator() throws IOException;
 
   /** Returns a TermsEnum that iterates over all terms and
@@ -52,8 +49,12 @@ public abstract class Terms {
    *  provided <code>startTerm</code> must be accepted by
    *  the automaton.
    *
-   * <p><b>NOTE</b>: the returned TermsEnum cannot
-   * seek</p>.
+   *  <p>This is an expert low-level API and will only work
+   *  for {@code NORMAL} compiled automata.  To handle any
+   *  compiled automata you should instead use
+   *  {@link CompiledAutomaton#getTermsEnum} instead.
+   *
+   *  <p><b>NOTE</b>: the returned TermsEnum cannot seek</p>.
    *
    *  <p><b>NOTE</b>: the terms dictionary is free to
    *  return arbitrary terms as long as the resulted visited

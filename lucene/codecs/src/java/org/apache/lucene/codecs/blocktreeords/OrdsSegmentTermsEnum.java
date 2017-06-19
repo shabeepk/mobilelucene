@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.blocktreeords;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,24 +14,23 @@ package org.apache.lucene.codecs.blocktreeords;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.blocktreeords;
+
 
 //import java.io.*;
-//import org.lukhnos.portmobile.charset.StandardCharsets;
+//import java.nio.charset.StandardCharsets;
 
 import java.io.IOException;
 import java.io.PrintStream;
 
 import org.apache.lucene.codecs.BlockTermState;
 import org.apache.lucene.codecs.blocktreeords.FSTOrdsOutputs.Output;
-import org.apache.lucene.index.DocsAndPositionsEnum;
 import org.apache.lucene.index.PostingsEnum;
-import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.TermState;
 import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.store.ByteArrayDataInput;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.ArrayUtil;
-import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefBuilder;
 import org.apache.lucene.util.IntsRef;
@@ -925,14 +922,6 @@ public final class OrdsSegmentTermsEnum extends TermsEnum {
 
   @Override
   public PostingsEnum postings(PostingsEnum reuse, int flags) throws IOException {
-
-    if (PostingsEnum.featureRequested(flags, DocsAndPositionsEnum.OLD_NULL_SEMANTICS)) {
-      if (fr.fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS) < 0) {
-        // Positions were not indexed:
-        return null;
-      }
-    }
-
     assert !eof;
     //if (DEBUG) {
     //System.out.println("BTTR.docs seg=" + segment);

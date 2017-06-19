@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
+
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -109,12 +109,9 @@ public class TestIOUtils extends LuceneTestCase {
     
     // exception: file doesn't exist
     Path fake = dir.resolve("nonexistent");
-    try {
+    expectThrows(IOException.class, () -> {
       IOUtils.spins(fake);
-      fail();
-    } catch (IOException expected) {
-      // ok
-    }
+    });
   }
   
   // fake up a filestore to test some underlying methods
@@ -203,7 +200,7 @@ public class TestIOUtils extends LuceneTestCase {
     final Map<String,FileStore> filesToStore;
     final Path root;
     
-    public MockLinuxFileSystemProvider(final FileSystem delegateInstance, final Map<String,FileStore> filesToStore, Path root) {
+    public MockLinuxFileSystemProvider(FileSystem delegateInstance, final Map<String,FileStore> filesToStore, Path root) {
       super("mocklinux://", delegateInstance);
       final Collection<FileStore> allStores = new HashSet<>(filesToStore.values());
       this.fileSystem = new FilterFileSystem(this, delegateInstance) {
@@ -466,4 +463,28 @@ public class TestIOUtils extends LuceneTestCase {
     assertFalse(IOUtils.spinsLinux(mockPath));
   }
   
+  public void testFsyncDirectory() throws Exception {
+    Path dir = createTempDir();
+    dir = FilterPath.unwrap(dir).toRealPath();
+
+    Path devdir = dir.resolve("dev");
+    Files.createDirectories(devdir);
+    IOUtils.fsync(devdir, true);
+    // no exception
+  }
+
+  public void testFsyncFile() throws Exception {
+    Path dir = createTempDir();
+    dir = FilterPath.unwrap(dir).toRealPath();
+
+    Path devdir = dir.resolve("dev");
+    Files.createDirectories(devdir);
+    Path somefile = devdir.resolve("somefile");
+    try (OutputStream o = Files.newOutputStream(somefile)) {
+      o.write("0\n".getBytes(StandardCharsets.US_ASCII));
+    }
+    IOUtils.fsync(somefile, false);
+    // no exception
+  }
+
 }

@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,10 +14,10 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
+
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Collections;
 
 import org.apache.lucene.search.DocIdSetIterator;
 
@@ -96,76 +94,4 @@ public abstract class BitSet implements MutableBits, Accountable {
     }
   }
 
-  private static abstract class LeapFrogCallBack {
-    abstract void onMatch(int doc);
-    void finish() {}
-  }
-
-  /** Performs a leap frog between this and the provided iterator in order to find common documents. */
-  private void leapFrog(DocIdSetIterator iter, LeapFrogCallBack callback) throws IOException {
-    final int length = length();
-    int bitSetDoc = -1;
-    int disiDoc = iter.nextDoc();
-    while (true) {
-      // invariant: bitSetDoc <= disiDoc
-      assert bitSetDoc <= disiDoc;
-      if (disiDoc >= length) {
-        callback.finish();
-        return;
-      }
-      if (bitSetDoc < disiDoc) {
-        bitSetDoc = nextSetBit(disiDoc);
-      }
-      if (bitSetDoc == disiDoc) {
-        callback.onMatch(bitSetDoc);
-        disiDoc = iter.nextDoc();
-      } else {
-        disiDoc = iter.advance(bitSetDoc);
-      }
-    }
-  }
-
-  /** Does in-place AND of the bits provided by the iterator. The state of the
-   *  iterator after this operation terminates is undefined. */
-  @Deprecated
-  public void and(DocIdSetIterator iter) throws IOException {
-    assertUnpositioned(iter);
-    leapFrog(iter, new LeapFrogCallBack() {
-      int previous = -1;
-
-      @Override
-      public void onMatch(int doc) {
-        clear(previous + 1, doc);
-        previous = doc;
-      }
-
-      @Override
-      public void finish() {
-        if (previous + 1 < length()) {
-          clear(previous + 1, length());
-        }
-      }
-
-    });
-  }
-
-  /** this = this AND NOT other. The state of the iterator after this operation
-   *  terminates is undefined. */
-  @Deprecated
-  public void andNot(DocIdSetIterator iter) throws IOException {
-    assertUnpositioned(iter);
-    leapFrog(iter, new LeapFrogCallBack() {
-
-      @Override
-      public void onMatch(int doc) {
-        clear(doc);
-      }
-
-    });
-  }
-
-  @Override
-  public Collection<Accountable> getChildResources() {
-    return Collections.emptyList();
-  }
 }

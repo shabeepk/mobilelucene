@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
 
 import java.io.IOException;
 import java.util.List;
@@ -23,6 +22,7 @@ import java.util.concurrent.ExecutorService;
 
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.util.Bits;
 
 /**
  * An {@link IndexSearcher} that always uses the {@link Scorer} API, never {@link BulkScorer}.
@@ -50,10 +50,14 @@ public class ScorerIndexSearcher extends IndexSearcher {
       // Scorer.getChildren
       Scorer scorer = weight.scorer(ctx);
       if (scorer != null) {
+        final DocIdSetIterator iterator = scorer.iterator();
         final LeafCollector leafCollector = collector.getLeafCollector(ctx);
         leafCollector.setScorer(scorer);
-        for (int doc = scorer.nextDoc(); doc != DocIdSetIterator.NO_MORE_DOCS; doc = scorer.nextDoc()) {
-          leafCollector.collect(doc);
+        final Bits liveDocs = ctx.reader().getLiveDocs();
+        for (int doc = iterator.nextDoc(); doc != DocIdSetIterator.NO_MORE_DOCS; doc = iterator.nextDoc()) {
+          if (liveDocs == null || liveDocs.get(doc)) {
+            leafCollector.collect(doc);
+          }
         }
       }
     }

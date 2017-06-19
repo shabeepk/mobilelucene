@@ -1,5 +1,3 @@
-package org.apache.lucene.search.grouping.term;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,13 +14,14 @@ package org.apache.lucene.search.grouping.term;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.grouping.term;
 
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.SortedDocValues;
 import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.index.TermsEnum;
-import org.apache.lucene.search.grouping.AbstractGroupFacetCollector;
+import org.apache.lucene.search.grouping.GroupFacetCollector;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefBuilder;
 import org.apache.lucene.util.SentinelIntSet;
@@ -33,12 +32,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * An implementation of {@link AbstractGroupFacetCollector} that computes grouped facets based on the indexed terms
+ * An implementation of {@link GroupFacetCollector} that computes grouped facets based on the indexed terms
  * from DocValues.
  *
  * @lucene.experimental
  */
-public abstract class TermGroupFacetCollector extends AbstractGroupFacetCollector {
+public abstract class TermGroupFacetCollector extends GroupFacetCollector {
 
   final List<GroupedFacetHit> groupedFacetHits;
   final SentinelIntSet segmentGroupedFacetHits;
@@ -74,11 +73,6 @@ public abstract class TermGroupFacetCollector extends AbstractGroupFacetCollecto
     super(groupField, facetField, facetPrefix);
     groupedFacetHits = new ArrayList<>(initialSize);
     segmentGroupedFacetHits = new SentinelIntSet(initialSize, Integer.MIN_VALUE);
-  }
-  
-  @Override
-  public boolean needsScores() {
-    return true; // TODO, maybe we don't?
   }
 
   // Implementation for single valued facet fields.
@@ -177,7 +171,7 @@ public abstract class TermGroupFacetCollector extends AbstractGroupFacetCollecto
       return new SegmentResult(segmentFacetCounts, segmentTotalCount, facetFieldTermsIndex.termsEnum(), startFacetOrd, endFacetOrd);
     }
 
-    private static class SegmentResult extends AbstractGroupFacetCollector.SegmentResult {
+    private static class SegmentResult extends GroupFacetCollector.SegmentResult {
 
       final TermsEnum tenum;
 
@@ -353,7 +347,7 @@ public abstract class TermGroupFacetCollector extends AbstractGroupFacetCollecto
       return new SegmentResult(segmentFacetCounts, segmentTotalCount, facetFieldNumTerms, facetOrdTermsEnum, startFacetOrd, endFacetOrd);
     }
 
-    private static class SegmentResult extends AbstractGroupFacetCollector.SegmentResult {
+    private static class SegmentResult extends GroupFacetCollector.SegmentResult {
 
       final TermsEnum tenum;
 

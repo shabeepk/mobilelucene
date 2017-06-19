@@ -1,11 +1,9 @@
-package org.apache.lucene.search.grouping;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License")); you may not use this file except in compliance with
+ * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
@@ -16,6 +14,7 @@ package org.apache.lucene.search.grouping;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.grouping;
 
 import org.apache.lucene.analysis.MockAnalyzer;
 import org.apache.lucene.document.Document;
@@ -103,7 +102,7 @@ public class AllGroupsCollectorTest extends LuceneTestCase {
     IndexSearcher indexSearcher = newSearcher(w.getReader());
     w.close();
 
-    AbstractAllGroupsCollector<?> allGroupsCollector = createRandomCollector(groupField);
+    AllGroupsCollector<?> allGroupsCollector = createRandomCollector(groupField);
     indexSearcher.search(new TermQuery(new Term("content", "random")), allGroupsCollector);
     assertEquals(4, allGroupsCollector.getGroupCount());
 
@@ -124,8 +123,8 @@ public class AllGroupsCollectorTest extends LuceneTestCase {
     doc.add(new SortedDocValuesField(groupField, new BytesRef(value)));
   }
 
-  private AbstractAllGroupsCollector<?> createRandomCollector(String groupField) {
-    AbstractAllGroupsCollector<?> selected;
+  private AllGroupsCollector<?> createRandomCollector(String groupField) {
+    AllGroupsCollector<?> selected;
     if (random().nextBoolean()) {
       selected = new TermAllGroupsCollector(groupField);
     } else {

@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,8 +14,13 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
 
+
+import java.io.EOFException;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.NoSuchFileException;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -26,6 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.NormsProducer;
+import org.apache.lucene.codecs.PointsReader;
 import org.apache.lucene.codecs.PostingsFormat;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.TermVectorsReader;
@@ -35,9 +39,6 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.util.CloseableThreadLocal;
 import org.apache.lucene.util.IOUtils;
-
-// Extra imports by portmobile.
-import org.lukhnos.portmobile.j2objc.annotations.WeakOuter;
 
 /** Holds core readers that are shared (unchanged) when
  * SegmentReader is cloned or reopened */
@@ -56,7 +57,9 @@ final class SegmentCoreReaders {
 
   final StoredFieldsReader fieldsReaderOrig;
   final TermVectorsReader termVectorsReaderOrig;
+  final PointsReader pointsReader;
   final Directory cfsReader;
+  final String segment;
   /** 
    * fieldinfos for this core: means gen=-1.
    * this is the exact fieldinfos these codec components saw at write.
@@ -67,30 +70,24 @@ final class SegmentCoreReaders {
   // Thingy class holding fieldsReader, termVectorsReader,
   // normsProducer
 
-  @WeakOuter
-  class FieldsReaderLocal extends CloseableThreadLocal<StoredFieldsReader> {
+  final CloseableThreadLocal<StoredFieldsReader> fieldsReaderLocal = new CloseableThreadLocal<StoredFieldsReader>() {
     @Override
     protected StoredFieldsReader initialValue() {
       return fieldsReaderOrig.clone();
     }
   };
-
-  final CloseableThreadLocal<StoredFieldsReader> fieldsReaderLocal = new FieldsReaderLocal();
-
-  @WeakOuter
-  class TermVectorsLocal extends CloseableThreadLocal<TermVectorsReader> {
+  
+  final CloseableThreadLocal<TermVectorsReader> termVectorsLocal = new CloseableThreadLocal<TermVectorsReader>() {
     @Override
     protected TermVectorsReader initialValue() {
       return (termVectorsReaderOrig == null) ? null : termVectorsReaderOrig.clone();
     }
   };
 
-  final CloseableThreadLocal<TermVectorsReader> termVectorsLocal = new TermVectorsLocal();
-
   private final Set<CoreClosedListener> coreClosedListeners = 
       Collections.synchronizedSet(new LinkedHashSet<CoreClosedListener>());
   
-  SegmentCoreReaders(SegmentReader owner, Directory dir, SegmentCommitInfo si, IOContext context) throws IOException {
+  SegmentCoreReaders(Directory dir, SegmentCommitInfo si, IOContext context) throws IOException {
 
     final Codec codec = si.info.getCodec();
     final Directory cfsDir; // confusing name: if (cfs) it's the cfsdir, otherwise it's the segment's directory.
@@ -104,6 +101,8 @@ final class SegmentCoreReaders {
         cfsReader = null;
         cfsDir = dir;
       }
+
+      segment = si.info.name;
 
       coreFieldInfos = codec.fieldInfosFormat().read(cfsDir, si.info, "", context);
       
@@ -131,7 +130,16 @@ final class SegmentCoreReaders {
         termVectorsReaderOrig = null;
       }
 
+      if (coreFieldInfos.hasPointValues()) {
+        pointsReader = codec.pointsFormat().fieldsReader(segmentReadState);
+      } else {
+        pointsReader = null;
+      }
       success = true;
+    } catch (EOFException | FileNotFoundException e) {
+      throw new CorruptIndexException("Problem reading index from " + dir, dir.toString(), e);
+    } catch (NoSuchFileException e) {
+      throw new CorruptIndexException("Problem reading index.", e.getFile(), e);
     } finally {
       if (!success) {
         decRef();
@@ -159,7 +167,7 @@ final class SegmentCoreReaders {
       Throwable th = null;
       try {
         IOUtils.close(termVectorsLocal, fieldsReaderLocal, fields, termVectorsReaderOrig, fieldsReaderOrig,
-            cfsReader, normsProducer);
+                      cfsReader, normsProducer, pointsReader);
       } catch (Throwable throwable) {
         th = throwable;
       } finally {
@@ -168,7 +176,7 @@ final class SegmentCoreReaders {
     }
   }
   
-  private void notifyCoreClosedListeners(Throwable th) {
+  private void notifyCoreClosedListeners(Throwable th) throws IOException {
     synchronized(coreClosedListeners) {
       for (CoreClosedListener listener : coreClosedListeners) {
         // SegmentReader uses our instance as its
@@ -183,7 +191,10 @@ final class SegmentCoreReaders {
           }
         }
       }
-      IOUtils.reThrowUnchecked(th);
+      
+      if (th != null) {
+        throw IOUtils.rethrowAlways(th);
+      }
     }
   }
 
@@ -193,5 +204,10 @@ final class SegmentCoreReaders {
   
   void removeCoreClosedListener(CoreClosedListener listener) {
     coreClosedListeners.remove(listener);
+  }
+
+  @Override
+  public String toString() {
+    return "SegmentCoreReader(" + segment + ")";
   }
 }

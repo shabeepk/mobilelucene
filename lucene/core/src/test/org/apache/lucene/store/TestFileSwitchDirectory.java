@@ -1,5 +1,3 @@
-package org.apache.lucene.store;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.store;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.store;
+
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -31,7 +31,6 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.TestIndexWriterReader;
-import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.TestUtil;
 
 public class TestFileSwitchDirectory extends BaseDirectoryTestCase {
@@ -57,7 +56,7 @@ public class TestFileSwitchDirectory extends BaseDirectoryTestCase {
             setMergePolicy(newLogMergePolicy(false)).setCodec(TestUtil.getDefaultCodec()).setUseCompoundFile(false)
     );
     TestIndexWriterReader.createIndexNoClose(true, "ram", writer);
-    IndexReader reader = DirectoryReader.open(writer, true);
+    IndexReader reader = DirectoryReader.open(writer);
     assertEquals(100, reader.maxDoc());
     writer.commit();
     // we should see only fdx,fdt files here
@@ -100,14 +99,11 @@ public class TestFileSwitchDirectory extends BaseDirectoryTestCase {
   public void testNoDir() throws Throwable {
     Path primDir = createTempDir("foo");
     Path secondDir = createTempDir("bar");
-    IOUtils.rm(primDir, secondDir);
     Directory dir = newFSSwitchDirectory(primDir, secondDir, Collections.<String>emptySet());
-    try {
+    expectThrows(IndexNotFoundException.class, () -> {
       DirectoryReader.open(dir);
-      fail("did not hit expected exception");
-    } catch (IndexNotFoundException nsde) {
-      // expected
-    }
+    });
+
     dir.close();
   }
 

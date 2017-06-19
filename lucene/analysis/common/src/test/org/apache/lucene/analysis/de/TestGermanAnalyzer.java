@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.de;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,16 +14,17 @@ package org.apache.lucene.analysis.de;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.de;
+
 
 import java.io.IOException;
 import java.io.StringReader;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.BaseTokenStreamTestCase;
+import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.core.LowerCaseTokenizer;
 import org.apache.lucene.analysis.miscellaneous.SetKeywordMarkerFilter;
-import org.apache.lucene.analysis.util.CharArraySet;
-import org.apache.lucene.util.Version;
 
 public class TestGermanAnalyzer extends BaseTokenStreamTestCase {
   public void testReusableTokenStream() throws Exception {
@@ -69,12 +68,5 @@ public class TestGermanAnalyzer extends BaseTokenStreamTestCase {
     GermanAnalyzer a = new GermanAnalyzer();
     checkRandomData(random(), a, 1000*RANDOM_MULTIPLIER);
     a.close();
-  }
-
-  public void testBackcompat40() throws IOException {
-    GermanAnalyzer a = new GermanAnalyzer();
-    a.setVersion(Version.LUCENE_4_6_1);
-    // this is just a test to see the correct unicode version is being used, not actually testing hebrew
-    assertAnalyzesTo(a, "א\"א", new String[] {"א", "א"});
   }
 }

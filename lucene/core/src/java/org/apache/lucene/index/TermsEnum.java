@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,11 +14,12 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 
 import org.apache.lucene.util.AttributeSource;
-import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefIterator;
 
@@ -252,106 +251,4 @@ public abstract class TermsEnum implements BytesRefIterator {
     }
 
   };
-  
-  /** Get {@link DocsEnum} for the current term.  Do not
-   *  call this when the enum is unpositioned.  This method
-   *  will not return null.
-   *  
-   * @param liveDocs unset bits are documents that should not
-   * be returned
-   * @param reuse pass a prior DocsEnum for possible reuse 
-   * @deprecated Use {@link #postings(PostingsEnum)} instead */
-  @Deprecated
-  public final DocsEnum docs(Bits liveDocs, DocsEnum reuse) throws IOException {
-    return docs(liveDocs, reuse, DocsEnum.FLAG_FREQS);
-  }
-
-  /** Get {@link DocsEnum} for the current term, with
-   *  control over whether freqs are required.  Do not
-   *  call this when the enum is unpositioned.  This method
-   *  will not return null.
-   *  
-   * @param liveDocs unset bits are documents that should not
-   * be returned
-   * @param reuse pass a prior DocsEnum for possible reuse
-   * @param flags specifies which optional per-document values
-   *        you require; see {@link DocsEnum#FLAG_FREQS} 
-   * @see #docs(Bits, DocsEnum, int) 
-   * @deprecated Use {@link #postings(PostingsEnum, int)} instead */
-  @Deprecated
-  public final DocsEnum docs(Bits liveDocs, DocsEnum reuse, int flags) throws IOException {
-    final int newFlags;
-    if (flags == DocsEnum.FLAG_FREQS) {
-      newFlags = PostingsEnum.FREQS;
-    } else if (flags == DocsEnum.FLAG_NONE) {
-      newFlags = PostingsEnum.NONE;
-    } else {
-      throw new IllegalArgumentException("Invalid legacy docs flags: " + flags);
-    }
-    PostingsEnum actualReuse = DocsAndPositionsEnum.unwrap(reuse);
-    PostingsEnum postings = postings(actualReuse, newFlags);
-    if (postings == null) {
-      throw new AssertionError();
-    } else if (postings == actualReuse
-        && liveDocs == DocsAndPositionsEnum.unwrapliveDocs(reuse)) {
-      return reuse;
-    } else {
-      return DocsAndPositionsEnum.wrap(postings, liveDocs);
-    }
-  };
-
-  /** Get {@link DocsAndPositionsEnum} for the current term.
-   *  Do not call this when the enum is unpositioned.  This
-   *  method will return null if positions were not
-   *  indexed.
-   *  
-   *  @param liveDocs unset bits are documents that should not
-   *  be returned
-   *  @param reuse pass a prior DocsAndPositionsEnum for possible reuse
-   *  @see #docsAndPositions(Bits, DocsAndPositionsEnum, int)
-   *  @deprecated Use {@link #postings(PostingsEnum, int)} instead */
-  @Deprecated
-  public final DocsAndPositionsEnum docsAndPositions(Bits liveDocs, DocsAndPositionsEnum reuse) throws IOException {
-    return docsAndPositions(liveDocs, reuse, DocsAndPositionsEnum.FLAG_OFFSETS | DocsAndPositionsEnum.FLAG_PAYLOADS);
-  }
-
-  /** Get {@link DocsAndPositionsEnum} for the current term,
-   *  with control over whether offsets and payloads are
-   *  required.  Some codecs may be able to optimize their
-   *  implementation when offsets and/or payloads are not required.
-   *  Do not call this when the enum is unpositioned.  This
-   *  will return null if positions were not indexed.
-
-   *  @param liveDocs unset bits are documents that should not
-   *  be returned
-   *  @param reuse pass a prior DocsAndPositionsEnum for possible reuse
-   *  @param flags specifies which optional per-position values you
-   *         require; see {@link DocsAndPositionsEnum#FLAG_OFFSETS} and 
-   *         {@link DocsAndPositionsEnum#FLAG_PAYLOADS}. 
-   *  @deprecated Use {@link #postings(PostingsEnum, int)} instead */
-  @Deprecated
-  public final DocsAndPositionsEnum docsAndPositions(Bits liveDocs, DocsAndPositionsEnum reuse, int flags) throws IOException {
-    final int newFlags;
-    if (flags == (DocsAndPositionsEnum.FLAG_OFFSETS | DocsAndPositionsEnum.FLAG_PAYLOADS)) {
-      newFlags = PostingsEnum.OFFSETS | PostingsEnum.PAYLOADS; 
-    } else if (flags == DocsAndPositionsEnum.FLAG_OFFSETS) {
-      newFlags = PostingsEnum.OFFSETS;
-    } else if (flags == DocsAndPositionsEnum.FLAG_PAYLOADS) {
-      newFlags = PostingsEnum.PAYLOADS;
-    } else if (flags == DocsAndPositionsEnum.FLAG_NONE) {
-      newFlags = PostingsEnum.POSITIONS;
-    } else {
-      throw new IllegalArgumentException("Invalid legacy docsAndPositions flags: " + flags);
-    }
-    PostingsEnum actualReuse = DocsAndPositionsEnum.unwrap(reuse);
-    PostingsEnum postings = postings(actualReuse, newFlags | DocsAndPositionsEnum.OLD_NULL_SEMANTICS);
-    if (postings == null) {
-      return null; // if no positions were indexed
-    } else if (postings == actualReuse
-        && liveDocs == DocsAndPositionsEnum.unwrapliveDocs(reuse)) {
-      return reuse;
-    } else {
-      return DocsAndPositionsEnum.wrap(postings, liveDocs);
-    }
-  }
 }

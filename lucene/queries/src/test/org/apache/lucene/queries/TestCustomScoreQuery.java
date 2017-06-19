@@ -1,5 +1,3 @@
-package org.apache.lucene.queries;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.queries;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queries;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -34,6 +33,7 @@ import org.apache.lucene.queries.function.FunctionTestSetup;
 import org.apache.lucene.queries.function.ValueSource;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.CheckHits;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.IndexSearcher;
@@ -153,7 +153,7 @@ public class TestCustomScoreQuery extends FunctionTestSetup {
     }
   }
 
-  private final class CustomExternalQuery extends CustomScoreQuery {
+  private static final class CustomExternalQuery extends CustomScoreQuery {
 
     @Override
     protected CustomScoreProvider getCustomScoreProvider(LeafReaderContext context) throws IOException {
@@ -236,30 +236,41 @@ public class TestCustomScoreQuery extends FunctionTestSetup {
     BooleanQuery.Builder q2CustomNeutralB = new BooleanQuery.Builder();
     q2CustomNeutralB.setDisableCoord(true);
     Query q2CustomNeutralInner = new CustomScoreQuery(q1);
-    q2CustomNeutralInner.setBoost((float)Math.sqrt(dboost));
-    q2CustomNeutralB.add(q2CustomNeutralInner, BooleanClause.Occur.SHOULD);
+    q2CustomNeutralB.add(new BoostQuery(q2CustomNeutralInner, (float)Math.sqrt(dboost)), BooleanClause.Occur.SHOULD);
     // a little tricky: we split the boost across an outer BQ and CustomScoreQuery
     // this ensures boosting is correct across all these functions (see LUCENE-4935)
     Query q2CustomNeutral = q2CustomNeutralB.build();
-    q2CustomNeutral.setBoost((float)Math.sqrt(dboost));
+    q2CustomNeutral = new BoostQuery(q2CustomNeutral, (float)Math.sqrt(dboost));
     log(q2CustomNeutral);
 
     // custom query, that should (by default) multiply the scores of q1 by that of the field
-    CustomScoreQuery q3CustomMul = new CustomScoreQuery(q1, functionQuery);
-    q3CustomMul.setStrict(true);
-    q3CustomMul.setBoost(boost);
+    Query q3CustomMul;
+    {
+      CustomScoreQuery csq = new CustomScoreQuery(q1, functionQuery);
+      csq.setStrict(true);
+      q3CustomMul = csq;
+    }
+    q3CustomMul = new BoostQuery(q3CustomMul, boost);
     log(q3CustomMul);
 
     // custom query, that should add the scores of q1 to that of the field
-    CustomScoreQuery q4CustomAdd = new CustomAddQuery(q1, functionQuery);
-    q4CustomAdd.setStrict(true);
-    q4CustomAdd.setBoost(boost);
+    Query q4CustomAdd;
+    {
+      CustomScoreQuery csq = new CustomAddQuery(q1, functionQuery);
+      csq.setStrict(true);
+      q4CustomAdd = csq;
+    }
+    q4CustomAdd = new BoostQuery(q4CustomAdd, boost);
     log(q4CustomAdd);
 
     // custom query, that multiplies and adds the field score to that of q1
-    CustomScoreQuery q5CustomMulAdd = new CustomMulAddQuery(q1, functionQuery, functionQuery);
-    q5CustomMulAdd.setStrict(true);
-    q5CustomMulAdd.setBoost(boost);
+    Query q5CustomMulAdd;
+    {
+      CustomScoreQuery csq = new CustomMulAddQuery(q1, functionQuery, functionQuery);
+      csq.setStrict(true);
+      q5CustomMulAdd = csq;
+    }
+    q5CustomMulAdd = new BoostQuery(q5CustomMulAdd, boost);
     log(q5CustomMulAdd);
 
     // do al the searches 

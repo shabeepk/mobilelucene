@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
@@ -51,7 +51,7 @@ import org.apache.lucene.util.LuceneTestCase.Slow;
 public class TestIndexWriterWithThreads extends LuceneTestCase {
 
   // Used by test cases below
-  private class IndexerThread extends Thread {
+  private static class IndexerThread extends Thread {
 
     boolean diskFull;
     Throwable error;
@@ -365,22 +365,20 @@ public class TestIndexWriterWithThreads extends LuceneTestCase {
 
     dir.failOn(failure);
     failure.setDoFail();
-    try {
+    expectThrows(IOException.class, () -> {
       writer.addDocument(doc);
       writer.addDocument(doc);
       writer.commit();
-      fail("did not hit exception");
-    } catch (IOException ioe) {
-    }
+    });
+
     failure.clearDoFail();
-    try {
+    expectThrows(AlreadyClosedException.class, () -> {
       writer.addDocument(doc);
       writer.commit();
       writer.close();
-    } catch (AlreadyClosedException ace) {
-      // OK: abort closes the writer
-      assertTrue(writer.deleter.isClosed());
-    }
+    });
+
+    assertTrue(writer.deleter.isClosed());
     dir.close();
   }
 
@@ -580,9 +578,6 @@ public class TestIndexWriterWithThreads extends LuceneTestCase {
   // LUCENE-4147
   public void testRollbackAndCommitWithThreads() throws Exception {
     final BaseDirectoryWrapper d = newDirectory();
-    if (d instanceof MockDirectoryWrapper) {
-      ((MockDirectoryWrapper)d).setPreventDoubleWrite(false);
-    }
 
     final int threadCount = TestUtil.nextInt(random(), 2, 6);
 

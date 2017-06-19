@@ -1,5 +1,3 @@
-package org.apache.lucene.queries.function.valuesource;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.queries.function.valuesource;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queries.function.valuesource;
 
 import java.io.IOException;
 import java.util.Map;
@@ -56,7 +55,7 @@ public class TFValueSource extends TermFreqValueSource {
     IndexSearcher searcher = (IndexSearcher)context.get("searcher");
     final TFIDFSimilarity similarity = IDFValueSource.asTFIDF(searcher.getSimilarity(true), indexedField);
     if (similarity == null) {
-      throw new UnsupportedOperationException("requires a TFIDFSimilarity (such as DefaultSimilarity)");
+      throw new UnsupportedOperationException("requires a TFIDFSimilarity (such as ClassicSimilarity)");
     }
 
     return new FloatDocValues(this) {

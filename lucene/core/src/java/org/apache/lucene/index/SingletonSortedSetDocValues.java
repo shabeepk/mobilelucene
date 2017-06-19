@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import org.apache.lucene.util.BytesRef;
 
@@ -33,7 +33,6 @@ final class SingletonSortedSetDocValues extends RandomAccessOrds {
   /** Creates a multi-valued view over the provided SortedDocValues */
   public SingletonSortedSetDocValues(SortedDocValues in) {
     this.in = in;
-    assert NO_MORE_ORDS == -1; // this allows our nextOrd() to work for missing values without a check
   }
 
   /** Return the wrapped {@link SortedDocValues} */

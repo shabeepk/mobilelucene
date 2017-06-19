@@ -1,5 +1,3 @@
-package org.apache.lucene.search.postingshighlight;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.postingshighlight;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.postingshighlight;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -33,7 +32,6 @@ import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.DisjunctionMaxQuery;
-import org.apache.lucene.search.FilteredQuery;
 import org.apache.lucene.search.FuzzyQuery;
 import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
@@ -69,8 +67,6 @@ class MultiTermHighlighting {
           list.addAll(Arrays.asList(extractAutomata(clause.getQuery(), field)));
         }
       }
-    } else if (query instanceof FilteredQuery) {
-      list.addAll(Arrays.asList(extractAutomata(((FilteredQuery) query).getQuery(), field)));
     } else if (query instanceof ConstantScoreQuery) {
       list.addAll(Arrays.asList(extractAutomata(((ConstantScoreQuery) query).getQuery(), field)));
     } else if (query instanceof DisjunctionMaxQuery) {
@@ -91,16 +87,6 @@ class MultiTermHighlighting {
       list.addAll(Arrays.asList(extractAutomata(((SpanPositionCheckQuery) query).getMatch(), field)));
     } else if (query instanceof SpanMultiTermQueryWrapper) {
       list.addAll(Arrays.asList(extractAutomata(((SpanMultiTermQueryWrapper<?>) query).getWrappedQuery(), field)));
-    } else if (query instanceof AutomatonQuery) {
-      final AutomatonQuery aq = (AutomatonQuery) query;
-      if (aq.getField().equals(field)) {
-        list.add(new CharacterRunAutomaton(aq.getAutomaton()) {
-          @Override
-          public String toString() {
-            return aq.toString();
-          }
-        });
-      }
     } else if (query instanceof PrefixQuery) {
       final PrefixQuery pq = (PrefixQuery) query;
       Term prefix = pq.getPrefix();
@@ -183,6 +169,16 @@ class MultiTermHighlighting {
           @Override
           public String toString() {
             return tq.toString();
+          }
+        });
+      }
+    } else if (query instanceof AutomatonQuery) {
+      final AutomatonQuery aq = (AutomatonQuery) query;
+      if (aq.getField().equals(field)) {
+        list.add(new CharacterRunAutomaton(aq.getAutomaton()) {
+          @Override
+          public String toString() {
+            return aq.toString();
           }
         });
       }

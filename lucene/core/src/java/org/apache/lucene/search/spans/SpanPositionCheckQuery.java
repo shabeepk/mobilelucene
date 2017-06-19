@@ -1,4 +1,3 @@
-package org.apache.lucene.search.spans;
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -15,11 +14,12 @@ package org.apache.lucene.search.spans;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spans;
 
 
 import java.io.IOException;
 import java.util.Map;
-import org.lukhnos.portmobile.util.Objects;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.lucene.index.IndexReader;
@@ -76,8 +76,7 @@ public abstract class SpanPositionCheckQuery extends SpanQuery implements Clonea
 
     final SpanWeight matchWeight;
 
-    public SpanPositionCheckWeight(SpanWeight matchWeight, IndexSearcher searcher, Map<Term, TermContext> terms)
-        throws IOException {
+    public SpanPositionCheckWeight(SpanWeight matchWeight, IndexSearcher searcher, Map<Term, TermContext> terms) throws IOException {
       super(SpanPositionCheckQuery.this, searcher, terms);
       this.matchWeight = matchWeight;
     }
@@ -107,33 +106,29 @@ public abstract class SpanPositionCheckQuery extends SpanQuery implements Clonea
 
   @Override
   public Query rewrite(IndexReader reader) throws IOException {
-    SpanPositionCheckQuery clone = null;
-
     SpanQuery rewritten = (SpanQuery) match.rewrite(reader);
     if (rewritten != match) {
-      clone = (SpanPositionCheckQuery) this.clone();
-      clone.match = rewritten;
+      try {
+        SpanPositionCheckQuery clone = (SpanPositionCheckQuery) this.clone();
+        clone.match = rewritten;
+        return clone;
+      } catch (CloneNotSupportedException e) {
+        throw new AssertionError(e);
+      }
     }
 
-    if (clone != null) {
-      return clone;                        // some clauses rewrote
-    } else {
-      return this;                         // no clauses rewrote
-    }
+    return super.rewrite(reader);
   }
 
-  /** Returns true iff <code>o</code> is equal to this. */
+  /** Returns true iff <code>other</code> is equal to this. */
   @Override
-  public boolean equals(Object o) {
-    if (! super.equals(o)) {
-      return false;
-    }
-    SpanPositionCheckQuery spcq = (SpanPositionCheckQuery) o;
-    return match.equals(spcq.match);
+  public boolean equals(Object other) {
+    return sameClassAs(other) &&
+           match.equals(((SpanPositionCheckQuery) other).match);
   }
 
   @Override
   public int hashCode() {
-    return match.hashCode() ^ super.hashCode();
+    return classHash() ^ match.hashCode();
   }
 }

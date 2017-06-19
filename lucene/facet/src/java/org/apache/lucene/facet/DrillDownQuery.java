@@ -1,5 +1,3 @@
-package org.apache.lucene.facet;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.facet;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.facet;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -28,7 +27,7 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.ConstantScoreQuery;
+import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
@@ -39,8 +38,8 @@ import org.apache.lucene.search.TermQuery;
  * want to drill-down over.
  * <p>
  * <b>NOTE:</b> if you choose to create your own {@link Query} by calling
- * {@link #term}, it is recommended to wrap it with {@link ConstantScoreQuery}
- * and set the {@link ConstantScoreQuery#setBoost(float) boost} to {@code 0.0f},
+ * {@link #term}, it is recommended to wrap it in a {@link BoostQuery}
+ * with a boost of {@code 0.0f},
  * so that it does not affect the scores of the documents.
  * 
  * @lucene.experimental
@@ -67,10 +66,10 @@ public final class DrillDownQuery extends Query {
 
   /** Used by DrillSideways */
   DrillDownQuery(FacetsConfig config, Query filter, DrillDownQuery other) {
-    BooleanQuery.Builder baseQuery = new BooleanQuery.Builder();
-    baseQuery.add(other.baseQuery == null ? new MatchAllDocsQuery() : other.baseQuery, Occur.MUST);
-    baseQuery.add(filter, Occur.FILTER);
-    this.baseQuery = baseQuery.build();
+    this.baseQuery = new BooleanQuery.Builder()
+        .add(other.baseQuery == null ? new MatchAllDocsQuery() : other.baseQuery, Occur.MUST)
+        .add(filter, Occur.FILTER)
+        .build();
     this.dimQueries.addAll(other.dimQueries);
     this.drillDownDims.putAll(other.drillDownDims);
     this.config = config;
@@ -123,19 +122,20 @@ public final class DrillDownQuery extends Query {
   
   @Override
   public int hashCode() {
-    return 31 * super.hashCode() + Objects.hash(baseQuery, dimQueries);
+    return classHash() + Objects.hash(baseQuery, dimQueries);
   }
-  
+
   @Override
-  public boolean equals(Object obj) {
-    if (super.equals(obj) == false) {
-      return false;
-    }
-    DrillDownQuery other = (DrillDownQuery) obj;
-    return Objects.equals(baseQuery, other.baseQuery)
-        && dimQueries.equals(other.dimQueries);
+  public boolean equals(Object other) {
+    return sameClassAs(other) &&
+           equalsTo(getClass().cast(other));
   }
-  
+
+  private boolean equalsTo(DrillDownQuery other) {
+    return Objects.equals(baseQuery, other.baseQuery) && 
+           dimQueries.equals(other.dimQueries);
+  }
+
   @Override
   public Query rewrite(IndexReader r) throws IOException {
     BooleanQuery rewritten = getBooleanQuery();

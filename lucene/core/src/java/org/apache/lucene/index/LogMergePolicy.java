@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -23,7 +23,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-
 
 /**
  * <p>This class implements a {@link MergePolicy} that tries
@@ -430,12 +429,10 @@ public abstract class LogMergePolicy extends MergePolicy {
   private static class SegmentInfoAndLevel implements Comparable<SegmentInfoAndLevel> {
     SegmentCommitInfo info;
     float level;
-    int index;
     
-    public SegmentInfoAndLevel(SegmentCommitInfo info, float level, int index) {
+    public SegmentInfoAndLevel(SegmentCommitInfo info, float level) {
       this.info = info;
       this.level = level;
-      this.index = index;
     }
 
     // Sorts largest to smallest
@@ -462,7 +459,7 @@ public abstract class LogMergePolicy extends MergePolicy {
 
     // Compute levels, which is just log (base mergeFactor)
     // of the size of each segment
-    final List<SegmentInfoAndLevel> levels = new ArrayList<>();
+    final List<SegmentInfoAndLevel> levels = new ArrayList<>(numSegments);
     final float norm = (float) Math.log(mergeFactor);
 
     final Collection<SegmentCommitInfo> mergingSegments = writer.getMergingSegments();
@@ -476,7 +473,7 @@ public abstract class LogMergePolicy extends MergePolicy {
         size = 1;
       }
 
-      final SegmentInfoAndLevel infoLevel = new SegmentInfoAndLevel(info, (float) Math.log(size)/norm, i);
+      final SegmentInfoAndLevel infoLevel = new SegmentInfoAndLevel(info, (float) Math.log(size)/norm);
       levels.add(infoLevel);
 
       if (verbose(writer)) {
@@ -564,7 +561,7 @@ public abstract class LogMergePolicy extends MergePolicy {
         } else if (!anyTooLarge) {
           if (spec == null)
             spec = new MergeSpecification();
-          final List<SegmentCommitInfo> mergeInfos = new ArrayList<>();
+          final List<SegmentCommitInfo> mergeInfos = new ArrayList<>(end-start);
           for(int i=start;i<end;i++) {
             mergeInfos.add(levels.get(i).info);
             assert infos.contains(levels.get(i).info);

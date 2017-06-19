@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.hunspell;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,28 +14,8 @@ package org.apache.lucene.analysis.hunspell;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.hunspell;
 
-import org.apache.lucene.store.ByteArrayDataOutput;
-import org.apache.lucene.util.ArrayUtil;
-import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.BytesRefBuilder;
-import org.apache.lucene.util.BytesRefHash;
-import org.apache.lucene.util.CharsRef;
-import org.apache.lucene.util.IOUtils;
-import org.apache.lucene.util.IntsRef;
-import org.apache.lucene.util.IntsRefBuilder;
-import org.apache.lucene.util.OfflineSorter;
-import org.apache.lucene.util.OfflineSorter.ByteSequencesReader;
-import org.apache.lucene.util.OfflineSorter.ByteSequencesWriter;
-import org.apache.lucene.util.RamUsageEstimator;
-import org.apache.lucene.util.automaton.CharacterRunAutomaton;
-import org.apache.lucene.util.automaton.RegExp;
-import org.apache.lucene.util.fst.Builder;
-import org.apache.lucene.util.fst.CharSequenceOutputs;
-import org.apache.lucene.util.fst.FST;
-import org.apache.lucene.util.fst.IntSequenceOutputs;
-import org.apache.lucene.util.fst.Outputs;
-import org.apache.lucene.util.fst.Util;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -50,9 +28,10 @@ import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
-import org.lukhnos.portmobile.charset.StandardCharsets;
-import org.lukhnos.portmobile.file.Files;
-import org.lukhnos.portmobile.file.Path;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -66,6 +45,32 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.apache.lucene.codecs.CodecUtil;
+import org.apache.lucene.store.ByteArrayDataOutput;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexOutput;
+import org.apache.lucene.util.ArrayUtil;
+import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.BytesRefBuilder;
+import org.apache.lucene.util.BytesRefHash;
+import org.apache.lucene.util.CharsRef;
+import org.apache.lucene.util.IOUtils;
+import org.apache.lucene.util.IntsRef;
+import org.apache.lucene.util.IntsRefBuilder;
+import org.apache.lucene.util.OfflineSorter.ByteSequencesReader;
+import org.apache.lucene.util.OfflineSorter.ByteSequencesWriter;
+import org.apache.lucene.util.OfflineSorter;
+import org.apache.lucene.util.RamUsageEstimator;
+import org.apache.lucene.util.automaton.CharacterRunAutomaton;
+import org.apache.lucene.util.automaton.RegExp;
+import org.apache.lucene.util.fst.Builder;
+import org.apache.lucene.util.fst.CharSequenceOutputs;
+import org.apache.lucene.util.fst.FST;
+import org.apache.lucene.util.fst.IntSequenceOutputs;
+import org.apache.lucene.util.fst.Outputs;
+import org.apache.lucene.util.fst.Util;
 
 /**
  * In-memory structure for the dictionary (.dic) and affix (.aff)
@@ -139,7 +144,7 @@ public class Dictionary {
   // when set, some words have exceptional stems, and the last entry is a pointer to stemExceptions
   boolean hasStemExceptions;
   
-  private final Path tempDir = OfflineSorter.defaultTempDir(); // TODO: make this configurable?
+  private final Path tempPath = getDefaultTempDir(); // TODO: make this configurable?
   
   boolean ignoreCase;
   boolean complexPrefixes;
@@ -167,19 +172,21 @@ public class Dictionary {
   String language;
   // true if case algorithms should use alternate (Turkish/Azeri) mapping
   boolean alternateCasing;
-  
+
   /**
    * Creates a new Dictionary containing the information read from the provided InputStreams to hunspell affix
    * and dictionary files.
    * You have to close the provided InputStreams yourself.
    *
+   * @param tempDir Directory to use for offline sorting
+   * @param tempFileNamePrefix prefix to use to generate temp file names
    * @param affix InputStream for reading the hunspell affix file (won't be closed).
    * @param dictionary InputStream for reading the hunspell dictionary file (won't be closed).
    * @throws IOException Can be thrown while reading from the InputStreams
    * @throws ParseException Can be thrown if the content of the files does not meet expected formats
    */
-  public Dictionary(InputStream affix, InputStream dictionary) throws IOException, ParseException {
-    this(affix, Collections.singletonList(dictionary), false);
+  public Dictionary(Directory tempDir, String tempFileNamePrefix, InputStream affix, InputStream dictionary) throws IOException, ParseException {
+    this(tempDir, tempFileNamePrefix, affix, Collections.singletonList(dictionary), false);
   }
 
   /**
@@ -187,18 +194,20 @@ public class Dictionary {
    * and dictionary files.
    * You have to close the provided InputStreams yourself.
    *
+   * @param tempDir Directory to use for offline sorting
+   * @param tempFileNamePrefix prefix to use to generate temp file names
    * @param affix InputStream for reading the hunspell affix file (won't be closed).
    * @param dictionaries InputStream for reading the hunspell dictionary files (won't be closed).
    * @throws IOException Can be thrown while reading from the InputStreams
    * @throws ParseException Can be thrown if the content of the files does not meet expected formats
    */
-  public Dictionary(InputStream affix, List<InputStream> dictionaries, boolean ignoreCase) throws IOException, ParseException {
+  public Dictionary(Directory tempDir, String tempFileNamePrefix, InputStream affix, List<InputStream> dictionaries, boolean ignoreCase) throws IOException, ParseException {
     this.ignoreCase = ignoreCase;
     this.needsInputCleaning = ignoreCase;
     this.needsOutputCleaning = false; // set if we have an OCONV
     flagLookup.add(new BytesRef()); // no flags -> ord 0
 
-    Path aff = Files.createTempFile(tempDir, "affix", "aff");
+    Path aff = Files.createTempFile(tempPath, "affix", "aff");
     OutputStream out = new BufferedOutputStream(Files.newOutputStream(aff));
     InputStream aff1 = null;
     InputStream aff2 = null;
@@ -224,7 +233,7 @@ public class Dictionary {
       // read dictionary entries
       IntSequenceOutputs o = IntSequenceOutputs.getSingleton();
       Builder<IntsRef> b = new Builder<>(FST.INPUT_TYPE.BYTE4, o);
-      readDictionaryFiles(dictionaries, decoder, b);
+      readDictionaryFiles(tempDir, tempFileNamePrefix, dictionaries, decoder, b);
       words = b.finish();
       aliases = null; // no longer needed
       morphAliases = null; // no longer needed
@@ -766,7 +775,7 @@ public class Dictionary {
       return Math.max(pos1, pos2);
     }
   }
-  
+
   /**
    * Reads the dictionary file through the provided InputStreams, building up the words map
    *
@@ -774,13 +783,13 @@ public class Dictionary {
    * @param decoder CharsetDecoder used to decode the contents of the file
    * @throws IOException Can be thrown while reading from the file
    */
-  private void readDictionaryFiles(List<InputStream> dictionaries, CharsetDecoder decoder, Builder<IntsRef> words) throws IOException {
+  private void readDictionaryFiles(Directory tempDir, String tempFileNamePrefix, List<InputStream> dictionaries, CharsetDecoder decoder, Builder<IntsRef> words) throws IOException {
     BytesRefBuilder flagsScratch = new BytesRefBuilder();
     IntsRefBuilder scratchInts = new IntsRefBuilder();
     
     StringBuilder sb = new StringBuilder();
-    
-    Path unsorted = Files.createTempFile(tempDir, "unsorted", "dat");
+
+    IndexOutput unsorted = tempDir.createTempOutput(tempFileNamePrefix, "dat", IOContext.DEFAULT);
     try (ByteSequencesWriter writer = new ByteSequencesWriter(unsorted)) {
       for (InputStream dictionary : dictionaries) {
         BufferedReader lines = new BufferedReader(new InputStreamReader(dictionary, decoder));
@@ -822,10 +831,10 @@ public class Dictionary {
           }
         }
       }
+      CodecUtil.writeFooter(unsorted);
     }
-    Path sorted = Files.createTempFile(tempDir, "sorted", "dat");
-    
-    OfflineSorter sorter = new OfflineSorter(new Comparator<BytesRef>() {
+
+    OfflineSorter sorter = new OfflineSorter(tempDir, tempFileNamePrefix, new Comparator<BytesRef>() {
       BytesRef scratch1 = new BytesRef();
       BytesRef scratch2 = new BytesRef();
       
@@ -862,32 +871,37 @@ public class Dictionary {
         }
       }
     });
+
+    String sorted;
     boolean success = false;
     try {
-      sorter.sort(unsorted, sorted);
+      sorted = sorter.sort(unsorted.getName());
       success = true;
     } finally {
       if (success) {
-        Files.delete(unsorted);
+        tempDir.deleteFile(unsorted.getName());
       } else {
-        IOUtils.deleteFilesIgnoringExceptions(unsorted);
+        IOUtils.deleteFilesIgnoringExceptions(tempDir, unsorted.getName());
       }
     }
     
     boolean success2 = false;
-    ByteSequencesReader reader = new ByteSequencesReader(sorted);
-    try {
-      BytesRefBuilder scratchLine = new BytesRefBuilder();
+    
+    try (ByteSequencesReader reader = new ByteSequencesReader(tempDir.openChecksumInput(sorted, IOContext.READONCE), sorted)) {
     
       // TODO: the flags themselves can be double-chars (long) or also numeric
       // either way the trick is to encode them as char... but they must be parsed differently
     
       String currentEntry = null;
       IntsRefBuilder currentOrds = new IntsRefBuilder();
-    
-      String line;
-      while (reader.read(scratchLine)) {
-        line = scratchLine.get().utf8ToString();
+
+      while (true) {
+        BytesRef scratch = reader.next();
+        if (scratch == null) {
+          break;
+        }
+        
+        String line = scratch.utf8ToString();
         String entry;
         char wordForm[];
         int end;
@@ -956,11 +970,10 @@ public class Dictionary {
       words.add(scratchInts.get(), currentOrds.get());
       success2 = true;
     } finally {
-      IOUtils.closeWhileHandlingException(reader);
       if (success2) {
-        Files.delete(sorted);
+        tempDir.deleteFile(sorted);
       } else {
-        IOUtils.deleteFilesIgnoringExceptions(sorted);
+        IOUtils.deleteFilesIgnoringExceptions(tempDir, sorted);
       }
     }
   }
@@ -1239,5 +1252,39 @@ public class Dictionary {
         i += (longestOutput.length - 1);
       }
     }
+  }
+  
+  /** Returns true if this dictionary was constructed with the {@code ignoreCase} option */
+  public boolean getIgnoreCase() {
+    return ignoreCase;
+  }
+
+  private static Path DEFAULT_TEMP_DIR;
+
+  /** Used by test framework */
+  public static void setDefaultTempDir(Path tempDir) {
+    DEFAULT_TEMP_DIR = tempDir;
+  }
+
+  /**
+   * Returns the default temporary directory. By default, java.io.tmpdir. If not accessible
+   * or not available, an IOException is thrown
+   */
+  synchronized static Path getDefaultTempDir() throws IOException {
+    if (DEFAULT_TEMP_DIR == null) {
+      // Lazy init
+      String tempDirPath = System.getProperty("java.io.tmpdir");
+      if (tempDirPath == null)  {
+        throw new IOException("Java has no temporary folder property (java.io.tmpdir)?");
+      }
+      Path tempDirectory = Paths.get(tempDirPath);
+      if (Files.isWritable(tempDirectory) == false) {
+        throw new IOException("Java's temporary folder not present or writeable?: " 
+                              + tempDirectory.toAbsolutePath());
+      }
+      DEFAULT_TEMP_DIR = tempDirectory;
+    }
+
+    return DEFAULT_TEMP_DIR;
   }
 }

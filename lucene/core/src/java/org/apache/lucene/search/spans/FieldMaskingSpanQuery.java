@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spans;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,14 +14,15 @@ package org.apache.lucene.search.spans;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spans;
 
-import java.io.IOException;
-import org.lukhnos.portmobile.util.Objects;
 
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.util.ToStringUtils;
+
+import java.io.IOException;
+import java.util.Objects;
 
 /**
  * <p>Wrapper to allow {@link SpanQuery} objects participate in composite 
@@ -68,9 +67,9 @@ import org.apache.lucene.util.ToStringUtils;
  * but with the term statistics of the real field. This may lead to exceptions,
  * poor performance, and unexpected scoring behaviour.
  */
-public class FieldMaskingSpanQuery extends SpanQuery {
-  private SpanQuery maskedQuery;
-  private String field;
+public final class FieldMaskingSpanQuery extends SpanQuery {
+  private final SpanQuery maskedQuery;
+  private final String field;
     
   public FieldMaskingSpanQuery(SpanQuery maskedQuery, String maskedField) {
     this.maskedQuery = Objects.requireNonNull(maskedQuery);
@@ -96,19 +95,12 @@ public class FieldMaskingSpanQuery extends SpanQuery {
 
   @Override
   public Query rewrite(IndexReader reader) throws IOException {
-    FieldMaskingSpanQuery clone = null;
-
     SpanQuery rewritten = (SpanQuery) maskedQuery.rewrite(reader);
     if (rewritten != maskedQuery) {
-      clone = (FieldMaskingSpanQuery) this.clone();
-      clone.maskedQuery = rewritten;
+      return new FieldMaskingSpanQuery(rewritten, field);
     }
 
-    if (clone != null) {
-      return clone;
-    } else {
-      return this;
-    }
+    return super.rewrite(reader);
   }
 
   @Override
@@ -117,27 +109,26 @@ public class FieldMaskingSpanQuery extends SpanQuery {
     buffer.append("mask(");
     buffer.append(maskedQuery.toString(field));
     buffer.append(")");
-    buffer.append(ToStringUtils.boost(getBoost()));
     buffer.append(" as ");
     buffer.append(this.field);
     return buffer.toString();
   }
   
   @Override
-  public boolean equals(Object o) {
-    if (! super.equals(o)) {
-      return false;
-    }
-    FieldMaskingSpanQuery other = (FieldMaskingSpanQuery) o;
-    return (this.getField().equals(other.getField())
-            && this.getMaskedQuery().equals(other.getMaskedQuery()));
-
+  public boolean equals(Object other) {
+    return sameClassAs(other) &&
+           equalsTo(getClass().cast(other));
   }
   
+  private boolean equalsTo(FieldMaskingSpanQuery other) {
+    return getField().equals(other.getField()) && 
+           getMaskedQuery().equals(other.getMaskedQuery());
+  }
+
   @Override
   public int hashCode() {
-    return super.hashCode()
-          ^ getMaskedQuery().hashCode()
-          ^ getField().hashCode();
+    return classHash() ^ 
+           getMaskedQuery().hashCode() ^ 
+           getField().hashCode();
   }
 }

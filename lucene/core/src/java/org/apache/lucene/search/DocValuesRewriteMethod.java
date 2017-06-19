@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,9 +14,10 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
-import org.lukhnos.portmobile.util.Objects;
 
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.IndexReader;
@@ -39,9 +38,7 @@ public final class DocValuesRewriteMethod extends MultiTermQuery.RewriteMethod {
   
   @Override
   public Query rewrite(IndexReader reader, MultiTermQuery query) {
-    Query result = new ConstantScoreQuery(new MultiTermQueryDocValuesWrapper(query));
-    result.setBoost(query.getBoost());
-    return result;
+    return new ConstantScoreQuery(new MultiTermQueryDocValuesWrapper(query));
   }
   
   static class MultiTermQueryDocValuesWrapper extends Query {
@@ -62,19 +59,14 @@ public final class DocValuesRewriteMethod extends MultiTermQuery.RewriteMethod {
     }
     
     @Override
-    public final boolean equals(final Object o) {
-      if (o==this) return true;
-      if (o==null) return false;
-      if (this.getClass().equals(o.getClass())) {
-        final MultiTermQueryDocValuesWrapper that = (MultiTermQueryDocValuesWrapper) o;
-        return this.query.equals(that.query) && this.getBoost() == that.getBoost();
-      }
-      return false;
+    public final boolean equals(final Object other) {
+      return sameClassAs(other) &&
+             query.equals(((MultiTermQueryDocValuesWrapper) other).query);
     }
-    
+
     @Override
     public final int hashCode() {
-      return Objects.hash(getClass(), query, getBoost());
+      return 31 * classHash() + query.hashCode();
     }
     
     /** Returns the field name for this query */
@@ -84,7 +76,7 @@ public final class DocValuesRewriteMethod extends MultiTermQuery.RewriteMethod {
     public Weight createWeight(IndexSearcher searcher, boolean needsScores) throws IOException {
       return new RandomAccessWeight(this) {
         @Override
-        protected Bits getMatchingDocs(final LeafReaderContext context) throws IOException {
+        protected Bits getMatchingDocs(LeafReaderContext context) throws IOException {
           final SortedSetDocValues fcsi = DocValues.getSortedSet(context.reader(), query.field);
           TermsEnum termsEnum = query.getTermsEnum(new Terms() {
             
@@ -174,14 +166,9 @@ public final class DocValuesRewriteMethod extends MultiTermQuery.RewriteMethod {
   }
   
   @Override
-  public boolean equals(Object obj) {
-    if (this == obj)
-      return true;
-    if (obj == null)
-      return false;
-    if (getClass() != obj.getClass())
-      return false;
-    return true;
+  public boolean equals(Object other) {
+    return other != null &&
+           getClass() == other.getClass();
   }
 
   @Override

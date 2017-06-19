@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,9 +14,11 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
-import org.lukhnos.portmobile.util.Objects;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.lucene.index.IndexReaderContext;
@@ -29,10 +29,10 @@ import org.apache.lucene.index.ReaderUtil;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.TermContext;
 import org.apache.lucene.index.TermState;
+import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.search.similarities.Similarity;
 import org.apache.lucene.search.similarities.Similarity.SimScorer;
-import org.apache.lucene.util.ToStringUtils;
 
 /**
  * A Query that matches documents containing a term. This may be combined with
@@ -52,10 +52,10 @@ public class TermQuery extends Query {
     public TermWeight(IndexSearcher searcher, boolean needsScores, TermContext termStates)
         throws IOException {
       super(TermQuery.this);
+      if (needsScores && termStates == null) {
+        throw new IllegalStateException("termStates are required when scores are needed");
+      }
       this.needsScores = needsScores;
-      assert termStates != null : "TermContext must not be null";
-      // checked with a real exception in TermQuery constructor
-      assert termStates.hasOnlyRealTerms();
       this.termStates = termStates;
       this.similarity = searcher.getSimilarity(needsScores);
 
@@ -65,15 +65,13 @@ public class TermQuery extends Query {
         collectionStats = searcher.collectionStatistics(term.field());
         termStats = searcher.termStatistics(term, termStates);
       } else {
-        // do not bother computing actual stats, scores are not needed
+        // we do not need the actual stats, use fake stats with docFreq=maxDoc and ttf=-1
         final int maxDoc = searcher.getIndexReader().maxDoc();
-        final int docFreq = termStates.docFreq();
-        final long totalTermFreq = termStates.totalTermFreq();
         collectionStats = new CollectionStatistics(term.field(), maxDoc, -1, -1, -1);
-        termStats = new TermStatistics(term.bytes(), docFreq, totalTermFreq);
+        termStats = new TermStatistics(term.bytes(), maxDoc, -1);
       }
      
-      this.stats = similarity.computeWeight(getBoost(), collectionStats, termStats);
+      this.stats = similarity.computeWeight(collectionStats, termStats);
     }
 
     @Override
@@ -92,13 +90,13 @@ public class TermQuery extends Query {
     }
 
     @Override
-    public void normalize(float queryNorm, float topLevelBoost) {
-      stats.normalize(queryNorm, topLevelBoost);
+    public void normalize(float queryNorm, float boost) {
+      stats.normalize(queryNorm, boost);
     }
 
     @Override
     public Scorer scorer(LeafReaderContext context) throws IOException {
-      assert termStates.topReaderContext == ReaderUtil.getTopLevelContext(context) : "The top-reader used to create Weight (" + termStates.topReaderContext + ") is not the same as the current reader's top-reader (" + ReaderUtil.getTopLevelContext(context);
+      assert termStates == null || termStates.wasBuiltFor(ReaderUtil.getTopLevelContext(context)) : "The top-reader used to create Weight is not the same as the current reader's top-reader (" + ReaderUtil.getTopLevelContext(context);;
       final TermsEnum termsEnum = getTermsEnum(context);
       if (termsEnum == null) {
         return null;
@@ -113,17 +111,30 @@ public class TermQuery extends Query {
      * the term does not exist in the given context
      */
     private TermsEnum getTermsEnum(LeafReaderContext context) throws IOException {
-      final TermState state = termStates.get(context.ord);
-      if (state == null) { // term is not present in that reader
-        assert termNotInReader(context.reader(), term) : "no termstate found but term exists in reader term=" + term;
-        return null;
+      if (termStates != null) {
+        // TermQuery either used as a Query or the term states have been provided at construction time
+        assert termStates.wasBuiltFor(ReaderUtil.getTopLevelContext(context)) : "The top-reader used to create Weight is not the same as the current reader's top-reader (" + ReaderUtil.getTopLevelContext(context);
+        final TermState state = termStates.get(context.ord);
+        if (state == null) { // term is not present in that reader
+          assert termNotInReader(context.reader(), term) : "no termstate found but term exists in reader term=" + term;
+          return null;
+        }
+        final TermsEnum termsEnum = context.reader().terms(term.field()).iterator();
+        termsEnum.seekExact(term.bytes(), state);
+        return termsEnum;
+      } else {
+        // TermQuery used as a filter, so the term states have not been built up front
+        Terms terms = context.reader().terms(term.field());
+        if (terms == null) {
+          return null;
+        }
+        final TermsEnum termsEnum = terms.iterator();
+        if (termsEnum.seekExact(term.bytes())) {
+          return termsEnum;
+        } else {
+          return null;
+        }
       }
-      // System.out.println("LD=" + reader.getLiveDocs() + " set?=" +
-      // (reader.getLiveDocs() != null ? reader.getLiveDocs().get(0) : "null"));
-      final TermsEnum termsEnum = context.reader().terms(term.field())
-          .iterator();
-      termsEnum.seekExact(term.bytes(), state);
-      return termsEnum;
     }
 
     private boolean termNotInReader(LeafReader reader, Term term) throws IOException {
@@ -137,7 +148,7 @@ public class TermQuery extends Query {
     public Explanation explain(LeafReaderContext context, int doc) throws IOException {
       Scorer scorer = scorer(context);
       if (scorer != null) {
-        int newDoc = scorer.advance(doc);
+        int newDoc = scorer.iterator().advance(doc);
         if (newDoc == doc) {
           float freq = scorer.freq();
           SimScorer docScorer = similarity.simScorer(stats, context);
@@ -167,12 +178,6 @@ public class TermQuery extends Query {
   public TermQuery(Term t, TermContext states) {
     assert states != null;
     term = Objects.requireNonNull(t);
-    if (states.hasOnlyRealTerms() == false) {
-      // The reason for this is that fake terms might have the same bytes as
-      // real terms, and this confuses query caching because they don't match
-      // the same documents
-      throw new IllegalArgumentException("Term queries must be created on real terms");
-    }
     perReaderTermState = Objects.requireNonNull(states);
   }
 
@@ -186,10 +191,16 @@ public class TermQuery extends Query {
     final IndexReaderContext context = searcher.getTopReaderContext();
     final TermContext termState;
     if (perReaderTermState == null
-        || perReaderTermState.topReaderContext != context) {
-      // make TermQuery single-pass if we don't have a PRTS or if the context
-      // differs!
-      termState = TermContext.build(context, term);
+        || perReaderTermState.wasBuiltFor(context) == false) {
+      if (needsScores) {
+        // make TermQuery single-pass if we don't have a PRTS or if the context
+        // differs!
+        termState = TermContext.build(context, term);
+      } else {
+        // do not compute the term state, this will help save seeks in the terms
+        // dict on segments that have a cache entry for this query
+        termState = null;
+      }
     } else {
       // PRTS was pre-build for this IS
       termState = this.perReaderTermState;
@@ -207,20 +218,18 @@ public class TermQuery extends Query {
       buffer.append(":");
     }
     buffer.append(term.text());
-    buffer.append(ToStringUtils.boost(getBoost()));
     return buffer.toString();
   }
 
   /** Returns true iff <code>o</code> is equal to this. */
   @Override
-  public boolean equals(Object o) {
-    if (!(o instanceof TermQuery)) return false;
-    TermQuery other = (TermQuery) o;
-    return super.equals(o) && this.term.equals(other.term);
+  public boolean equals(Object other) {
+    return sameClassAs(other) &&
+           term.equals(((TermQuery) other).term);
   }
 
   @Override
   public int hashCode() {
-    return super.hashCode() ^ term.hashCode();
+    return classHash() ^ term.hashCode();
   }
 }

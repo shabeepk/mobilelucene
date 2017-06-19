@@ -1,5 +1,3 @@
-package org.apache.lucene.store;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,18 +14,20 @@ package org.apache.lucene.store;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.store;
+
 
 import java.io.IOException;
-import org.lukhnos.portmobile.file.AtomicMoveNotSupportedException;
-import org.lukhnos.portmobile.file.NoSuchFileException;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.HashSet;
 
 import org.apache.lucene.util.IOUtils;
-
 
 /**
  * Expert: A Directory instance that switches files between
@@ -119,7 +119,9 @@ public class FileSwitchDirectory extends Directory {
     if (exc != null && files.isEmpty()) {
       throw exc;
     }
-    return files.toArray(new String[files.size()]);
+    String[] result = files.toArray(new String[files.size()]);
+    Arrays.sort(result);
+    return result;
   }
 
   /** Utility method to return a file's extension. */
@@ -142,7 +144,11 @@ public class FileSwitchDirectory extends Directory {
 
   @Override
   public void deleteFile(String name) throws IOException {
-    getDirectory(name).deleteFile(name);
+    if (getDirectory(name) == primaryDir) {
+      primaryDir.deleteFile(name);
+    } else {
+      secondaryDir.deleteFile(name);
+    }
   }
 
   @Override
@@ -153,6 +159,11 @@ public class FileSwitchDirectory extends Directory {
   @Override
   public IndexOutput createOutput(String name, IOContext context) throws IOException {
     return getDirectory(name).createOutput(name, context);
+  }
+
+  @Override
+  public IndexOutput createTempOutput(String prefix, String suffix, IOContext context) throws IOException {
+    return getDirectory("."+suffix).createTempOutput(prefix, suffix, context);
   }
 
   @Override
@@ -171,14 +182,20 @@ public class FileSwitchDirectory extends Directory {
   }
 
   @Override
-  public void renameFile(String source, String dest) throws IOException {
+  public void rename(String source, String dest) throws IOException {
     Directory sourceDir = getDirectory(source);
     // won't happen with standard lucene index files since pending and commit will
     // always have the same extension ("")
     if (sourceDir != getDirectory(dest)) {
       throw new AtomicMoveNotSupportedException(source, dest, "source and dest are in different directories");
     }
-    sourceDir.renameFile(source, dest);
+    sourceDir.rename(source, dest);
+  }
+
+  @Override
+  public void syncMetaData() throws IOException {
+    primaryDir.syncMetaData();
+    secondaryDir.syncMetaData();
   }
 
   @Override

@@ -1,5 +1,3 @@
-package org.apache.lucene.search.grouping.function;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,12 +14,13 @@ package org.apache.lucene.search.grouping.function;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.grouping.function;
 
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.queries.function.FunctionValues;
 import org.apache.lucene.queries.function.ValueSource;
 import org.apache.lucene.search.Sort;
-import org.apache.lucene.search.grouping.AbstractSecondPassGroupingCollector;
+import org.apache.lucene.search.grouping.SecondPassGroupingCollector;
 import org.apache.lucene.search.grouping.SearchGroup;
 import org.apache.lucene.util.mutable.MutableValue;
 import org.apache.lucene.search.grouping.TopGroups; //javadoc
@@ -31,12 +30,12 @@ import java.util.Collection;
 import java.util.Map;
 
 /**
- * Concrete implementation of {@link AbstractSecondPassGroupingCollector} that groups based on
+ * Concrete implementation of {@link SecondPassGroupingCollector} that groups based on
  * {@link ValueSource} instances.
  *
  * @lucene.experimental
  */
-public class FunctionSecondPassGroupingCollector extends AbstractSecondPassGroupingCollector<MutableValue> {
+public class FunctionSecondPassGroupingCollector extends SecondPassGroupingCollector<MutableValue> {
 
   private final ValueSource groupByVS;
   private final Map<?, ?> vsContext;
@@ -78,8 +77,4 @@ public class FunctionSecondPassGroupingCollector extends AbstractSecondPassGroup
     mval = filler.getValue();
   }
 
-  @Override
-  public boolean needsScores() {
-    return true; // TODO, maybe we don't?
-  }
 }

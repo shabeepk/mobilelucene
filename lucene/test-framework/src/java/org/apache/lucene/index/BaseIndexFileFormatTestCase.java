@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -195,12 +194,9 @@ abstract class BaseIndexFileFormatTestCase extends LuceneTestCase {
 
   /** The purpose of this test is to make sure that bulk merge doesn't accumulate useless data over runs. */
   public void testMergeStability() throws Exception {
+    assumeTrue("merge is not stable", mergeIsStable());
     Directory dir = newDirectory();
-    if (dir instanceof MockDirectoryWrapper) {
-      // Else, the virus checker may prevent deletion of files and cause
-      // us to see too many bytes used by extension in the end:
-      ((MockDirectoryWrapper) dir).setEnableVirusScanner(false);
-    }
+
     // do not use newMergePolicy that might return a MockMergePolicy that ignores the no-CFS ratio
     // do not use RIW which will change things up!
     MergePolicy mp = newTieredMergePolicy();
@@ -219,11 +215,6 @@ abstract class BaseIndexFileFormatTestCase extends LuceneTestCase {
     DirectoryReader reader = DirectoryReader.open(dir);
 
     Directory dir2 = newDirectory();
-    if (dir2 instanceof MockDirectoryWrapper) {
-      // Else, the virus checker may prevent deletion of files and cause
-      // us to see too many bytes used by extension in the end:
-      ((MockDirectoryWrapper) dir2).setEnableVirusScanner(false);
-    }
     mp = newTieredMergePolicy();
     mp.setNoCFSRatio(0);
     cfg = new IndexWriterConfig(new MockAnalyzer(random())).setUseCompoundFile(false).setMergePolicy(mp);
@@ -238,6 +229,10 @@ abstract class BaseIndexFileFormatTestCase extends LuceneTestCase {
     reader.close();
     dir.close();
     dir2.close();
+  }
+
+  protected boolean mergeIsStable() {
+    return true;
   }
 
   /** Test the accuracy of the ramBytesUsed estimations. */
@@ -263,14 +258,14 @@ abstract class BaseIndexFileFormatTestCase extends LuceneTestCase {
       if (i == 100) {
         w.forceMerge(1);
         w.commit();
-        reader1 = getOnlySegmentReader(DirectoryReader.open(dir));
+        reader1 = getOnlyLeafReader(DirectoryReader.open(dir));
       }
     }
     w.forceMerge(1);
     w.commit();
     w.close();
 
-    LeafReader reader2 = getOnlySegmentReader(DirectoryReader.open(dir));
+    LeafReader reader2 = getOnlyLeafReader(DirectoryReader.open(dir));
 
     for (LeafReader reader : Arrays.asList(reader1, reader2)) {
       new SimpleMergedSegmentWarmer(InfoStream.NO_OUTPUT).warm(reader);
@@ -300,7 +295,7 @@ abstract class BaseIndexFileFormatTestCase extends LuceneTestCase {
     oneDoc.add(customField);
     oneDoc.add(new NumericDocValuesField("field", 5));
     iw.addDocument(oneDoc);
-    LeafReader oneDocReader = getOnlySegmentReader(DirectoryReader.open(iw, true));
+    LeafReader oneDocReader = getOnlyLeafReader(DirectoryReader.open(iw));
     iw.close();
     
     // now feed to codec apis manually
@@ -308,10 +303,11 @@ abstract class BaseIndexFileFormatTestCase extends LuceneTestCase {
     Directory dir = newFSDirectory(createTempDir("justSoYouGetSomeChannelErrors"));
     Codec codec = getCodec();
     
-    SegmentInfo segmentInfo = new SegmentInfo(dir, Version.LATEST, "_0", 1, false, codec, Collections.<String,String>emptyMap(), StringHelper.randomId(), new HashMap<String,String>());
+    SegmentInfo segmentInfo = new SegmentInfo(dir, Version.LATEST, "_0", 1, false, codec, Collections.emptyMap(), StringHelper.randomId(), new HashMap<>(), null);
     FieldInfo proto = oneDocReader.getFieldInfos().fieldInfo("field");
     FieldInfo field = new FieldInfo(proto.name, proto.number, proto.hasVectors(), proto.omitsNorms(), proto.hasPayloads(), 
-                                    proto.getIndexOptions(), proto.getDocValuesType(), proto.getDocValuesGen(), new HashMap<String,String>());
+                                    proto.getIndexOptions(), proto.getDocValuesType(), proto.getDocValuesGen(), new HashMap<>(),
+                                    proto.getPointDimensionCount(), proto.getPointNumBytes());
 
     FieldInfos fieldInfos = new FieldInfos(new FieldInfo[] { field } );
 
@@ -334,7 +330,7 @@ abstract class BaseIndexFileFormatTestCase extends LuceneTestCase {
     
     // DocValuesFormat
     try (DocValuesConsumer consumer = codec.docValuesFormat().fieldsConsumer(writeState)) {
-      consumer.addNumericField(field, Collections.<Number>singleton(5));
+      consumer.addNumericField(field, Collections.singleton(5));
       IOUtils.close(consumer);
       IOUtils.close(consumer);
     }
@@ -345,7 +341,7 @@ abstract class BaseIndexFileFormatTestCase extends LuceneTestCase {
     
     // NormsFormat
     try (NormsConsumer consumer = codec.normsFormat().normsConsumer(writeState)) {
-      consumer.addNormsField(field, Collections.<Number>singleton(5));
+      consumer.addNormsField(field, Collections.singleton(5));
       IOUtils.close(consumer);
       IOUtils.close(consumer);
     }
@@ -397,7 +393,6 @@ abstract class BaseIndexFileFormatTestCase extends LuceneTestCase {
     MockDirectoryWrapper dir = newMockDirectory();
     dir.setThrottling(MockDirectoryWrapper.Throttling.NEVER);
     dir.setUseSlowOpenClosers(false);
-    dir.setPreventDoubleWrite(false);
     dir.setRandomIOExceptionRate(0.001); // more rare
     
     // log all exceptions we hit, in case we fail (for debugging)
@@ -440,14 +435,9 @@ abstract class BaseIndexFileFormatTestCase extends LuceneTestCase {
           conf.setMergeScheduler(new SerialMergeScheduler());
           conf.setCodec(getCodec());
           iw = new IndexWriter(dir, conf);            
-        } catch (Exception e) {
-          if (e.getMessage() != null && e.getMessage().startsWith("a random IOException")) {
-            exceptionStream.println("\nTEST: got expected fake exc:" + e.getMessage());
-            e.printStackTrace(exceptionStream);
-            allowAlreadyClosed = true;
-          } else {
-            Rethrow.rethrow(e);
-          }
+        } catch (IOException e) {
+          handleFakeIOException(e, exceptionStream);
+          allowAlreadyClosed = true;
         }
         
         if (random().nextInt(10) == 0) {
@@ -456,7 +446,7 @@ abstract class BaseIndexFileFormatTestCase extends LuceneTestCase {
             if (random().nextBoolean()) {
               DirectoryReader ir = null;
               try {
-                ir = DirectoryReader.open(iw, random().nextBoolean());
+                ir = DirectoryReader.open(iw, random().nextBoolean(), false);
                 dir.setRandomIOExceptionRateOnOpen(0.0); // disable exceptions on openInput until next iteration
                 TestUtil.checkReader(ir);
               } finally {
@@ -481,14 +471,9 @@ abstract class BaseIndexFileFormatTestCase extends LuceneTestCase {
             conf.setMergeScheduler(new SerialMergeScheduler());
             conf.setCodec(getCodec());
             iw = new IndexWriter(dir, conf);            
-          } catch (Exception e) {
-            if (e.getMessage() != null && e.getMessage().startsWith("a random IOException")) {
-              exceptionStream.println("\nTEST: got expected fake exc:" + e.getMessage());
-              e.printStackTrace(exceptionStream);
-              allowAlreadyClosed = true;
-            } else {
-              Rethrow.rethrow(e);
-            }
+          } catch (IOException e) {
+            handleFakeIOException(e, exceptionStream);
+            allowAlreadyClosed = true;
           }
         }
       }
@@ -497,16 +482,11 @@ abstract class BaseIndexFileFormatTestCase extends LuceneTestCase {
         dir.setRandomIOExceptionRateOnOpen(0.0); // disable exceptions on openInput until next iteration: 
                                                  // or we make slowExists angry and trip a scarier assert!
         iw.close();
-      } catch (Exception e) {
-        if (e.getMessage() != null && e.getMessage().startsWith("a random IOException")) {
-          exceptionStream.println("\nTEST: got expected fake exc:" + e.getMessage());
-          e.printStackTrace(exceptionStream);
-          try {
-            iw.rollback();
-          } catch (Throwable t) {}
-        } else {
-          Rethrow.rethrow(e);
-        }
+      } catch (IOException e) {
+        handleFakeIOException(e, exceptionStream);
+        try {
+          iw.rollback();
+        } catch (Throwable t) {}
       }
       dir.close();
     } catch (Throwable t) {
@@ -521,5 +501,19 @@ abstract class BaseIndexFileFormatTestCase extends LuceneTestCase {
       System.out.println("TEST PASSED: dumping fake-exception-log:...");
       System.out.println(exceptionLog.toString("UTF-8"));
     }
+  }
+  
+  private void handleFakeIOException(IOException e, PrintStream exceptionStream) {
+    Throwable ex = e;
+    while (ex != null) {
+      if (ex.getMessage() != null && ex.getMessage().startsWith("a random IOException")) {
+        exceptionStream.println("\nTEST: got expected fake exc:" + ex.getMessage());
+        ex.printStackTrace(exceptionStream);
+        return;
+      }
+      ex = ex.getCause();
+    }
+    
+    Rethrow.rethrow(e);
   }
 }

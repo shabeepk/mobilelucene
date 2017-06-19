@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.lucene.analysis.charfilter;
 
 import org.apache.lucene.analysis.CharFilter;
@@ -42,31 +41,17 @@ public abstract class BaseCharFilter extends CharFilter {
   /** Retrieve the corrected offset. */
   @Override
   protected int correct(int currentOff) {
-    if (offsets == null || currentOff < offsets[0]) {
+    if (offsets == null) {
       return currentOff;
     }
-    
-    int hi = size - 1;
-    if(currentOff >= offsets[hi])
-      return currentOff + diffs[hi];
 
-    int lo = 0;
-    int mid = -1;
-    
-    while (hi >= lo) {
-      mid = (lo + hi) >>> 1;
-      if (currentOff < offsets[mid])
-        hi = mid - 1;
-      else if (currentOff > offsets[mid])
-        lo = mid + 1;
-      else
-        return currentOff + diffs[mid];
+    int index = Arrays.binarySearch(offsets, 0, size, currentOff);
+    if (index < -1) {
+      index = -2 - index;
     }
 
-    if (currentOff < offsets[mid])
-      return mid == 0 ? currentOff : currentOff + diffs[mid-1];
-    else
-      return currentOff + diffs[mid];
+    final int diff = index < 0 ? 0 : diffs[index];
+    return currentOff + diff;
   }
   
   protected int getLastCumulativeDiff() {

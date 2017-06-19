@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -66,8 +66,8 @@ public final class MultiFields extends Fields {
         // already an atomic reader / reader with one leave
         return leaves.get(0).reader().fields();
       default:
-        final List<Fields> fields = new ArrayList<>();
-        final List<ReaderSlice> slices = new ArrayList<>();
+        final List<Fields> fields = new ArrayList<>(leaves.size());
+        final List<ReaderSlice> slices = new ArrayList<>(leaves.size());
         for (final LeafReaderContext ctx : leaves) {
           final LeafReader r = ctx.reader();
           final Fields f = r.fields();

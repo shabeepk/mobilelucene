@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.standard;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,12 +14,11 @@ package org.apache.lucene.analysis.standard;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.standard;
 
-import org.apache.lucene.analysis.Tokenizer;
-import org.apache.lucene.analysis.standard.std40.UAX29URLEmailTokenizer40;
+
 import org.apache.lucene.analysis.util.TokenizerFactory;
 import org.apache.lucene.util.AttributeFactory;
-import org.apache.lucene.util.Version;
 
 import java.util.Map;
 
@@ -47,15 +44,9 @@ public class UAX29URLEmailTokenizerFactory extends TokenizerFactory {
   }
 
   @Override
-  public Tokenizer create(AttributeFactory factory) {
-    if (luceneMatchVersion.onOrAfter(Version.LUCENE_4_7_0)) {
-      UAX29URLEmailTokenizer tokenizer = new UAX29URLEmailTokenizer(factory);
-      tokenizer.setMaxTokenLength(maxTokenLength);
-      return tokenizer;
-    } else {
-      UAX29URLEmailTokenizer40 tokenizer40 = new UAX29URLEmailTokenizer40(factory);
-      tokenizer40.setMaxTokenLength(maxTokenLength);
-      return tokenizer40;
-    }
+  public UAX29URLEmailTokenizer create(AttributeFactory factory) {
+    UAX29URLEmailTokenizer tokenizer = new UAX29URLEmailTokenizer(factory);
+    tokenizer.setMaxTokenLength(maxTokenLength);
+    return tokenizer;
   }
 }

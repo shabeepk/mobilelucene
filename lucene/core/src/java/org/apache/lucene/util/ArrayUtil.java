@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,9 +14,9 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
 
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Comparator;
 
 /**
@@ -40,19 +38,6 @@ public final class ArrayUtil {
      Revision taken on Friday, June 12. https://svn.apache.org/repos/asf/harmony/enhanced/classlib/archive/java6/modules/luni/src/main/java/java/lang/Integer.java
 
    */
-
-  /**
-   * Parses the string argument as if it was an int value and returns the
-   * result. Throws NumberFormatException if the string does not represent an
-   * int quantity.
-   *
-   * @param chars a string representation of an int quantity.
-   * @return int the value represented by the argument
-   * @throws NumberFormatException if the argument could not be parsed as an int quantity.
-   */
-  public static int parseInt(char[] chars) throws NumberFormatException {
-    return parseInt(chars, 0, chars.length, 10);
-  }
 
   /**
    * Parses a char array into an int.
@@ -226,17 +211,6 @@ public final class ArrayUtil {
     }
   }
 
-  public static int getShrinkSize(int currentSize, int targetSize, int bytesPerElement) {
-    final int newSize = oversize(targetSize, bytesPerElement);
-    // Only reallocate if we are "substantially" smaller.
-    // This saves us from "running hot" (constantly making a
-    // bit bigger then a bit smaller, over and over):
-    if (newSize < currentSize / 2)
-      return newSize;
-    else
-      return currentSize;
-  }
-
   public static <T> T[] grow(T[] array, int minSize) {
     assert minSize >= 0: "size must be positive (got " + minSize + "): likely integer overflow?";
     if (array.length < minSize) {
@@ -248,9 +222,7 @@ public final class ArrayUtil {
   public static short[] grow(short[] array, int minSize) {
     assert minSize >= 0: "size must be positive (got " + minSize + "): likely integer overflow?";
     if (array.length < minSize) {
-      short[] newArray = new short[oversize(minSize, RamUsageEstimator.NUM_BYTES_SHORT)];
-      System.arraycopy(array, 0, newArray, 0, array.length);
-      return newArray;
+      return Arrays.copyOf(array, oversize(minSize, Short.BYTES));
     } else
       return array;
   }
@@ -262,9 +234,7 @@ public final class ArrayUtil {
   public static float[] grow(float[] array, int minSize) {
     assert minSize >= 0: "size must be positive (got " + minSize + "): likely integer overflow?";
     if (array.length < minSize) {
-      float[] newArray = new float[oversize(minSize, RamUsageEstimator.NUM_BYTES_FLOAT)];
-      System.arraycopy(array, 0, newArray, 0, array.length);
-      return newArray;
+      return Arrays.copyOf(array, oversize(minSize, Float.BYTES));
     } else
       return array;
   }
@@ -276,9 +246,7 @@ public final class ArrayUtil {
   public static double[] grow(double[] array, int minSize) {
     assert minSize >= 0: "size must be positive (got " + minSize + "): likely integer overflow?";
     if (array.length < minSize) {
-      double[] newArray = new double[oversize(minSize, RamUsageEstimator.NUM_BYTES_DOUBLE)];
-      System.arraycopy(array, 0, newArray, 0, array.length);
-      return newArray;
+      return Arrays.copyOf(array, oversize(minSize, Double.BYTES));
     } else
       return array;
   }
@@ -287,23 +255,10 @@ public final class ArrayUtil {
     return grow(array, 1 + array.length);
   }
 
-  public static short[] shrink(short[] array, int targetSize) {
-    assert targetSize >= 0: "size must be positive (got " + targetSize + "): likely integer overflow?";
-    final int newSize = getShrinkSize(array.length, targetSize, RamUsageEstimator.NUM_BYTES_SHORT);
-    if (newSize != array.length) {
-      short[] newArray = new short[newSize];
-      System.arraycopy(array, 0, newArray, 0, newSize);
-      return newArray;
-    } else
-      return array;
-  }
-
   public static int[] grow(int[] array, int minSize) {
     assert minSize >= 0: "size must be positive (got " + minSize + "): likely integer overflow?";
     if (array.length < minSize) {
-      int[] newArray = new int[oversize(minSize, RamUsageEstimator.NUM_BYTES_INT)];
-      System.arraycopy(array, 0, newArray, 0, array.length);
-      return newArray;
+      return Arrays.copyOf(array, oversize(minSize, Integer.BYTES));
     } else
       return array;
   }
@@ -312,23 +267,10 @@ public final class ArrayUtil {
     return grow(array, 1 + array.length);
   }
 
-  public static int[] shrink(int[] array, int targetSize) {
-    assert targetSize >= 0: "size must be positive (got " + targetSize + "): likely integer overflow?";
-    final int newSize = getShrinkSize(array.length, targetSize, RamUsageEstimator.NUM_BYTES_INT);
-    if (newSize != array.length) {
-      int[] newArray = new int[newSize];
-      System.arraycopy(array, 0, newArray, 0, newSize);
-      return newArray;
-    } else
-      return array;
-  }
-
   public static long[] grow(long[] array, int minSize) {
     assert minSize >= 0: "size must be positive (got " + minSize + "): likely integer overflow?";
     if (array.length < minSize) {
-      long[] newArray = new long[oversize(minSize, RamUsageEstimator.NUM_BYTES_LONG)];
-      System.arraycopy(array, 0, newArray, 0, array.length);
-      return newArray;
+      return Arrays.copyOf(array, oversize(minSize, Long.BYTES));
     } else
       return array;
   }
@@ -337,23 +279,10 @@ public final class ArrayUtil {
     return grow(array, 1 + array.length);
   }
 
-  public static long[] shrink(long[] array, int targetSize) {
-    assert targetSize >= 0: "size must be positive (got " + targetSize + "): likely integer overflow?";
-    final int newSize = getShrinkSize(array.length, targetSize, RamUsageEstimator.NUM_BYTES_LONG);
-    if (newSize != array.length) {
-      long[] newArray = new long[newSize];
-      System.arraycopy(array, 0, newArray, 0, newSize);
-      return newArray;
-    } else
-      return array;
-  }
-
   public static byte[] grow(byte[] array, int minSize) {
     assert minSize >= 0: "size must be positive (got " + minSize + "): likely integer overflow?";
     if (array.length < minSize) {
-      byte[] newArray = new byte[oversize(minSize, 1)];
-      System.arraycopy(array, 0, newArray, 0, array.length);
-      return newArray;
+      return Arrays.copyOf(array, oversize(minSize, Byte.BYTES));
     } else
       return array;
   }
@@ -362,119 +291,16 @@ public final class ArrayUtil {
     return grow(array, 1 + array.length);
   }
 
-  public static byte[] shrink(byte[] array, int targetSize) {
-    assert targetSize >= 0: "size must be positive (got " + targetSize + "): likely integer overflow?";
-    final int newSize = getShrinkSize(array.length, targetSize, 1);
-    if (newSize != array.length) {
-      byte[] newArray = new byte[newSize];
-      System.arraycopy(array, 0, newArray, 0, newSize);
-      return newArray;
-    } else
-      return array;
-  }
-
-  public static boolean[] grow(boolean[] array, int minSize) {
-    assert minSize >= 0: "size must be positive (got " + minSize + "): likely integer overflow?";
-    if (array.length < minSize) {
-      boolean[] newArray = new boolean[oversize(minSize, 1)];
-      System.arraycopy(array, 0, newArray, 0, array.length);
-      return newArray;
-    } else
-      return array;
-  }
-
-  public static boolean[] grow(boolean[] array) {
-    return grow(array, 1 + array.length);
-  }
-
-  public static boolean[] shrink(boolean[] array, int targetSize) {
-    assert targetSize >= 0: "size must be positive (got " + targetSize + "): likely integer overflow?";
-    final int newSize = getShrinkSize(array.length, targetSize, 1);
-    if (newSize != array.length) {
-      boolean[] newArray = new boolean[newSize];
-      System.arraycopy(array, 0, newArray, 0, newSize);
-      return newArray;
-    } else
-      return array;
-  }
-
   public static char[] grow(char[] array, int minSize) {
     assert minSize >= 0: "size must be positive (got " + minSize + "): likely integer overflow?";
     if (array.length < minSize) {
-      char[] newArray = new char[oversize(minSize, RamUsageEstimator.NUM_BYTES_CHAR)];
-      System.arraycopy(array, 0, newArray, 0, array.length);
-      return newArray;
+      return Arrays.copyOf(array, oversize(minSize, Character.BYTES));
     } else
       return array;
   }
 
   public static char[] grow(char[] array) {
     return grow(array, 1 + array.length);
-  }
-
-  public static char[] shrink(char[] array, int targetSize) {
-    assert targetSize >= 0: "size must be positive (got " + targetSize + "): likely integer overflow?";
-    final int newSize = getShrinkSize(array.length, targetSize, RamUsageEstimator.NUM_BYTES_CHAR);
-    if (newSize != array.length) {
-      char[] newArray = new char[newSize];
-      System.arraycopy(array, 0, newArray, 0, newSize);
-      return newArray;
-    } else
-      return array;
-  }
-
-  public static int[][] grow(int[][] array, int minSize) {
-    assert minSize >= 0: "size must be positive (got " + minSize + "): likely integer overflow?";
-    if (array.length < minSize) {
-      int[][] newArray = new int[oversize(minSize, RamUsageEstimator.NUM_BYTES_OBJECT_REF)][];
-      System.arraycopy(array, 0, newArray, 0, array.length);
-      return newArray;
-    } else {
-      return array;
-    }
-  }
-
-  public static int[][] grow(int[][] array) {
-    return grow(array, 1 + array.length);
-  }
-
-  public static int[][] shrink(int[][] array, int targetSize) {
-    assert targetSize >= 0: "size must be positive (got " + targetSize + "): likely integer overflow?";
-    final int newSize = getShrinkSize(array.length, targetSize, RamUsageEstimator.NUM_BYTES_OBJECT_REF);
-    if (newSize != array.length) {
-      int[][] newArray = new int[newSize][];
-      System.arraycopy(array, 0, newArray, 0, newSize);
-      return newArray;
-    } else {
-      return array;
-    }
-  }
-
-  public static float[][] grow(float[][] array, int minSize) {
-    assert minSize >= 0: "size must be positive (got " + minSize + "): likely integer overflow?";
-    if (array.length < minSize) {
-      float[][] newArray = new float[oversize(minSize, RamUsageEstimator.NUM_BYTES_OBJECT_REF)][];
-      System.arraycopy(array, 0, newArray, 0, array.length);
-      return newArray;
-    } else {
-      return array;
-    }
-  }
-
-  public static float[][] grow(float[][] array) {
-    return grow(array, 1 + array.length);
-  }
-
-  public static float[][] shrink(float[][] array, int targetSize) {
-    assert targetSize >= 0: "size must be positive (got " + targetSize + "): likely integer overflow?";
-    final int newSize = getShrinkSize(array.length, targetSize, RamUsageEstimator.NUM_BYTES_OBJECT_REF);
-    if (newSize != array.length) {
-      float[][] newArray = new float[newSize][];
-      System.arraycopy(array, 0, newArray, 0, newSize);
-      return newArray;
-    } else {
-      return array;
-    }
   }
 
   /**
@@ -486,44 +312,6 @@ public final class ArrayUtil {
     for (int i = end - 1; i >= start; i--)
       code = code * 31 + array[i];
     return code;
-  }
-
-  /**
-   * Returns hash of bytes in range start (inclusive) to
-   * end (inclusive)
-   */
-  public static int hashCode(byte[] array, int start, int end) {
-    int code = 0;
-    for (int i = end - 1; i >= start; i--)
-      code = code * 31 + array[i];
-    return code;
-  }
-
-
-  // Since Arrays.equals doesn't implement offsets for equals
-  /**
-   * See if two array slices are the same.
-   *
-   * @param left        The left array to compare
-   * @param offsetLeft  The offset into the array.  Must be positive
-   * @param right       The right array to compare
-   * @param offsetRight the offset into the right array.  Must be positive
-   * @param length      The length of the section of the array to compare
-   * @return true if the two arrays, starting at their respective offsets, are equal
-   * 
-   * @see java.util.Arrays#equals(char[], char[])
-   */
-  public static boolean equals(char[] left, int offsetLeft, char[] right, int offsetRight, int length) {
-    if ((offsetLeft + length <= left.length) && (offsetRight + length <= right.length)) {
-      for (int i = 0; i < length; i++) {
-        if (left[offsetLeft + i] != right[offsetRight + i]) {
-          return false;
-        }
-
-      }
-      return true;
-    }
-    return false;
   }
   
   // Since Arrays.equals doesn't implement offsets for equals
@@ -552,35 +340,6 @@ public final class ArrayUtil {
     return false;
   }
 
-  /* DISABLE THIS FOR NOW: This has performance problems until Java creates intrinsics for Class#getComponentType() and Array.newInstance()
-  public static <T> T[] grow(T[] array, int minSize) {
-    assert minSize >= 0: "size must be positive (got " + minSize + "): likely integer overflow?";
-    if (array.length < minSize) {
-      @SuppressWarnings("unchecked") final T[] newArray =
-        (T[]) Array.newInstance(array.getClass().getComponentType(), oversize(minSize, RamUsageEstimator.NUM_BYTES_OBJECT_REF));
-      System.arraycopy(array, 0, newArray, 0, array.length);
-      return newArray;
-    } else
-      return array;
-  }
-
-  public static <T> T[] grow(T[] array) {
-    return grow(array, 1 + array.length);
-  }
-
-  public static <T> T[] shrink(T[] array, int targetSize) {
-    assert targetSize >= 0: "size must be positive (got " + targetSize + "): likely integer overflow?";
-    final int newSize = getShrinkSize(array.length, targetSize, RamUsageEstimator.NUM_BYTES_OBJECT_REF);
-    if (newSize != array.length) {
-      @SuppressWarnings("unchecked") final T[] newArray =
-        (T[]) Array.newInstance(array.getClass().getComponentType(), newSize);
-      System.arraycopy(array, 0, newArray, 0, newSize);
-      return newArray;
-    } else
-      return array;
-  }
-  */
-
   // Since Arrays.equals doesn't implement offsets for equals
   /**
    * See if two array slices are the same.
@@ -605,36 +364,6 @@ public final class ArrayUtil {
       return true;
     }
     return false;
-  }
-
-  public static int[] toIntArray(Collection<Integer> ints) {
-
-    final int[] result = new int[ints.size()];
-    int upto = 0;
-    for(int v : ints) {
-      result[upto++] = v;
-    }
-
-    // paranoia:
-    assert upto == result.length;
-
-    return result;
-  }
-
-  private static class NaturalComparator<T extends Comparable<? super T>> implements Comparator<T> {
-    NaturalComparator() {}
-    @Override
-    public int compare(T o1, T o2) {
-      return o1.compareTo(o2);
-    }
-  }
-
-  private static final Comparator<?> NATURAL_COMPARATOR = new NaturalComparator<>();
-
-  /** Get the natural {@link Comparator} for the provided object class. */
-  @SuppressWarnings("unchecked")
-  public static <T extends Comparable<? super T>> Comparator<T> naturalComparator() {
-    return (Comparator<T>) NATURAL_COMPARATOR;
   }
 
   /** Swap values stored in slots <code>i</code> and <code>j</code> */
@@ -673,7 +402,7 @@ public final class ArrayUtil {
    */
   public static <T extends Comparable<? super T>> void introSort(T[] a, int fromIndex, int toIndex) {
     if (toIndex-fromIndex <= 1) return;
-    introSort(a, fromIndex, toIndex, ArrayUtil.<T>naturalComparator());
+    introSort(a, fromIndex, toIndex, Comparator.naturalOrder());
   }
   
   /**
@@ -713,7 +442,7 @@ public final class ArrayUtil {
    */
   public static <T extends Comparable<? super T>> void timSort(T[] a, int fromIndex, int toIndex) {
     if (toIndex-fromIndex <= 1) return;
-    timSort(a, fromIndex, toIndex, ArrayUtil.<T>naturalComparator());
+    timSort(a, fromIndex, toIndex, Comparator.naturalOrder());
   }
   
   /**
@@ -722,6 +451,34 @@ public final class ArrayUtil {
    */
   public static <T extends Comparable<? super T>> void timSort(T[] a) {
     timSort(a, 0, a.length);
+  }
+
+  /** Reorganize {@code arr[from:to[} so that the element at offset k is at the
+   *  same position as if {@code arr[from:to[} was sorted, and all elements on
+   *  its left are less than or equal to it, and all elements on its right are
+   *  greater than or equal to it.
+   *  This runs in linear time on average and in {@code n log(n)} time in the
+   *  worst case.*/
+  public static <T> void select(T[] arr, int from, int to, int k, Comparator<? super T> comparator) {
+    new IntroSelector() {
+
+      T pivot;
+
+      @Override
+      protected void swap(int i, int j) {
+        ArrayUtil.swap(arr, i, j);
+      }
+
+      @Override
+      protected void setPivot(int i) {
+        pivot = arr[i];
+      }
+
+      @Override
+      protected int comparePivot(int j) {
+        return comparator.compare(pivot, arr[j]);
+      }
+    }.select(from, to, k);
   }
 
 }

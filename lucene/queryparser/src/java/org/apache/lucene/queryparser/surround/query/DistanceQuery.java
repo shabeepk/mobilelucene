@@ -1,4 +1,3 @@
-package org.apache.lucene.queryparser.surround.query;
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -15,7 +14,7 @@ package org.apache.lucene.queryparser.surround.query;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+package org.apache.lucene.queryparser.surround.query;
 import java.util.List;
 import java.util.Iterator;
 import java.io.IOException;
@@ -68,7 +67,6 @@ public class DistanceQuery extends ComposedQuery implements DistanceSubQuery {
   public void addSpanQueries(SpanNearClauseFactory sncf) throws IOException {
     Query snq = getSpanNearQuery(sncf.getIndexReader(),
                                   sncf.getFieldName(),
-                                  getWeight(),
                                   sncf.getBasicQueryFactory());
     sncf.addSpanQuery(snq);
   }
@@ -76,7 +74,6 @@ public class DistanceQuery extends ComposedQuery implements DistanceSubQuery {
   public Query getSpanNearQuery(
           IndexReader reader,
           String fieldName,
-          float boost,
           BasicQueryFactory qf) throws IOException {
     SpanQuery[] spanClauses = new SpanQuery[getNrSubQueries()];
     Iterator<?> sqi = getSubQueriesIterator();
@@ -97,9 +94,7 @@ public class DistanceQuery extends ComposedQuery implements DistanceSubQuery {
       qi++;
     }
 
-    SpanNearQuery r = new SpanNearQuery(spanClauses, getOpDistance() - 1, subQueriesOrdered());
-    r.setBoost(boost);
-    return r;
+    return new SpanNearQuery(spanClauses, getOpDistance() - 1, subQueriesOrdered());
   }
 
   @Override

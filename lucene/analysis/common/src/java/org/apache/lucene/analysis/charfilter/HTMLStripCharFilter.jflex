@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.charfilter;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -17,15 +15,16 @@ package org.apache.lucene.analysis.charfilter;
  * limitations under the License.
  */
 
+package org.apache.lucene.analysis.charfilter;
+
 import java.io.IOException;
 import java.io.Reader;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.lucene.analysis.util.CharArrayMap;
-import org.apache.lucene.analysis.util.CharArraySet;
+import org.apache.lucene.analysis.CharArrayMap;
+import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.util.OpenStringBuilder;
 
 /**
@@ -238,7 +237,7 @@ InlineElment = ( [aAbBiIqQsSuU]                   |
     return ZZ_BUFFERSIZE;
   }
 
-  private class TextSegment extends OpenStringBuilder {
+  private static class TextSegment extends OpenStringBuilder {
     /** The position from which the next char will be read. */
     int pos = 0;
 

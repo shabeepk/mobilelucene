@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,8 +14,10 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
 
-import org.lukhnos.portmobile.util.Objects;
+
+import java.util.Objects;
 
 /** A clause in a BooleanQuery. */
 public final class BooleanClause {
@@ -49,9 +49,9 @@ public final class BooleanClause {
 
   /** The query whose matching documents are combined by the boolean query.
    */
-  private Query query;
+  private final Query query;
 
-  private Occur occur;
+  private final Occur occur;
 
 
   /** Constructs a BooleanClause.
@@ -102,23 +102,5 @@ public final class BooleanClause {
   @Override
   public String toString() {
     return occur.toString() + query.toString();
-  }
-
-  /**
-   * Set the {@link Occur}.
-   * @deprecated BooleanClause will be immutable in 6.0.
-   */
-  @Deprecated
-  public void setOccur(Occur occur) {
-    this.occur = Objects.requireNonNull(occur, "Occur must not be null"); 
-  }
-
-  /**
-   * Set the {@link Query}.
-   * @deprecated BooleanClause will be immutable in 6.0.
-   */
-  @Deprecated
-  public void setQuery(Query query) {
-    this.query = Objects.requireNonNull(query, "Query must not be null");
   }
 }

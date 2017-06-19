@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,10 +14,10 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
+
 
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -66,11 +64,6 @@ public final class FrequencyTrackingRingBuffer implements Accountable {
     return BASE_RAM_BYTES_USED
         + frequencies.ramBytesUsed()
         + RamUsageEstimator.sizeOf(buffer);
-  }
-
-  @Override
-  public Collection<Accountable> getChildResources() {
-    return Collections.emptyList();
   }
 
   /**
@@ -133,11 +126,6 @@ public final class FrequencyTrackingRingBuffer implements Accountable {
       return BASE_RAM_BYTES_USED
           + RamUsageEstimator.sizeOf(keys)
           + RamUsageEstimator.sizeOf(freqs);
-    }
-
-    @Override
-    public Collection<Accountable> getChildResources() {
-      return Collections.emptyList();
     }
 
     /** Return the frequency of the give key in the bag. */

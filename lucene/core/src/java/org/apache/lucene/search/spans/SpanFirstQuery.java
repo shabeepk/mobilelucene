@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spans;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,9 +14,10 @@ package org.apache.lucene.search.spans;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spans;
+
 
 import org.apache.lucene.search.spans.FilterSpans.AcceptStatus;
-import org.apache.lucene.util.ToStringUtils;
 
 import java.io.IOException;
 
@@ -54,15 +53,7 @@ public class SpanFirstQuery extends SpanPositionRangeQuery {
     buffer.append(", ");
     buffer.append(end);
     buffer.append(")");
-    buffer.append(ToStringUtils.boost(getBoost()));
     return buffer.toString();
-  }
-
-  @Override
-  public SpanFirstQuery clone() {
-    SpanFirstQuery spanFirstQuery = new SpanFirstQuery((SpanQuery) match.clone(), end);
-    spanFirstQuery.setBoost(getBoost());
-    return spanFirstQuery;
   }
 
 }

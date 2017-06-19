@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.simpletext;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,16 +14,16 @@ package org.apache.lucene.codecs.simpletext;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.simpletext;
+
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import org.lukhnos.portmobile.charset.StandardCharsets;
+import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.ParseException;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -45,7 +43,6 @@ import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.store.BufferedChecksumIndexInput;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.IndexInput;
-import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefBuilder;
@@ -501,7 +498,7 @@ class SimpleTextDocValuesReader extends DocValuesProducer {
   }
 
   /** Used only in ctor: */
-  private String stripPrefix(BytesRef prefix) throws IOException {
+  private String stripPrefix(BytesRef prefix) {
     return new String(scratch.bytes(), prefix.length, scratch.length() - prefix.length, StandardCharsets.UTF_8);
   }
 
@@ -509,11 +506,6 @@ class SimpleTextDocValuesReader extends DocValuesProducer {
   public long ramBytesUsed() {
     return BASE_RAM_BYTES_USED + RamUsageEstimator.sizeOf(scratch.bytes())
         + fields.size() * (RamUsageEstimator.NUM_BYTES_OBJECT_REF * 2L + OneField.BASE_RAM_BYTES_USED);
-  }
-
-  @Override
-  public Collection<Accountable> getChildResources() {
-    return Collections.emptyList();
   }
 
   @Override

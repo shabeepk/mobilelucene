@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spans;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,12 +14,8 @@ package org.apache.lucene.search.spans;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spans;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Map;
-import org.lukhnos.portmobile.util.Objects;
-import java.util.Set;
 
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
@@ -30,12 +24,18 @@ import org.apache.lucene.index.TermContext;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+
 abstract class SpanContainQuery extends SpanQuery implements Cloneable {
 
   SpanQuery big;
   SpanQuery little;
 
-  SpanContainQuery(SpanQuery big, SpanQuery little, float boost) {
+  SpanContainQuery(SpanQuery big, SpanQuery little) {
     this.big = Objects.requireNonNull(big);
     this.little = Objects.requireNonNull(little);
     Objects.requireNonNull(big.getField());
@@ -43,11 +43,18 @@ abstract class SpanContainQuery extends SpanQuery implements Cloneable {
     if (! big.getField().equals(little.getField())) {
       throw new IllegalArgumentException("big and little not same field");
     }
-    this.setBoost(boost);
   }
 
   @Override
   public String getField() { return big.getField(); }
+  
+  public SpanQuery getBig() {
+    return big;
+  }
+
+  public SpanQuery getLittle() {
+    return little;
+  }
 
   public abstract class SpanContainWeight extends SpanWeight {
 
@@ -105,36 +112,36 @@ abstract class SpanContainQuery extends SpanQuery implements Cloneable {
   }
 
   @Override
-  public abstract SpanContainQuery clone();
-
-  @Override
   public Query rewrite(IndexReader reader) throws IOException {
-    SpanContainQuery clone = null;
     SpanQuery rewrittenBig = (SpanQuery) big.rewrite(reader);
-    if (rewrittenBig != big) {
-      clone = this.clone();
-      clone.big = rewrittenBig;
-    }
     SpanQuery rewrittenLittle = (SpanQuery) little.rewrite(reader);
-    if (rewrittenLittle != little) {
-      if (clone == null) clone = this.clone();
-      clone.little = rewrittenLittle;
+    if (big != rewrittenBig || little != rewrittenLittle) {
+      try {
+        SpanContainQuery clone = (SpanContainQuery) super.clone();
+        clone.big = rewrittenBig;
+        clone.little = rewrittenLittle;
+        return clone;
+      } catch (CloneNotSupportedException e) {
+        throw new AssertionError(e);
+      }
     }
-    return (clone != null) ? clone : this;
+    return super.rewrite(reader);
   }
 
   @Override
-  public boolean equals(Object o) {
-    if (! super.equals(o)) {
-      return false;
-    }
-    SpanContainQuery other = (SpanContainQuery)o;
-    return big.equals(other.big) && little.equals(other.little);
+  public boolean equals(Object other) {
+    return sameClassAs(other) &&
+           equalsTo(getClass().cast(other));
+  } 
+  
+  private boolean equalsTo(SpanContainQuery other) {
+    return big.equals(other.big) && 
+           little.equals(other.little);
   }
 
   @Override
   public int hashCode() {
-    int h = Integer.rotateLeft(super.hashCode(), 1);
+    int h = Integer.rotateLeft(classHash(), 1);
     h ^= big.hashCode();
     h = Integer.rotateLeft(h, 1);
     h ^= little.hashCode();

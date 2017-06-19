@@ -1,5 +1,3 @@
-package org.apache.lucene.facet.taxonomy;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.facet.taxonomy;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.facet.taxonomy;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -50,7 +49,7 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.search.similarities.DefaultSimilarity;
+import org.apache.lucene.search.similarities.ClassicSimilarity;
 import org.apache.lucene.search.similarities.PerFieldSimilarityWrapper;
 import org.apache.lucene.search.similarities.Similarity;
 import org.apache.lucene.store.Directory;
@@ -244,19 +243,13 @@ public class TestTaxonomyFacetCounts extends FacetTestCase {
     List<FacetResult> results = facets.getAllDims(10);
     assertTrue(results.isEmpty());
 
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       facets.getSpecificValue("a");
-      fail("should have hit exc");
-    } catch (IllegalArgumentException iae) {
-      // expected
-    }
+    });
 
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       facets.getTopChildren(10, "a");
-      fail("should have hit exc");
-    } catch (IllegalArgumentException iae) {
-      // expected
-    }
+    });
 
     writer.close();
     IOUtils.close(taxoWriter, searcher.getIndexReader(), taxoReader, taxoDir, dir);
@@ -266,13 +259,11 @@ public class TestTaxonomyFacetCounts extends FacetTestCase {
     Directory dir = newDirectory();
     Directory taxoDir = newDirectory();
     IndexWriterConfig iwc = newIndexWriterConfig(new MockAnalyzer(random()));
-    iwc.setSimilarity(new PerFieldSimilarityWrapper() {
-        final Similarity sim = new DefaultSimilarity();
-
+    iwc.setSimilarity(new PerFieldSimilarityWrapper(new ClassicSimilarity()) {
         @Override
         public Similarity get(String name) {
           assertEquals("field", name);
-          return sim;
+          return defaultSim;
         }
       });
     TaxonomyWriter taxoWriter = new DirectoryTaxonomyWriter(taxoDir, IndexWriterConfig.OpenMode.CREATE);
@@ -318,12 +309,9 @@ public class TestTaxonomyFacetCounts extends FacetTestCase {
     searcher.search(new MatchAllDocsQuery(), c);
     Facets facets = getTaxonomyFacetCounts(taxoReader, config, c);
 
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       facets.getSpecificValue("a");
-      fail("didn't hit expected exception");
-    } catch (IllegalArgumentException iae) {
-      // expected
-    }
+    });
 
     FacetResult result = facets.getTopChildren(10, "a");
     assertEquals(1, result.labelValues.length);
@@ -405,12 +393,9 @@ public class TestTaxonomyFacetCounts extends FacetTestCase {
     assertEquals(1, facets.getTopChildren(10, "dim").value);
     assertEquals(1, facets.getTopChildren(10, "dim2").value);
     assertEquals(1, facets.getTopChildren(10, "dim3").value);
-    try {
-      assertEquals(1, facets.getSpecificValue("dim"));
-      fail("didn't hit expected exception");
-    } catch (IllegalArgumentException iae) {
-      // expected
-    }
+    expectThrows(IllegalArgumentException.class, () -> {
+      facets.getSpecificValue("dim");
+    });
     assertEquals(1, facets.getSpecificValue("dim2"));
     assertEquals(1, facets.getSpecificValue("dim3"));
     writer.close();
@@ -480,12 +465,10 @@ public class TestTaxonomyFacetCounts extends FacetTestCase {
     Document doc = new Document();
     doc.add(newTextField("field", "text", Field.Store.NO));
     doc.add(new FacetField("a", "path", "other"));
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       config.build(taxoWriter, doc);
-      fail("did not hit expected exception");
-    } catch (IllegalArgumentException iae) {
-      // expected
-    }
+    });
+
     writer.close();
     IOUtils.close(taxoWriter, dir, taxoDir);
   }
@@ -503,12 +486,10 @@ public class TestTaxonomyFacetCounts extends FacetTestCase {
     doc.add(newTextField("field", "text", Field.Store.NO));
     doc.add(new FacetField("a", "path"));
     doc.add(new FacetField("a", "path2"));
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       config.build(taxoWriter, doc);
-      fail("did not hit expected exception");
-    } catch (IllegalArgumentException iae) {
-      // expected
-    }
+    });
+
     writer.close();
     IOUtils.close(taxoWriter, dir, taxoDir);
   }
@@ -530,7 +511,7 @@ public class TestTaxonomyFacetCounts extends FacetTestCase {
       iw.addDocument(config.build(taxoWriter, doc));
     }
     
-    DirectoryReader r = DirectoryReader.open(iw, true);
+    DirectoryReader r = DirectoryReader.open(iw);
     DirectoryTaxonomyReader taxoReader = new DirectoryTaxonomyReader(taxoWriter);
     
     FacetsCollector sfc = new FacetsCollector();
@@ -558,7 +539,7 @@ public class TestTaxonomyFacetCounts extends FacetTestCase {
       iw.addDocument(config.build(taxoWriter, doc));
     }
     
-    DirectoryReader r = DirectoryReader.open(iw, true);
+    DirectoryReader r = DirectoryReader.open(iw);
     DirectoryTaxonomyReader taxoReader = new DirectoryTaxonomyReader(taxoWriter);
     
     FacetsCollector sfc = new FacetsCollector();
@@ -586,7 +567,7 @@ public class TestTaxonomyFacetCounts extends FacetTestCase {
     doc.add(new FacetField("b", "1"));
     iw.addDocument(config.build(taxoWriter, doc));
     
-    DirectoryReader r = DirectoryReader.open(iw, true);
+    DirectoryReader r = DirectoryReader.open(iw);
     DirectoryTaxonomyReader taxoReader = new DirectoryTaxonomyReader(taxoWriter);
 
     final FacetsCollector sfc = new FacetsCollector();
@@ -615,7 +596,7 @@ public class TestTaxonomyFacetCounts extends FacetTestCase {
       iw.addDocument(config.build(taxoWriter, doc));
     }
     
-    DirectoryReader r = DirectoryReader.open(iw, true);
+    DirectoryReader r = DirectoryReader.open(iw);
     DirectoryTaxonomyReader taxoReader = new DirectoryTaxonomyReader(taxoWriter);
     
     FacetsCollector sfc = new FacetsCollector();

@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.simpletext;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.codecs.simpletext;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.simpletext;
+
 
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.index.BaseCompoundFormatTestCase;
@@ -26,5 +26,15 @@ public class TestSimpleTextCompoundFormat extends BaseCompoundFormatTestCase {
   @Override
   protected Codec getCodec() {
     return codec;
+  }
+
+  @Override
+  public void testCorruptFilesAreCaught() {
+    // SimpleText does not catch broken sub-files in CFS!
+  }
+
+  @Override
+  public void testMissingCodecHeadersAreCaught() {
+    // SimpleText does not catch broken sub-files in CFS!
   }
 }

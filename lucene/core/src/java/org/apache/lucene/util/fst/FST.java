@@ -1,5 +1,3 @@
-package org.apache.lucene.util.fst;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,14 +14,16 @@ package org.apache.lucene.util.fst;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util.fst;
+
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import org.lukhnos.portmobile.file.Files;
-import org.lukhnos.portmobile.file.Path;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -43,7 +43,6 @@ import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.Constants;
 import org.apache.lucene.util.PriorityQueue;
 import org.apache.lucene.util.RamUsageEstimator;
-import org.apache.lucene.util.fst.Builder.UnCompiledNode;
 import org.apache.lucene.util.packed.GrowableWriter;
 import org.apache.lucene.util.packed.PackedInts;
 
@@ -104,17 +103,17 @@ public final class FST<T> implements Accountable {
   private static final byte ARCS_AS_FIXED_ARRAY = BIT_ARC_HAS_FINAL_OUTPUT;
 
   /**
-   * @see #shouldExpand(Builder, UnCompiledNode)
+   * @see #shouldExpand(Builder, Builder.UnCompiledNode)
    */
   static final int FIXED_ARRAY_SHALLOW_DISTANCE = 3; // 0 => only root node.
 
   /**
-   * @see #shouldExpand(Builder, UnCompiledNode)
+   * @see #shouldExpand(Builder, Builder.UnCompiledNode)
    */
   static final int FIXED_ARRAY_NUM_ARCS_SHALLOW = 5;
 
   /**
-   * @see #shouldExpand(Builder, UnCompiledNode)
+   * @see #shouldExpand(Builder, Builder.UnCompiledNode)
    */
   static final int FIXED_ARRAY_NUM_ARCS_DEEP = 10;
 
@@ -1332,7 +1331,7 @@ public final class FST<T> implements Accountable {
    * @see #FIXED_ARRAY_NUM_ARCS_DEEP
    * @see Builder.UnCompiledNode#depth
    */
-  private boolean shouldExpand(Builder<T> builder, UnCompiledNode<T> node) {
+  private boolean shouldExpand(Builder<T> builder, Builder.UnCompiledNode<T> node) {
     return builder.allowArrayArcs &&
       ((node.depth <= FIXED_ARRAY_SHALLOW_DISTANCE && node.numArcs >= FIXED_ARRAY_NUM_ARCS_SHALLOW) || 
        node.numArcs >= FIXED_ARRAY_NUM_ARCS_DEEP);

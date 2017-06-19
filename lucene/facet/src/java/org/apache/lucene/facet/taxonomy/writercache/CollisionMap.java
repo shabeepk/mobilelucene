@@ -1,10 +1,3 @@
-package org.apache.lucene.facet.taxonomy.writercache;
-
-import java.util.Iterator;
-import java.util.NoSuchElementException;
-
-import org.apache.lucene.facet.taxonomy.FacetLabel;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -21,6 +14,12 @@ import org.apache.lucene.facet.taxonomy.FacetLabel;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.facet.taxonomy.writercache;
+
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+
+import org.apache.lucene.facet.taxonomy.FacetLabel;
 
 /**
  * HashMap to store colliding labels. See {@link CompactLabelToOrdinal} for
@@ -186,7 +185,7 @@ public class CollisionMap {
     return memoryUsage;
   }
 
-  private class EntryIterator implements Iterator<Entry> {
+  private static class EntryIterator implements Iterator<Entry> {
     Entry next;    // next entry to return
     int index;        // current slot 
     Entry[] ents;

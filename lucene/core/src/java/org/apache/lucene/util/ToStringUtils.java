@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
+
 
 /**
  * Helper methods to ease implementing {@link Object#toString()}.
@@ -23,15 +23,6 @@ package org.apache.lucene.util;
 public final class ToStringUtils {
 
   private ToStringUtils() {} // no instance
-
-  /**
-   * for printing boost only if not 1.0
-   */
-  public static String boost(float boost) {
-    if (boost != 1.0f) {
-      return "^" + Float.toString(boost);
-    } else return "";
-  }
 
   public static void byteArray(StringBuilder buffer, byte[] bytes) {
     for (int i = 0; i < bytes.length; i++) {

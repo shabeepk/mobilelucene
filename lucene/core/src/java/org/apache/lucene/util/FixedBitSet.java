@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
+
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -314,17 +314,6 @@ public final class FixedBitSet extends BitSet implements MutableBits, Accountabl
     }
   }
 
-  @Override
-  public void and(DocIdSetIterator iter) throws IOException {
-    if (BitSetIterator.getFixedBitSetOrNull(iter) != null) {
-      assertUnpositioned(iter);
-      final FixedBitSet bits = BitSetIterator.getFixedBitSetOrNull(iter); 
-      and(bits);
-    } else {
-      super.and(iter);
-    }
-  }
-
   /** returns true if the sets have any elements in common */
   public boolean intersects(FixedBitSet other) {
     // Depends on the ghost bits being clear!
@@ -348,17 +337,6 @@ public final class FixedBitSet extends BitSet implements MutableBits, Accountabl
     }
     if (this.numWords > otherNumWords) {
       Arrays.fill(thisArr, otherNumWords, this.numWords, 0L);
-    }
-  }
-
-  @Override
-  public void andNot(DocIdSetIterator iter) throws IOException {
-    if (BitSetIterator.getFixedBitSetOrNull(iter) != null) {
-      assertUnpositioned(iter);
-      final FixedBitSet bits = BitSetIterator.getFixedBitSetOrNull(iter); 
-      andNot(bits);
-    } else {
-      super.andNot(iter);
     }
   }
 

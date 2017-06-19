@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,45 +14,54 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
 
 import java.io.IOException;
-import org.lukhnos.portmobile.util.Objects;
+import java.util.Objects;
 
+import org.apache.lucene.document.SortedNumericDocValuesField;
+import org.apache.lucene.document.SortedSetDocValuesField;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.PointValues;
 import org.apache.lucene.index.SortedNumericDocValues;
 import org.apache.lucene.index.SortedSetDocValues;
+import org.apache.lucene.index.Terms;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.ToStringUtils;
 
 /**
  * A range query that works on top of the doc values APIs. Such queries are
  * usually slow since they do not use an inverted index. However, in the
  * dense case where most documents match this query, it <b>might</b> be as
- * fast or faster than a regular {@link NumericRangeQuery}.
+ * fast or faster than a regular {@link PointRangeQuery}.
  *
- * <p>
- * <b>NOTE</b>: be very careful using this query: it is
- * typically much slower than using {@code TermsQuery},
- * but in certain specialized cases may be faster.
+ * <b>NOTE:</b> This query is typically best used within a
+ * {@link IndexOrDocValuesQuery} alongside a query that uses an indexed
+ * structure such as {@link PointValues points} or {@link Terms terms},
+ * which allows to run the query on doc values when that would be more
+ * efficient, and using an index otherwise.
  *
- * @lucene.experimental
+ * @deprecated Use factory method on doc value field classes
  */
+@Deprecated
 public final class DocValuesRangeQuery extends Query {
 
   /** Create a new numeric range query on a numeric doc-values field. The field
    *  must has been indexed with either {@link DocValuesType#NUMERIC} or
-   *  {@link DocValuesType#SORTED_NUMERIC} doc values. */
+   *  {@link DocValuesType#SORTED_NUMERIC} doc values.
+   *  @deprecated use {@link SortedNumericDocValuesField#newRangeQuery} */
+  @Deprecated
   public static Query newLongRange(String field, Long lowerVal, Long upperVal, boolean includeLower, boolean includeUpper) {
     return new DocValuesRangeQuery(field, lowerVal, upperVal, includeLower, includeUpper);
   }
 
   /** Create a new numeric range query on a numeric doc-values field. The field
    *  must has been indexed with {@link DocValuesType#SORTED} or
-   *  {@link DocValuesType#SORTED_SET} doc values. */
+   *  {@link DocValuesType#SORTED_SET} doc values.
+   *  @deprecated use {@link SortedSetDocValuesField#newRangeQuery} */
   public static Query newBytesRefRange(String field, BytesRef lowerVal, BytesRef upperVal, boolean includeLower, boolean includeUpper) {
     return new DocValuesRangeQuery(field, deepCopyOf(lowerVal), deepCopyOf(upperVal), includeLower, includeUpper);
   }
@@ -80,22 +87,42 @@ public final class DocValuesRangeQuery extends Query {
   }
 
   @Override
-  public boolean equals(Object obj) {
-    if (obj instanceof DocValuesRangeQuery == false) {
-      return false;
-    }
-    final DocValuesRangeQuery that = (DocValuesRangeQuery) obj;
-    return field.equals(that.field)
-        && Objects.equals(lowerVal, that.lowerVal)
-        && Objects.equals(upperVal, that.upperVal)
-        && includeLower == that.includeLower
-        && includeUpper == that.includeUpper
-        && super.equals(obj);
+  public boolean equals(Object other) {
+    return sameClassAs(other) &&
+           equalsTo(getClass().cast(other));
+  }
+
+  private boolean equalsTo(DocValuesRangeQuery other) {
+    return field.equals(other.field) && 
+           Objects.equals(lowerVal, other.lowerVal) && 
+           Objects.equals(upperVal, other.upperVal) && 
+           includeLower == other.includeLower && 
+           includeUpper == other.includeUpper;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(field, lowerVal, upperVal, includeLower, includeUpper, getBoost());
+    return 31 * classHash() + Objects.hash(field, lowerVal, upperVal, includeLower, includeUpper);
+  }
+
+  public String getField() {
+    return field;
+  }
+
+  public Object getLowerVal() {
+    return lowerVal;
+  }
+
+  public Object getUpperVal() {
+    return upperVal;
+  }
+
+  public boolean isIncludeLower() {
+    return includeLower;
+  }
+
+  public boolean isIncludeUpper() {
+    return includeUpper;
   }
 
   @Override
@@ -109,29 +136,26 @@ public final class DocValuesRangeQuery extends Query {
     sb.append(" TO ");
     sb.append(upperVal == null ? "*" : upperVal.toString());
     sb.append(includeUpper ? ']' : '}');
-    sb.append(ToStringUtils.boost(getBoost()));
     return sb.toString();
   }
 
   @Override
   public Query rewrite(IndexReader reader) throws IOException {
     if (lowerVal == null && upperVal == null) {
-      final FieldValueQuery rewritten = new FieldValueQuery(field);
-      rewritten.setBoost(getBoost());
-      return rewritten;
+      return new FieldValueQuery(field);
     }
-    return this;
+    return super.rewrite(reader);
   }
 
   @Override
   public Weight createWeight(IndexSearcher searcher, boolean needsScores) throws IOException {
     if (lowerVal == null && upperVal == null) {
-      throw new IllegalStateException("Both min and max values cannot be null, call rewrite first");
+      throw new IllegalStateException("Both min and max values must not be null, call rewrite first");
     }
     return new RandomAccessWeight(DocValuesRangeQuery.this) {
       
       @Override
-      protected Bits getMatchingDocs(final LeafReaderContext context) throws IOException {
+      protected Bits getMatchingDocs(LeafReaderContext context) throws IOException {
         if (lowerVal instanceof Long || upperVal instanceof Long) {
 
           final SortedNumericDocValues values = DocValues.getSortedNumeric(context.reader(), field);
@@ -142,6 +166,9 @@ public final class DocValuesRangeQuery extends Query {
           } else if (includeLower) {
             min = (long) lowerVal;
           } else {
+            if ((long) lowerVal == Long.MAX_VALUE) {
+              return null;
+            }
             min = 1 + (long) lowerVal;
           }
 
@@ -151,6 +178,9 @@ public final class DocValuesRangeQuery extends Query {
           } else if (includeUpper) {
             max = (long) upperVal;
           } else {
+            if ((long) upperVal == Long.MIN_VALUE) {
+              return null;
+            }
             max = -1 + (long) upperVal;
           }
 

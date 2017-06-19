@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,11 +14,10 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Collections;
-import org.lukhnos.portmobile.util.Objects;
+import java.util.Objects;
 
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.RAMFile;
@@ -29,10 +26,11 @@ import org.apache.lucene.store.RAMOutputStream;
 import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefBuilder;
-import org.apache.lucene.util.RamUsageEstimator;
 
 /**
- * Prefix codes term instances (prefixes are shared)
+ * Prefix codes term instances (prefixes are shared). This is expected to be
+ * faster to build than a FST and might also be more compact if there are no
+ * common suffixes.
  * @lucene.internal
  */
 public class PrefixCodedTerms implements Accountable {
@@ -47,12 +45,7 @@ public class PrefixCodedTerms implements Accountable {
 
   @Override
   public long ramBytesUsed() {
-    return buffer.ramBytesUsed() + 2 * RamUsageEstimator.NUM_BYTES_LONG;
-  }
-  
-  @Override
-  public Collection<Accountable> getChildResources() {
-    return Collections.emptyList();
+    return buffer.ramBytesUsed() + 2 * Long.BYTES;
   }
 
   /** Records del gen for this packet. */
@@ -73,22 +66,27 @@ public class PrefixCodedTerms implements Accountable {
 
     /** add a term */
     public void add(Term term) {
-      assert lastTerm.equals(new Term("")) || term.compareTo(lastTerm) > 0;
+      add(term.field(), term.bytes());
+    }
+
+    /** add a term.  This fully consumes in the incoming {@link BytesRef}. */
+    public void add(String field, BytesRef bytes) {
+      assert lastTerm.equals(new Term("")) || new Term(field, bytes).compareTo(lastTerm) > 0;
 
       try {
-        int prefix = sharedPrefix(lastTerm.bytes, term.bytes);
-        int suffix = term.bytes.length - prefix;
-        if (term.field.equals(lastTerm.field)) {
+        int prefix = sharedPrefix(lastTerm.bytes, bytes);
+        int suffix = bytes.length - prefix;
+        if (field.equals(lastTerm.field)) {
           output.writeVInt(prefix << 1);
         } else {
           output.writeVInt(prefix << 1 | 1);
-          output.writeString(term.field);
+          output.writeString(field);
         }
         output.writeVInt(suffix);
-        output.writeBytes(term.bytes.bytes, term.bytes.offset + prefix, suffix);
-        lastTermBytes.copyBytes(term.bytes);
+        output.writeBytes(bytes.bytes, bytes.offset + prefix, suffix);
+        lastTermBytes.copyBytes(bytes);
         lastTerm.bytes = lastTermBytes.get();
-        lastTerm.field = term.field;
+        lastTerm.field = field;
         size += 1;
       } catch (IOException e) {
         throw new RuntimeException(e);

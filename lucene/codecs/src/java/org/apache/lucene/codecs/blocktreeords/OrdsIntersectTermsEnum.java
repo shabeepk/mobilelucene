@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.blocktreeords;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,18 +14,17 @@ package org.apache.lucene.codecs.blocktreeords;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.blocktreeords;
+
 
 import java.io.IOException;
 
 import org.apache.lucene.codecs.blocktreeords.FSTOrdsOutputs.Output;
-import org.apache.lucene.index.DocsAndPositionsEnum;
 import org.apache.lucene.index.PostingsEnum;
-import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.TermState;
 import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.ArrayUtil;
-import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.RamUsageEstimator;
 import org.apache.lucene.util.StringHelper;
@@ -95,7 +92,7 @@ final class OrdsIntersectTermsEnum extends TermsEnum {
     final OrdsIntersectTermsEnumFrame f = stack[0];
     f.fp = f.fpOrig = fr.rootBlockFP;
     f.prefix = 0;
-    f.setState(runAutomaton.getInitialState());
+    f.setState(0);
     f.arc = arc;
     f.outputPrefix = arc.output;
     f.load(fr.rootCode);
@@ -204,14 +201,6 @@ final class OrdsIntersectTermsEnum extends TermsEnum {
 
   @Override
   public PostingsEnum postings(PostingsEnum reuse, int flags) throws IOException {
-    
-    if (PostingsEnum.featureRequested(flags, DocsAndPositionsEnum.OLD_NULL_SEMANTICS)) {
-      if (fr.fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS) < 0) {
-        // Positions were not indexed:
-        return null;
-      }
-    }
-
     currentFrame.decodeMetaData();
     return fr.parent.postingsReader.postings(fr.fieldInfo, currentFrame.termState, reuse, flags);
   }

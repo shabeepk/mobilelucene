@@ -1,5 +1,3 @@
-package org.apache.lucene.document;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,9 +14,18 @@ package org.apache.lucene.document;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.document;
 
+
+import java.io.IOException;
+
+import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.DocValuesType;
-import org.apache.lucene.util.NumericUtils;
+import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.LeafReader;
+import org.apache.lucene.index.SortedNumericDocValues;
+import org.apache.lucene.search.IndexOrDocValuesQuery;
+import org.apache.lucene.search.Query;
 
 /**
  * <p>
@@ -32,7 +39,7 @@ import org.apache.lucene.util.NumericUtils;
  * 
  * <p>
  * Note that if you want to encode doubles or floats with proper sort order,
- * you will need to encode them with {@link NumericUtils}:
+ * you will need to encode them with {@link org.apache.lucene.util.NumericUtils}:
  * 
  * <pre class="prettyprint">
  *   document.add(new SortedNumericDocValuesField(name, NumericUtils.floatToSortableInt(-5.3f)));
@@ -63,5 +70,51 @@ public class SortedNumericDocValuesField extends Field {
   public SortedNumericDocValuesField(String name, long value) {
     super(name, TYPE);
     fieldsData = Long.valueOf(value);
+  }
+
+  /**
+   * Create a range query that matches all documents whose value is between
+   * {@code lowerValue} and {@code upperValue} included.
+   * <p>
+   * You can have half-open ranges (which are in fact &lt;/&le; or &gt;/&ge; queries)
+   * by setting {@code lowerValue = Long.MIN_VALUE} or {@code upperValue = Long.MAX_VALUE}. 
+   * <p>
+   * Ranges are inclusive. For exclusive ranges, pass {@code Math.addExact(lowerValue, 1)}
+   * or {@code Math.addExact(upperValue, -1)}.
+   * <p>This query also works with fields that have indexed
+   * {@link NumericDocValuesField}s.
+   * <p><b>NOTE</b>: Such queries cannot efficiently advance to the next match,
+   * which makes them slow if they are not ANDed with a selective query. As a
+   * consequence, they are best used wrapped in an {@link IndexOrDocValuesQuery},
+   * alongside a range query that executes on points, such as
+   * {@link LongPoint#newRangeQuery}.
+   */
+  public static Query newRangeQuery(String field, long lowerValue, long upperValue) {
+    return new SortedNumericDocValuesRangeQuery(field, lowerValue, upperValue) {
+      @Override
+      SortedNumericDocValues getValues(LeafReader reader, String field) throws IOException {
+        FieldInfo info = reader.getFieldInfos().fieldInfo(field);
+        if (info == null) {
+          // Queries have some optimizations when one sub scorer returns null rather
+          // than a scorer that does not match any documents
+          return null;
+        }
+        return DocValues.getSortedNumeric(reader, field);
+      }
+    };
+  }
+
+  /** 
+   * Create a query for matching an exact long value.
+   * <p>This query also works with fields that have indexed
+   * {@link NumericDocValuesField}s.
+   * <p><b>NOTE</b>: Such queries cannot efficiently advance to the next match,
+   * which makes them slow if they are not ANDed with a selective query. As a
+   * consequence, they are best used wrapped in an {@link IndexOrDocValuesQuery},
+   * alongside a range query that executes on points, such as
+   * {@link LongPoint#newExactQuery}.
+   */
+  public static Query newExactQuery(String field, long value) {
+    return newRangeQuery(field, value, value);
   }
 }

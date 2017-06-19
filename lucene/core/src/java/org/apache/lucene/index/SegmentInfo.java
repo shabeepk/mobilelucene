@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,17 +14,21 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
-import org.lukhnos.portmobile.util.Objects;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Matcher;
 
 import org.apache.lucene.codecs.Codec;
+import org.apache.lucene.search.Sort;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.TrackingDirectoryWrapper;
 import org.apache.lucene.util.StringHelper;
@@ -68,6 +70,8 @@ public final class SegmentInfo {
   
   private final Map<String,String> attributes;
 
+  private final Sort indexSort;
+
   // Tracks the Lucene version this segment was created with, since 3.1. Null
   // indicates an older than 3.0 index, and it's used to detect a too old index.
   // The format expected is "x.y" - "2.x" for pre-3.0 indexes (or null), and
@@ -92,7 +96,7 @@ public final class SegmentInfo {
    */
   public SegmentInfo(Directory dir, Version version, String name, int maxDoc,
                      boolean isCompoundFile, Codec codec, Map<String,String> diagnostics,
-                     byte[] id, Map<String,String> attributes) {
+                     byte[] id, Map<String,String> attributes, Sort indexSort) {
     assert !(dir instanceof TrackingDirectoryWrapper);
     this.dir = Objects.requireNonNull(dir);
     this.version = Objects.requireNonNull(version);
@@ -102,10 +106,11 @@ public final class SegmentInfo {
     this.codec = codec;
     this.diagnostics = Objects.requireNonNull(diagnostics);
     this.id = id;
-    if (id != null && id.length != StringHelper.ID_LENGTH) {
+    if (id.length != StringHelper.ID_LENGTH) {
       throw new IllegalArgumentException("invalid id: " + Arrays.toString(id));
     }
     this.attributes = Objects.requireNonNull(attributes);
+    this.indexSort = indexSort;
   }
 
   /**
@@ -169,17 +174,6 @@ public final class SegmentInfo {
   public String toString() {
     return toString(0);
   }
-  
-  
-  /**
-   * Used for debugging.
-   * 
-   * @deprecated Use {@link #toString(int)} instead.
-   */
-  @Deprecated
-  public String toString(Directory dir, int delCount) {
-    return toString(delCount);
-  }
 
   /** Used for debugging.  Format may suddenly change.
    *
@@ -204,13 +198,9 @@ public final class SegmentInfo {
       s.append('/').append(delCount);
     }
 
-    final String sorter_key = "sorter"; // SortingMergePolicy.SORTER_ID_PROP; // TODO: use this once we can import SortingMergePolicy (currently located in 'misc' instead of 'core')
-    final String sorter_val = diagnostics.get(sorter_key);
-    if (sorter_val != null) {
-      s.append(":[");
-      s.append(sorter_key);
-      s.append('=');
-      s.append(sorter_val);
+    if (indexSort != null) {
+      s.append(":[indexSort=");
+      s.append(indexSort);
       s.append(']');
     }
 
@@ -245,7 +235,7 @@ public final class SegmentInfo {
 
   /** Return the id that uniquely identifies this segment. */
   public byte[] getId() {
-    return id == null ? null : id.clone();
+    return id.clone();
   }
 
   private Set<String> setFiles;
@@ -278,6 +268,9 @@ public final class SegmentInfo {
       m.reset(file);
       if (!m.matches()) {
         throw new IllegalArgumentException("invalid codec filename '" + file + "', must match: " + IndexFileNames.CODEC_FILE_PATTERN.pattern());
+      }
+      if (file.toLowerCase(Locale.ROOT).endsWith(".tmp")) {
+        throw new IllegalArgumentException("invalid codec filename '" + file + "', cannot end with .tmp extension");
       }
     }
   }
@@ -317,6 +310,11 @@ public final class SegmentInfo {
    */
   public Map<String,String> getAttributes() {
     return attributes;
+  }
+
+  /** Return the sort order of this segment, or null if the index has no sort. */
+  public Sort getIndexSort() {
+    return indexSort;
   }
 }
 

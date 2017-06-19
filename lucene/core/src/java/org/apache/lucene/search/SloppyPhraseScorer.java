@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -31,7 +31,7 @@ import org.apache.lucene.util.FixedBitSet;
 
 final class SloppyPhraseScorer extends Scorer {
 
-  private final ConjunctionDISI conjunction;
+  private final DocIdSetIterator conjunction;
   private final PhrasePositions[] phrasePositions;
 
   private float sloppyFreq; //phrase frequency in current doc as computed by phraseFreq().
@@ -52,9 +52,11 @@ final class SloppyPhraseScorer extends Scorer {
   
   private int numMatches;
   final boolean needsScores;
+  private final float matchCost;
   
   SloppyPhraseScorer(Weight weight, PhraseQuery.PostingsAndFreq[] postings,
-      int slop, Similarity.SimScorer docScorer, boolean needsScores) {
+      int slop, Similarity.SimScorer docScorer, boolean needsScores,
+      float matchCost) {
     super(weight);
     this.docScorer = docScorer;
     this.needsScores = needsScores;
@@ -67,7 +69,9 @@ final class SloppyPhraseScorer extends Scorer {
       iterators[i] = postings[i].postings;
       phrasePositions[i] = new PhrasePositions(postings[i].postings, postings[i].position, i, postings[i].terms);
     }
-    conjunction = ConjunctionDISI.intersect(Arrays.asList(iterators));
+    conjunction = ConjunctionDISI.intersectIterators(Arrays.asList(iterators));
+    assert TwoPhaseIterator.unwrap(conjunction) == null;
+    this.matchCost = matchCost;
   }
 
   /**
@@ -547,19 +551,6 @@ final class SloppyPhraseScorer extends Scorer {
   public int docID() {
     return conjunction.docID(); 
   }
-
-  @Override
-  public int nextDoc() throws IOException {
-    int doc;
-    for (doc = conjunction.nextDoc(); doc != NO_MORE_DOCS; doc = conjunction.nextDoc()) {
-      sloppyFreq = phraseFreq(); // check for phrase
-      if (sloppyFreq != 0f) {
-        break;
-      }
-    }
-
-    return doc;
-  }
   
   @Override
   public float score() {
@@ -567,35 +558,31 @@ final class SloppyPhraseScorer extends Scorer {
   }
 
   @Override
-  public int advance(int target) throws IOException {
-    assert target > docID();
-    int doc;
-    for (doc = conjunction.advance(target); doc != NO_MORE_DOCS; doc = conjunction.nextDoc()) {
-      sloppyFreq = phraseFreq(); // check for phrase
-      if (sloppyFreq != 0f) {
-        break;
-      }
-    }
-
-    return doc;
-  }
-
-  @Override
-  public long cost() {
-    return conjunction.cost();
-  }
-
-  @Override
   public String toString() { return "scorer(" + weight + ")"; }
 
   @Override
-  public TwoPhaseIterator asTwoPhaseIterator() {
+  public TwoPhaseIterator twoPhaseIterator() {
     return new TwoPhaseIterator(conjunction) {
       @Override
       public boolean matches() throws IOException {
         sloppyFreq = phraseFreq(); // check for phrase
         return sloppyFreq != 0F;
       }
+
+      @Override
+      public float matchCost() {
+        return matchCost;
+      }
+
+      @Override
+      public String toString() {
+        return "SloppyPhraseScorer@asTwoPhaseIterator(" + SloppyPhraseScorer.this + ")";
+      }
     };
+  }
+
+  @Override
+  public DocIdSetIterator iterator() {
+    return TwoPhaseIterator.asDocIdSetIterator(twoPhaseIterator());
   }
 }

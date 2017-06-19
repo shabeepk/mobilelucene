@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,22 +14,22 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.AllPermission;
-import java.security.PrivilegedExceptionAction;
 
 public class TestRunWithRestrictedPermissions extends LuceneTestCase {
 
   public void testDefaultsPass() throws Exception {
-    runWithRestrictedPermissions(doSomeForbiddenStuff, new AllPermission());
+    runWithRestrictedPermissions(this::doSomeForbiddenStuff, new AllPermission());
   }
 
   public void testNormallyAllowedStuff() throws Exception {
     try {
-      runWithRestrictedPermissions(doSomeForbiddenStuff);
+      runWithRestrictedPermissions(this::doSomeForbiddenStuff);
       fail("this should not pass!");
     } catch (SecurityException se) {
       // pass
@@ -40,7 +38,7 @@ public class TestRunWithRestrictedPermissions extends LuceneTestCase {
 
   public void testCompletelyForbidden1() throws Exception {
     try {
-      runWithRestrictedPermissions(doSomeCompletelyForbiddenStuff);
+      runWithRestrictedPermissions(this::doSomeCompletelyForbiddenStuff);
       fail("this should not pass!");
     } catch (SecurityException se) {
       // pass
@@ -49,28 +47,22 @@ public class TestRunWithRestrictedPermissions extends LuceneTestCase {
 
   public void testCompletelyForbidden2() throws Exception {
     try {
-      runWithRestrictedPermissions(doSomeCompletelyForbiddenStuff, new AllPermission());
+      runWithRestrictedPermissions(this::doSomeCompletelyForbiddenStuff, new AllPermission());
       fail("this should not pass (not even with AllPermission)");
     } catch (SecurityException se) {
       // pass
     }
   }
 
-  private final PrivilegedExceptionAction<Void> doSomeForbiddenStuff = new PrivilegedExceptionAction<Void>() {
-    @Override
-    public Void run() throws IOException {
-      createTempDir("cannot_create_temp_folder");
-      return null; // Void
-    }
-  };
+  private Void doSomeForbiddenStuff() throws IOException {
+    createTempDir("cannot_create_temp_folder");
+    return null; // Void
+  }
   
   // something like this should not never pass!!
-  private final PrivilegedExceptionAction<Void> doSomeCompletelyForbiddenStuff = new PrivilegedExceptionAction<Void>() {
-    @Override
-    public Void run() throws IOException {
-      Files.createFile(Paths.get("denied"));
-      return null; // Void
-    }
-  };
+  private Void doSomeCompletelyForbiddenStuff() throws IOException {
+    Files.createFile(Paths.get("denied"));
+    return null; // Void
+  }
   
 }

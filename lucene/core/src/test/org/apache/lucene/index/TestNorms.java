@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 import java.util.Random;
@@ -26,7 +26,7 @@ import org.apache.lucene.document.Field;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.search.CollectionStatistics;
 import org.apache.lucene.search.TermStatistics;
-import org.apache.lucene.search.similarities.DefaultSimilarity;
+import org.apache.lucene.search.similarities.ClassicSimilarity;
 import org.apache.lucene.search.similarities.PerFieldSimilarityWrapper;
 import org.apache.lucene.search.similarities.Similarity;
 import org.apache.lucene.search.similarities.TFIDFSimilarity;
@@ -47,7 +47,7 @@ import org.apache.lucene.util.TestUtil;
 public class TestNorms extends LuceneTestCase {
   final String byteTestField = "normsTestByte";
 
-  class CustomNormEncodingSimilarity extends TFIDFSimilarity {
+  static class CustomNormEncodingSimilarity extends TFIDFSimilarity {
 
     @Override
     public long encodeNormValue(float f) {
@@ -67,7 +67,7 @@ public class TestNorms extends LuceneTestCase {
     @Override public float coord(int overlap, int maxOverlap) { return 0; }
     @Override public float queryNorm(float sumOfSquaredWeights) { return 0; }
     @Override public float tf(float freq) { return 0; }
-    @Override public float idf(long docFreq, long numDocs) { return 0; }
+    @Override public float idf(long docFreq, long docCount) { return 0; }
     @Override public float sloppyFreq(int distance) { return 0; }
     @Override public float scorePayload(int doc, int start, int end, BytesRef payload) { return 0; }
   }
@@ -111,8 +111,8 @@ public class TestNorms extends LuceneTestCase {
   public void testMaxByteNorms() throws IOException {
     Directory dir = newFSDirectory(createTempDir("TestNorms.testMaxByteNorms"));
     buildIndex(dir);
-    LeafReader open = SlowCompositeReaderWrapper.wrap(DirectoryReader.open(dir));
-    NumericDocValues normValues = open.getNormValues(byteTestField);
+    DirectoryReader open = DirectoryReader.open(dir);
+    NumericDocValues normValues = MultiDocValues.getNormValues(open, byteTestField);
     assertNotNull(normValues);
     for (int i = 0; i < open.maxDoc(); i++) {
       Document document = open.document(i);
@@ -133,7 +133,7 @@ public class TestNorms extends LuceneTestCase {
     Similarity provider = new MySimProvider();
     config.setSimilarity(provider);
     RandomIndexWriter writer = new RandomIndexWriter(random, dir, config);
-    final LineFileDocs docs = new LineFileDocs(random, true);
+    final LineFileDocs docs = new LineFileDocs(random);
     int num = atLeast(100);
     for (int i = 0; i < num; i++) {
       Document doc = docs.nextDoc();
@@ -154,12 +154,8 @@ public class TestNorms extends LuceneTestCase {
 
 
   public class MySimProvider extends PerFieldSimilarityWrapper {
-    Similarity delegate = new DefaultSimilarity();
-
-    @Override
-    public float queryNorm(float sumOfSquaredWeights) {
-
-      return delegate.queryNorm(sumOfSquaredWeights);
+    public MySimProvider() {
+      super(new ClassicSimilarity());
     }
 
     @Override
@@ -167,13 +163,8 @@ public class TestNorms extends LuceneTestCase {
       if (byteTestField.equals(field)) {
         return new ByteEncodingBoostSimilarity();
       } else {
-        return delegate;
+        return defaultSim;
       }
-    }
-
-    @Override
-    public float coord(int overlap, int maxOverlap) {
-      return delegate.coord(overlap, maxOverlap);
     }
   }
 
@@ -187,7 +178,7 @@ public class TestNorms extends LuceneTestCase {
     }
 
     @Override
-    public SimWeight computeWeight(float queryBoost, CollectionStatistics collectionStats, TermStatistics... termStats) {
+    public SimWeight computeWeight(CollectionStatistics collectionStats, TermStatistics... termStats) {
       throw new UnsupportedOperationException();
     }
 

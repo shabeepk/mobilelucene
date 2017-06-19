@@ -1,5 +1,3 @@
-package org.apache.lucene.queries.function;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.queries.function;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queries.function;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.MockAnalyzer;
@@ -49,7 +48,7 @@ public class TestLongNormValueSource extends LuceneTestCase {
   static IndexSearcher searcher;
   static Analyzer analyzer;
   
-  private static Similarity sim = new PreciseDefaultSimilarity();
+  private static Similarity sim = new PreciseClassicSimilarity();
 
   @BeforeClass
   public static void beforeClass() throws Exception {
@@ -120,10 +119,10 @@ public class TestLongNormValueSource extends LuceneTestCase {
 
 
 /** Encodes norm as 4-byte float. */
-class PreciseDefaultSimilarity extends TFIDFSimilarity {
+class PreciseClassicSimilarity extends TFIDFSimilarity {
 
   /** Sole constructor: parameter-free */
-  public PreciseDefaultSimilarity() {}
+  public PreciseClassicSimilarity() {}
 
   /** Implemented as <code>overlap / maxOverlap</code>. */
   @Override
@@ -203,10 +202,10 @@ class PreciseDefaultSimilarity extends TFIDFSimilarity {
     return 1;
   }
 
-  /** Implemented as <code>log(numDocs/(docFreq+1)) + 1</code>. */
+  /** Implemented as <code>log(docCount/(docFreq+1)) + 1</code>. */
   @Override
-  public float idf(long docFreq, long numDocs) {
-    return (float)(Math.log(numDocs/(double)(docFreq+1)) + 1.0);
+  public float idf(long docFreq, long docCount) {
+    return (float)(Math.log(docCount/(double)(docFreq+1)) + 1.0);
   }
 
   /**

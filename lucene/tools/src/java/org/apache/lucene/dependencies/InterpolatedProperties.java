@@ -1,5 +1,3 @@
-package org.apache.lucene.dependencies;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.dependencies;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.dependencies;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -56,7 +55,7 @@ public class InterpolatedProperties extends Properties {
    */
   private void interpolate() {
     StringBuffer buffer = new StringBuffer();
-    for (Map.Entry entry : entrySet()) {
+    for (Map.Entry<?,?> entry : entrySet()) {
       buffer.setLength(0);
       Matcher matcher = PROPERTY_REFERENCE_PATTERN.matcher(entry.getValue().toString());
       while (matcher.find()) {

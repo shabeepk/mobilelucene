@@ -1,5 +1,3 @@
-package org.apache.lucene.document;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,11 +14,8 @@ package org.apache.lucene.document;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.document;
 
-import org.apache.lucene.search.NumericRangeQuery; // for javadocs
-import org.apache.lucene.search.PrefixQuery;
-import org.apache.lucene.search.TermRangeQuery;
-import org.apache.lucene.util.NumericUtils;        // for javadocs
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -28,6 +23,9 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
+
+import org.apache.lucene.search.PrefixQuery;
+import org.apache.lucene.search.TermRangeQuery;
 
 /**
  * Provides support for converting dates to strings and vice-versa.
@@ -40,13 +38,12 @@ import java.util.TimeZone;
  * {@link TermRangeQuery} and {@link PrefixQuery} will require more memory and become slower.
  * 
  * <P>
- * Another approach is {@link NumericUtils}, which provides
- * a sortable binary representation (prefix encoded) of numeric values, which
- * date/time are.
+ * Another approach is {@link LongPoint}, which indexes the
+ * values in sorted order.
  * For indexing a {@link Date} or {@link Calendar}, just get the unix timestamp as
  * <code>long</code> using {@link Date#getTime} or {@link Calendar#getTimeInMillis} and
- * index this as a numeric value with {@link LongField}
- * and use {@link NumericRangeQuery} to query it.
+ * index this as a numeric value with {@link LongPoint}
+ * and use {@link org.apache.lucene.search.PointRangeQuery} to query it.
  */
 public class DateTools {
   

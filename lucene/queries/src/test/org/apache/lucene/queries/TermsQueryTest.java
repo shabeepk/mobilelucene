@@ -1,5 +1,3 @@
-package org.apache.lucene.queries;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.queries;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queries;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -36,12 +35,14 @@ import org.apache.lucene.index.FilterDirectoryReader;
 import org.apache.lucene.index.FilterLeafReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReader;
+import org.apache.lucene.index.MultiReader;
 import org.apache.lucene.index.RandomIndexWriter;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
@@ -49,6 +50,7 @@ import org.apache.lucene.search.QueryUtils;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.UsageTrackingQueryCachingPolicy;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.IOUtils;
@@ -56,7 +58,6 @@ import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.util.RamUsageTester;
 import org.apache.lucene.util.TestUtil;
 
-import com.carrotsearch.randomizedtesting.generators.RandomPicks;
 import com.carrotsearch.randomizedtesting.generators.RandomStrings;
 
 public class TermsQueryTest extends LuceneTestCase {
@@ -106,10 +107,8 @@ public class TermsQueryTest extends LuceneTestCase {
           bq.add(new TermQuery(t), Occur.SHOULD);
         }
         final Query q1 = new ConstantScoreQuery(bq.build());
-        q1.setBoost(boost);
         final Query q2 = new TermsQuery(queryTerms);
-        q2.setBoost(boost);
-        assertSameMatches(searcher, q1, q2, true);
+        assertSameMatches(searcher, new BoostQuery(q1, boost), new BoostQuery(q2, boost), true);
       }
 
       reader.close();
@@ -292,34 +291,20 @@ public class TermsQueryTest extends LuceneTestCase {
     }
 
   }
+  
+  public void testBinaryToString() {
+    TermsQuery query = new TermsQuery(new Term("field", new BytesRef(new byte[] { (byte) 0xff, (byte) 0xfe })));
+    assertEquals("field:[ff fe]", query.toString());
+  }
 
-  public void testPullOneTermsEnumPerField() throws Exception {
-    Directory dir = newDirectory();
-    RandomIndexWriter w = new RandomIndexWriter(random(), dir);
-    Document doc = new Document();
-    doc.add(new StringField("foo", "1", Store.NO));
-    doc.add(new StringField("bar", "2", Store.NO));
-    doc.add(new StringField("baz", "3", Store.NO));
-    w.addDocument(doc);
-    DirectoryReader reader = w.getReader();
-    w.close();
-    final AtomicInteger counter = new AtomicInteger();
-    DirectoryReader wrapped = new TermsCountingDirectoryReaderWrapper(reader, counter);
-
-    final List<Term> terms = new ArrayList<>();
-    final Set<String> fields = new HashSet<>();
-    // enough terms to avoid the rewrite
-    final int numTerms = TestUtil.nextInt(random(), TermsQuery.BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD + 1, 100);
-    for (int i = 0; i < numTerms; ++i) {
-      final String field = RandomPicks.randomFrom(random(), new String[] {"foo", "bar", "baz"});
-      final BytesRef term = new BytesRef(RandomStrings.randomUnicodeOfCodepointLength(random(), 10));
-      fields.add(field);
-      terms.add(new Term(field, term));
-    }
-
-    new IndexSearcher(wrapped).count(new TermsQuery(terms));
-    assertEquals(fields.size(), counter.get());
-    wrapped.close();
-    dir.close();
+  public void testIsConsideredCostlyByQueryCache() throws IOException {
+    Query query = new TermsQuery(new Term("foo", "bar"), new Term("foo", "baz"));
+    query = query.rewrite(new MultiReader());
+    UsageTrackingQueryCachingPolicy policy = new UsageTrackingQueryCachingPolicy();
+    assertFalse(policy.shouldCache(query));
+    policy.onUse(query);
+    policy.onUse(query);
+    // cached after two uses
+    assertTrue(policy.shouldCache(query));
   }
 }

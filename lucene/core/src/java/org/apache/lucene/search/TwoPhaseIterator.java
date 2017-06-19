@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,15 +14,14 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
-import org.lukhnos.portmobile.util.Objects;
-
-import org.apache.lucene.search.spans.Spans;
+import java.util.Objects;
 
 /**
- * Returned by {@link Scorer#asTwoPhaseIterator()}
- * and  {@link Spans#asTwoPhaseIterator()}
+ * Returned by {@link Scorer#twoPhaseIterator()}
  * to expose an approximation of a {@link DocIdSetIterator}.
  * When the {@link #approximation()}'s
  * {@link DocIdSetIterator#nextDoc()} or {@link DocIdSetIterator#advance(int)}
@@ -43,41 +40,62 @@ public abstract class TwoPhaseIterator {
 
   /** Return a {@link DocIdSetIterator} view of the provided
    *  {@link TwoPhaseIterator}. */
-  public static DocIdSetIterator asDocIdSetIterator(final TwoPhaseIterator twoPhaseIterator) {
-    final DocIdSetIterator approximation = twoPhaseIterator.approximation();
-    return new DocIdSetIterator() {
+  public static DocIdSetIterator asDocIdSetIterator(TwoPhaseIterator twoPhaseIterator) {
+    return new TwoPhaseIteratorAsDocIdSetIterator(twoPhaseIterator);
+  }
 
-      @Override
-      public int docID() {
-        return approximation.docID();
-      }
+  /**
+   * If the given {@link DocIdSetIterator} has been created with
+   * {@link #asDocIdSetIterator}, then this will return the wrapped
+   * {@link TwoPhaseIterator}. Otherwise this returns {@code null}.
+   */
+  public static TwoPhaseIterator unwrap(DocIdSetIterator iterator) {
+    if (iterator instanceof TwoPhaseIteratorAsDocIdSetIterator) {
+      return ((TwoPhaseIteratorAsDocIdSetIterator) iterator).twoPhaseIterator;
+    } else {
+      return null;
+    }
+  }
 
-      @Override
-      public int nextDoc() throws IOException {
-        return doNext(approximation.nextDoc());
-      }
+  private static class TwoPhaseIteratorAsDocIdSetIterator extends DocIdSetIterator {
 
-      @Override
-      public int advance(int target) throws IOException {
-        return doNext(approximation.advance(target));
-      }
+    final TwoPhaseIterator twoPhaseIterator;
+    final DocIdSetIterator approximation;
 
-      private int doNext(int doc) throws IOException {
-        for (;; doc = approximation.nextDoc()) {
-          if (doc == NO_MORE_DOCS) {
-            return NO_MORE_DOCS;
-          } else if (twoPhaseIterator.matches()) {
-            return doc;
-          }
+    TwoPhaseIteratorAsDocIdSetIterator(TwoPhaseIterator twoPhaseIterator) {
+      this.twoPhaseIterator = twoPhaseIterator;
+      this.approximation = twoPhaseIterator.approximation;
+    }
+
+    @Override
+    public int docID() {
+      return approximation.docID();
+    }
+
+    @Override
+    public int nextDoc() throws IOException {
+      return doNext(approximation.nextDoc());
+    }
+
+    @Override
+    public int advance(int target) throws IOException {
+      return doNext(approximation.advance(target));
+    }
+
+    private int doNext(int doc) throws IOException {
+      for (;; doc = approximation.nextDoc()) {
+        if (doc == NO_MORE_DOCS) {
+          return NO_MORE_DOCS;
+        } else if (twoPhaseIterator.matches()) {
+          return doc;
         }
       }
+    }
 
-      @Override
-      public long cost() {
-        return approximation.cost();
-      }
-
-    };
+    @Override
+    public long cost() {
+      return approximation.cost();
+    }
   }
 
   /** Return an approximation. The returned {@link DocIdSetIterator} is a
@@ -87,22 +105,18 @@ public abstract class TwoPhaseIterator {
     return approximation;
   }
 
-  /** Return whether the current doc ID that the iterator is on matches. This
+  /** Return whether the current doc ID that {@link #approximation()} is on matches. This
    *  method should only be called when the iterator is positioned -- ie. not
    *  when {@link DocIdSetIterator#docID()} is {@code -1} or
    *  {@link DocIdSetIterator#NO_MORE_DOCS} -- and at most once. */
   public abstract boolean matches() throws IOException;
 
-  /**
-   * Returns a {@link TwoPhaseIterator} for this {@link DocIdSetIterator}
-   * when available * otherwise returns null.
+  /** An estimate of the expected cost to determine that a single document {@link #matches()}.
+   *  This can be called before iterating the documents of {@link #approximation()}.
+   *  Returns an expected cost in number of simple operations like addition, multiplication,
+   *  comparing two numbers and indexing an array.
+   *  The returned value must be positive.
    */
-  public static TwoPhaseIterator asTwoPhaseIterator(DocIdSetIterator iter) {
-    return (iter instanceof Scorer)
-            ? ((Scorer) iter).asTwoPhaseIterator()
-            : (iter instanceof Spans)
-            ? ((Spans) iter).asTwoPhaseIterator()
-            : null;
-  }
+  public abstract float matchCost();
 
 }

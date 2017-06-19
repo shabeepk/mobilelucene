@@ -1,5 +1,3 @@
-package org.apache.lucene.search.join;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.join;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.join;
 
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.LeafReaderContext;
@@ -88,7 +87,7 @@ public class ToParentBlockJoinSortField extends SortField {
   }
 
   @Override
-  public FieldComparator<?> getComparator(int numHits, int sortPos) throws IOException {
+  public FieldComparator<?> getComparator(int numHits, int sortPos) {
     switch (getType()) {
       case STRING:
         return getStringComparator(numHits);
@@ -239,5 +238,31 @@ public class ToParentBlockJoinSortField extends SortField {
         return BlockJoinSelector.wrap(docsWithValue, parents, children);
       }
     };
+  }
+
+  @Override
+  public int hashCode() {
+    final int prime = 31;
+    int result = super.hashCode();
+    result = prime * result + ((childFilter == null) ? 0 : childFilter.hashCode());
+    result = prime * result + (order ? 1231 : 1237);
+    result = prime * result + ((parentFilter == null) ? 0 : parentFilter.hashCode());
+    return result;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) return true;
+    if (!super.equals(obj)) return false;
+    if (getClass() != obj.getClass()) return false;
+    ToParentBlockJoinSortField other = (ToParentBlockJoinSortField) obj;
+    if (childFilter == null) {
+      if (other.childFilter != null) return false;
+    } else if (!childFilter.equals(other.childFilter)) return false;
+    if (order != other.order) return false;
+    if (parentFilter == null) {
+      if (other.parentFilter != null) return false;
+    } else if (!parentFilter.equals(other.parentFilter)) return false;
+    return true;
   }
 }

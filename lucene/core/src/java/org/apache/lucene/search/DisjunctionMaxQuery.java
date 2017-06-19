@@ -1,11 +1,10 @@
-package org.apache.lucene.search;
-
-/**
- * Copyright 2004 The Apache Software Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,13 +14,16 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import org.lukhnos.portmobile.util.Objects;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.lucene.index.LeafReaderContext;
@@ -42,61 +44,39 @@ import org.apache.lucene.index.Term;
  * include this term in only the best of those multiple fields, without confusing this with the better case of two different terms
  * in the multiple fields.
  */
-public class DisjunctionMaxQuery extends Query implements Iterable<Query> {
+public final class DisjunctionMaxQuery extends Query implements Iterable<Query> {
 
   /* The subqueries */
-  private ArrayList<Query> disjuncts = new ArrayList<>();
+  private final Query[] disjuncts;
 
   /* Multiple of the non-max disjunct scores added into our final score.  Non-zero values support tie-breaking. */
-  private float tieBreakerMultiplier = 0.0f;
-
-  /** Creates a new empty DisjunctionMaxQuery.  Use add() to add the subqueries.
-   * @param tieBreakerMultiplier the score of each non-maximum disjunct for a document is multiplied by this weight
-   *        and added into the final score.  If non-zero, the value should be small, on the order of 0.1, which says that
-   *        10 occurrences of word in a lower-scored field that is also in a higher scored field is just as good as a unique
-   *        word in the lower scored field (i.e., one that is not in any higher scored field.
-   */
-  public DisjunctionMaxQuery(float tieBreakerMultiplier) {
-    this.tieBreakerMultiplier = tieBreakerMultiplier;
-  }
+  private final float tieBreakerMultiplier;
 
   /**
    * Creates a new DisjunctionMaxQuery
    * @param disjuncts a {@code Collection<Query>} of all the disjuncts to add
-   * @param tieBreakerMultiplier   the weight to give to each matching non-maximum disjunct
+   * @param tieBreakerMultiplier  the score of each non-maximum disjunct for a document is multiplied by this weight
+   *        and added into the final score.  If non-zero, the value should be small, on the order of 0.1, which says that
+   *        10 occurrences of word in a lower-scored field that is also in a higher scored field is just as good as a unique
+   *        word in the lower scored field (i.e., one that is not in any higher scored field.
    */
   public DisjunctionMaxQuery(Collection<Query> disjuncts, float tieBreakerMultiplier) {
     Objects.requireNonNull(disjuncts, "Collection of Querys must not be null");
     this.tieBreakerMultiplier = tieBreakerMultiplier;
-    add(disjuncts);
-  }
-
-  /** Add a subquery to this disjunction
-   * @param query the disjunct added
-   */
-  public void add(Query query) {
-    disjuncts.add(Objects.requireNonNull(query, "Query must not be null"));
-  }
-
-  /** Add a collection of disjuncts to this disjunction
-   * via {@code Iterable<Query>}
-   * @param disjuncts a collection of queries to add as disjuncts.
-   */
-  public void add(Collection<Query> disjuncts) {
-    this.disjuncts.addAll(Objects.requireNonNull(disjuncts, "Query connection must not be null"));
+    this.disjuncts = disjuncts.toArray(new Query[disjuncts.size()]);
   }
 
   /** @return An {@code Iterator<Query>} over the disjuncts */
   @Override
   public Iterator<Query> iterator() {
-    return disjuncts.iterator();
+    return getDisjuncts().iterator();
   }
   
   /**
    * @return the disjuncts.
    */
-  public ArrayList<Query> getDisjuncts() {
-    return disjuncts;
+  public List<Query> getDisjuncts() {
+    return Collections.unmodifiableList(Arrays.asList(disjuncts));
   }
 
   /**
@@ -123,7 +103,7 @@ public class DisjunctionMaxQuery extends Query implements Iterable<Query> {
     public DisjunctionMaxWeight(IndexSearcher searcher, boolean needsScores) throws IOException {
       super(DisjunctionMaxQuery.this);
       for (Query disjunctQuery : disjuncts) {
-        weights.add(disjunctQuery.createWeight(searcher, needsScores));
+        weights.add(searcher.createWeight(disjunctQuery, needsScores));
       }
       this.needsScores = needsScores;
     }
@@ -145,16 +125,14 @@ public class DisjunctionMaxQuery extends Query implements Iterable<Query> {
         max = Math.max(max, sub);
         
       }
-      float boost = getBoost();
-      return (((sum - max) * tieBreakerMultiplier * tieBreakerMultiplier) + max) * boost * boost;
+      return (((sum - max) * tieBreakerMultiplier * tieBreakerMultiplier) + max);
     }
 
     /** Apply the computed normalization factor to our subqueries */
     @Override
-    public void normalize(float norm, float topLevelBoost) {
-      topLevelBoost *= getBoost();  // Incorporate our boost
+    public void normalize(float norm, float boost) {
       for (Weight wt : weights) {
-        wt.normalize(norm, topLevelBoost);
+        wt.normalize(norm, boost);
       }
     }
 
@@ -184,7 +162,7 @@ public class DisjunctionMaxQuery extends Query implements Iterable<Query> {
     @Override
     public Explanation explain(LeafReaderContext context, int doc) throws IOException {
       boolean match = false;
-      float max = 0.0f, sum = 0.0f;
+      float max = Float.NEGATIVE_INFINITY, sum = 0.0f;
       List<Explanation> subs = new ArrayList<>();
       for (Weight wt : weights) {
         Explanation e = wt.explain(context, doc);
@@ -217,36 +195,23 @@ public class DisjunctionMaxQuery extends Query implements Iterable<Query> {
    * @return an optimized copy of us (which may not be a copy if there is nothing to optimize) */
   @Override
   public Query rewrite(IndexReader reader) throws IOException {
-    int numDisjunctions = disjuncts.size();
-    if (numDisjunctions == 1) {
-      Query singleton = disjuncts.get(0);
-      Query result = singleton.rewrite(reader);
-      if (getBoost() != 1.0f) {
-        if (result == singleton) result = result.clone();
-        result.setBoost(getBoost() * result.getBoost());
-      }
-      return result;
+    if (disjuncts.length == 1) {
+      return disjuncts[0];
     }
-    DisjunctionMaxQuery clone = null;
-    for (int i = 0 ; i < numDisjunctions; i++) {
-      Query clause = disjuncts.get(i);
-      Query rewrite = clause.rewrite(reader);
-      if (rewrite != clause) {
-        if (clone == null) clone = this.clone();
-        clone.disjuncts.set(i, rewrite);
-      }
-    }
-    if (clone != null) return clone;
-    else return this;
-  }
 
-  /** Create a shallow copy of us -- used in rewriting if necessary
-   * @return a copy of us (but reuse, don't copy, our subqueries) */
-  @Override @SuppressWarnings("unchecked")
-  public DisjunctionMaxQuery clone() {
-    DisjunctionMaxQuery clone = (DisjunctionMaxQuery)super.clone();
-    clone.disjuncts = (ArrayList<Query>) this.disjuncts.clone();
-    return clone;
+    boolean actuallyRewritten = false;
+    List<Query> rewrittenDisjuncts = new ArrayList<>();
+    for (Query sub : disjuncts) {
+      Query rewrittenSub = sub.rewrite(reader);
+      actuallyRewritten |= rewrittenSub != sub;
+      rewrittenDisjuncts.add(rewrittenSub);
+    }
+
+    if (actuallyRewritten) {
+      return new DisjunctionMaxQuery(rewrittenDisjuncts, tieBreakerMultiplier);
+    }
+
+    return super.rewrite(reader);
   }
 
   /** Prettyprint us.
@@ -257,40 +222,37 @@ public class DisjunctionMaxQuery extends Query implements Iterable<Query> {
   public String toString(String field) {
     StringBuilder buffer = new StringBuilder();
     buffer.append("(");
-    int numDisjunctions = disjuncts.size();
-    for (int i = 0 ; i < numDisjunctions; i++) {
-      Query subquery = disjuncts.get(i);
+    for (int i = 0 ; i < disjuncts.length; i++) {
+      Query subquery = disjuncts[i];
       if (subquery instanceof BooleanQuery) {   // wrap sub-bools in parens
         buffer.append("(");
         buffer.append(subquery.toString(field));
         buffer.append(")");
       }
       else buffer.append(subquery.toString(field));
-      if (i != numDisjunctions-1) buffer.append(" | ");
+      if (i != disjuncts.length-1) buffer.append(" | ");
     }
     buffer.append(")");
     if (tieBreakerMultiplier != 0.0f) {
       buffer.append("~");
       buffer.append(tieBreakerMultiplier);
     }
-    if (getBoost() != 1.0) {
-      buffer.append("^");
-      buffer.append(getBoost());
-    }
     return buffer.toString();
   }
 
   /** Return true iff we represent the same query as o
-   * @param o another object
+   * @param other another object
    * @return true iff o is a DisjunctionMaxQuery with the same boost and the same subqueries, in the same order, as us
    */
   @Override
-  public boolean equals(Object o) {
-    if (! (o instanceof DisjunctionMaxQuery) ) return false;
-    DisjunctionMaxQuery other = (DisjunctionMaxQuery)o;
-    return super.equals(o)
-            && this.tieBreakerMultiplier == other.tieBreakerMultiplier
-            && this.disjuncts.equals(other.disjuncts);
+  public boolean equals(Object other) {
+    return sameClassAs(other) &&
+           equalsTo(getClass().cast(other));
+  }
+  
+  private boolean equalsTo(DisjunctionMaxQuery other) {
+    return tieBreakerMultiplier == other.tieBreakerMultiplier && 
+           Arrays.equals(disjuncts, other.disjuncts);
   }
 
   /** Compute a hash code for hashing us
@@ -298,9 +260,10 @@ public class DisjunctionMaxQuery extends Query implements Iterable<Query> {
    */
   @Override
   public int hashCode() {
-    return Float.floatToIntBits(getBoost())
-            + Float.floatToIntBits(tieBreakerMultiplier)
-            + disjuncts.hashCode();
+    int h = classHash();
+    h = 31 * h + Float.floatToIntBits(tieBreakerMultiplier);
+    h = 31 * h + Arrays.hashCode(disjuncts);
+    return h;
   }
 
 

@@ -1,5 +1,3 @@
-package org.apache.lucene.search.join;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,11 @@ package org.apache.lucene.search.join;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.join;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Supplier;
 
 import org.apache.lucene.analysis.MockAnalyzer;
 import org.apache.lucene.document.Document;
@@ -37,9 +40,6 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.LuceneTestCase;
 import org.junit.Test;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  */
@@ -208,7 +208,7 @@ public class TestBlockJoinSorting extends LuceneTestCase {
     w.addDocuments(docs);
     w.commit();
 
-    IndexSearcher searcher = new IndexSearcher(DirectoryReader.open(w.w, false));
+    IndexSearcher searcher = new IndexSearcher(DirectoryReader.open(w.w));
     w.close();
     BitSetProducer parentFilter = new QueryBitSetProducer(new TermQuery(new Term("__type", "parent")));
     CheckJoinIndex.check(searcher.getIndexReader(), parentFilter);
@@ -239,9 +239,10 @@ public class TestBlockJoinSorting extends LuceneTestCase {
     assertEquals("i", ((BytesRef) ((FieldDoc) topDocs.scoreDocs[4]).fields[0]).utf8ToString());
 
     // Sort by field ascending, order last
-    sortField = new ToParentBlockJoinSortField(
+    sortField = notEqual(sortField, () -> new ToParentBlockJoinSortField(
         "field2", SortField.Type.STRING, false, true, parentFilter, childFilter
-    );
+    ));
+
     sort = new Sort(sortField);
     topDocs = searcher.search(query, 5, sort);
     assertEquals(7, topDocs.totalHits);
@@ -258,9 +259,9 @@ public class TestBlockJoinSorting extends LuceneTestCase {
     assertEquals("k", ((BytesRef) ((FieldDoc) topDocs.scoreDocs[4]).fields[0]).utf8ToString());
 
     // Sort by field descending, order last
-    sortField = new ToParentBlockJoinSortField(
+    sortField = notEqual(sortField, () -> new ToParentBlockJoinSortField(
         "field2", SortField.Type.STRING, true, parentFilter, childFilter
-    );
+    ));
     sort = new Sort(sortField);
     topDocs = searcher.search(query, 5, sort);
     assertEquals(topDocs.totalHits, 7);
@@ -275,17 +276,19 @@ public class TestBlockJoinSorting extends LuceneTestCase {
     assertEquals("i", ((BytesRef) ((FieldDoc) topDocs.scoreDocs[3]).fields[0]).utf8ToString());
     assertEquals(11, topDocs.scoreDocs[4].doc);
     assertEquals("g", ((BytesRef) ((FieldDoc) topDocs.scoreDocs[4]).fields[0]).utf8ToString());
-
+    
     // Sort by field descending, order last, sort filter (filter_1:T)
-    childFilter = new QueryBitSetProducer(new TermQuery((new Term("filter_1", "T"))));
+    BitSetProducer childFilter1T = new QueryBitSetProducer(new TermQuery((new Term("filter_1", "T"))));
     query = new ToParentBlockJoinQuery(
         new TermQuery((new Term("filter_1", "T"))),
         parentFilter,
         ScoreMode.None
     );
-    sortField = new ToParentBlockJoinSortField(
-        "field2", SortField.Type.STRING, true, parentFilter, childFilter
-    );
+ 
+    sortField = notEqual(sortField, () -> new ToParentBlockJoinSortField(
+        "field2", SortField.Type.STRING, true, parentFilter, childFilter1T
+    ));
+    
     sort = new Sort(sortField);
     topDocs = searcher.search(query, 5, sort);
     assertEquals(6, topDocs.totalHits);
@@ -301,8 +304,27 @@ public class TestBlockJoinSorting extends LuceneTestCase {
     assertEquals(7, topDocs.scoreDocs[4].doc);
     assertEquals("e", ((BytesRef) ((FieldDoc) topDocs.scoreDocs[4]).fields[0]).utf8ToString());
 
+    sortField = notEqual(sortField, () -> new ToParentBlockJoinSortField(
+        "field2", SortField.Type.STRING, true, 
+              new QueryBitSetProducer(new TermQuery(new Term("__type", "another")))
+        , childFilter1T
+    ));
+
     searcher.getIndexReader().close();
     dir.close();
   }
+ 
+  private ToParentBlockJoinSortField notEqual(ToParentBlockJoinSortField old, Supplier<ToParentBlockJoinSortField> create) {
+    final ToParentBlockJoinSortField newObj = create.get();
+    assertFalse(old.equals(newObj));
+    assertNotSame( old, newObj);
+    
+    final ToParentBlockJoinSortField bro = create.get();
+    assertEquals(newObj, bro);
+    assertEquals(newObj.hashCode(), bro.hashCode());
+    assertNotSame( bro, newObj);
 
+    assertFalse(old.equals(bro));
+    return newObj;
+  }
 }

@@ -1,5 +1,3 @@
-package org.apache.lucene.queries;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,9 @@ package org.apache.lucene.queries;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queries;
+
+import java.io.IOException;
 
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queries.function.FunctionQuery;
@@ -23,9 +24,14 @@ import org.apache.lucene.queries.function.valuesource.ConstValueSource;
 import org.apache.lucene.search.BaseExplanationTestCase;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.BoostQuery;
+import org.apache.lucene.search.Explanation;
+import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.similarities.BM25Similarity;
+import org.apache.lucene.search.similarities.ClassicSimilarity;
 
 public class TestCustomScoreExplanations extends BaseExplanationTestCase {
   public void testOneTerm() throws Exception {
@@ -37,8 +43,7 @@ public class TestCustomScoreExplanations extends BaseExplanationTestCase {
   public void testBoost() throws Exception {
     Query q = new TermQuery(new Term(FIELD, "w1"));
     CustomScoreQuery csq = new CustomScoreQuery(q, new FunctionQuery(new ConstValueSource(5)));
-    csq.setBoost(4);
-    qtest(csq, new int[] { 0,1,2,3 });
+    qtest(new BoostQuery(csq, 4), new int[] { 0,1,2,3 });
   }
   
   public void testTopLevelBoost() throws Exception {
@@ -48,7 +53,45 @@ public class TestCustomScoreExplanations extends BaseExplanationTestCase {
     bqB.add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST);
     bqB.add(csq, BooleanClause.Occur.MUST);
     BooleanQuery bq = bqB.build();
-    bq.setBoost(6);
-    qtest(bq, new int[] { 0,1,2,3 });
+    qtest(new BoostQuery(bq, 6), new int[] { 0,1,2,3 });
+  }
+
+  public void testSubExplanations() throws IOException {
+    Query query = new FunctionQuery(new ConstValueSource(5));
+    IndexSearcher searcher = newSearcher(BaseExplanationTestCase.searcher.getIndexReader());
+    searcher.setSimilarity(new BM25Similarity());
+
+    Explanation expl = searcher.explain(query, 0);
+    // function
+    assertEquals(5f, expl.getDetails()[0].getValue(), 0f);
+    // boost
+    assertEquals("boost", expl.getDetails()[1].getDescription());
+    assertEquals(1f, expl.getDetails()[1].getValue(), 0f);
+    // norm
+    assertEquals("queryNorm", expl.getDetails()[2].getDescription());
+    assertEquals(1f, expl.getDetails()[2].getValue(), 0f);
+
+    query = new BoostQuery(query, 2);
+    expl = searcher.explain(query, 0);
+    // function
+    assertEquals(5f, expl.getDetails()[0].getValue(), 0f);
+    // boost
+    assertEquals("boost", expl.getDetails()[1].getDescription());
+    assertEquals(2f, expl.getDetails()[1].getValue(), 0f);
+    // norm
+    assertEquals("queryNorm", expl.getDetails()[2].getDescription());
+    assertEquals(1f, expl.getDetails()[2].getValue(), 0f);
+
+    searcher.setSimilarity(new ClassicSimilarity()); // in order to have a queryNorm != 1
+    expl = searcher.explain(query, 0);
+    // function
+    assertEquals(5f, expl.getDetails()[0].getValue(), 0f);
+    // boost
+    assertEquals("boost", expl.getDetails()[1].getDescription());
+    assertEquals(2f, expl.getDetails()[1].getValue(), 0f);
+    // norm
+    assertEquals("queryNorm", expl.getDetails()[2].getDescription());
+    assertEquals(0.5f, expl.getDetails()[2].getValue(), 0f);
   }
 }
+

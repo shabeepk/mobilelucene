@@ -1,5 +1,3 @@
-package org.apache.lucene.benchmark.byTask.tasks;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.benchmark.byTask.tasks;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.benchmark.byTask.tasks;
+
 
 import org.apache.lucene.analysis.util.AbstractAnalysisFactory;
 import org.apache.lucene.analysis.util.CharFilterFactory;
@@ -112,6 +112,7 @@ public class AnalyzerFactoryTask extends PerfTask {
    *               and 0+ TokenFilterFactory's
    */
   @Override
+  @SuppressWarnings("fallthrough")
   public void setParams(String params) {
     super.setParams(params);
     ArgType expectedArgType = ArgType.ANALYZER_ARG;
@@ -287,6 +288,7 @@ public class AnalyzerFactoryTask extends PerfTask {
    * @param stok stream tokenizer from which to draw analysis factory params
    * @param clazz analysis factory class to instantiate
    */
+  @SuppressWarnings("fallthrough")
   private void createAnalysisPipelineComponent
       (StreamTokenizer stok, Class<? extends AbstractAnalysisFactory> clazz) {
     Map<String,String> argMap = new HashMap<>();

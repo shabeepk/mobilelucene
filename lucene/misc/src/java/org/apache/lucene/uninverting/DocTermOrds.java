@@ -14,14 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.lucene.uninverting;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 
 import org.apache.lucene.codecs.PostingsFormat; // javadocs
@@ -78,6 +75,8 @@ import org.apache.lucene.util.StringHelper;
  * The RAM consumption of this class can be high!
  *
  * @lucene.experimental
+ *
+ * @deprecated This will be removed in Lucene 7.0.
  */
 
 /*
@@ -109,7 +108,7 @@ import org.apache.lucene.util.StringHelper;
  *   much like Lucene's own internal term index).
  *
  */
-
+@Deprecated
 public class DocTermOrds implements Accountable {
 
   // Term ords are shifted by this, internally, to reserve
@@ -166,6 +165,10 @@ public class DocTermOrds implements Accountable {
   /** Used while uninverting. */
   protected PostingsEnum postingsEnum;
 
+  /** If true, check and throw an exception if the field has docValues enabled.
+   * Normally, docValues should be used in preference to DocTermOrds. */
+  protected boolean checkForDocValues = true;
+
   /** Returns total bytes used. */
   public long ramBytesUsed() {
     // can cache the mem size since it shouldn't change
@@ -178,11 +181,6 @@ public class DocTermOrds implements Accountable {
     }
     memsz = sz;
     return sz;
-  }
-
-  @Override
-  public Collection<Accountable> getChildResources() {
-    return Collections.emptyList();
   }
 
   /** Inverts all terms */
@@ -276,7 +274,7 @@ public class DocTermOrds implements Accountable {
   /** Call this only once (if you subclass!) */
   protected void uninvert(final LeafReader reader, Bits liveDocs, final BytesRef termPrefix) throws IOException {
     final FieldInfo info = reader.getFieldInfos().fieldInfo(field);
-    if (info != null && info.getDocValuesType() != DocValuesType.NONE) {
+    if (checkForDocValues && info != null && info.getDocValuesType() != DocValuesType.NONE) {
       throw new IllegalStateException("Type mismatch: " + field + " was indexed as " + info.getDocValuesType());
     }
     //System.out.println("DTO uninvert field=" + field + " prefix=" + termPrefix);

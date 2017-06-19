@@ -1,8 +1,6 @@
 /*
  * Created on 28-Oct-2004
  */
-package org.apache.lucene.search.highlight;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -19,6 +17,7 @@ package org.apache.lucene.search.highlight;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.highlight;
 
 import java.io.IOException;
 
@@ -246,11 +245,7 @@ public class TokenSources {
   @Deprecated // maintenance reasons LUCENE-6445
   public static TokenStream getTokenStream(String field, String contents,
       Analyzer analyzer) {
-    try {
-      return analyzer.tokenStream(field, contents);
-    } catch (IOException ex) {
-      throw new RuntimeException(ex);
-    }
+    return analyzer.tokenStream(field, contents);
   }
 
 }

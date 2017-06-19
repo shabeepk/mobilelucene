@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
 
 /**
  * {@link Sorter} implementation based on a variant of the quicksort algorithm
@@ -28,22 +27,18 @@ package org.apache.lucene.util;
  */
 public abstract class IntroSorter extends Sorter {
 
-  static int ceilLog2(int n) {
-    return Integer.SIZE - Integer.numberOfLeadingZeros(n - 1);
-  }
-
   /** Create a new {@link IntroSorter}. */
   public IntroSorter() {}
 
   @Override
   public final void sort(int from, int to) {
     checkRange(from, to);
-    quicksort(from, to, ceilLog2(to - from));
+    quicksort(from, to, 2 * MathUtil.log(to - from, 2));
   }
 
   void quicksort(int from, int to, int maxDepth) {
-    if (to - from < THRESHOLD) {
-      insertionSort(from, to);
+    if (to - from < BINARY_SORT_THRESHOLD) {
+      binarySort(from, to);
       return;
     } else if (--maxDepth < 0) {
       heapSort(from, to);
@@ -88,11 +83,18 @@ public abstract class IntroSorter extends Sorter {
     quicksort(left + 1, to, maxDepth);
   }
 
-  /** Save the value at slot <code>i</code> so that it can later be used as a
-   * pivot, see {@link #comparePivot(int)}. */
+  // Don't rely on the slow default impl of setPivot/comparePivot since
+  // quicksort relies on these methods to be fast for good performance
+
+  @Override
   protected abstract void setPivot(int i);
 
-  /** Compare the pivot with the slot at <code>j</code>, similarly to
-   *  {@link #compare(int, int) compare(i, j)}. */
+  @Override
   protected abstract int comparePivot(int j);
+
+  @Override
+  protected int compare(int i, int j) {
+    setPivot(i);
+    return comparePivot(j);
+  }
 }

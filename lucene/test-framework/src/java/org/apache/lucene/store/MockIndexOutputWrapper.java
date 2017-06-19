@@ -1,5 +1,3 @@
-package org.apache.lucene.store;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.store;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.store;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -39,7 +38,7 @@ public class MockIndexOutputWrapper extends IndexOutput {
 
   /** Construct an empty output buffer. */
   public MockIndexOutputWrapper(MockDirectoryWrapper dir, IndexOutput delegate, String name) {
-    super("MockIndexOutputWrapper(" + delegate + ")");
+    super("MockIndexOutputWrapper(" + delegate + ")", delegate.getName());
     this.dir = dir;
     this.name = name;
     this.delegate = delegate;

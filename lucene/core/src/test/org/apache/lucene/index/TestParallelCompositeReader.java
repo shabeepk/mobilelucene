@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 import java.util.Random;
@@ -23,7 +23,6 @@ import java.util.Random;
 import org.apache.lucene.analysis.MockAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
-import org.apache.lucene.index.IndexReader.ReaderClosedListener;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
@@ -153,12 +152,7 @@ public class TestParallelCompositeReader extends LuceneTestCase {
     assertEquals(3, pr.leaves().size());
 
     for(LeafReaderContext cxt : pr.leaves()) {
-      cxt.reader().addReaderClosedListener(new ReaderClosedListener() {
-          @Override
-          public void onClose(IndexReader reader) {
-            listenerClosedCount[0]++;
-          }
-        });
+      cxt.reader().addReaderClosedListener(reader -> listenerClosedCount[0]++);
     }
     pr.close();
     if (!closeSubReaders) {
@@ -209,19 +203,13 @@ public class TestParallelCompositeReader extends LuceneTestCase {
     ir1.close();
 
     assertEquals("refCount of synthetic subreader should be unchanged", 1, psub.getRefCount());
-    try {
+    expectThrows(AlreadyClosedException.class, () -> {
       psub.document(0);
-      fail("Subreader should be already closed because inner reader was closed!");
-    } catch (AlreadyClosedException e) {
-      // pass
-    }
+    });
     
-    try {
+    expectThrows(AlreadyClosedException.class, () -> {
       pr.document(0);
-      fail("ParallelCompositeReader should be already closed because inner reader was closed!");
-    } catch (AlreadyClosedException e) {
-      // pass
-    }
+    });
     
     // noop:
     pr.close();
@@ -244,18 +232,15 @@ public class TestParallelCompositeReader extends LuceneTestCase {
     
     DirectoryReader ir1 = DirectoryReader.open(dir1),
         ir2 = DirectoryReader.open(dir2);
-    try {
+
+    expectThrows(IllegalArgumentException.class, () -> {
       new ParallelCompositeReader(ir1, ir2);
-      fail("didn't get expected exception: indexes don't have same number of documents");
-    } catch (IllegalArgumentException e) {
-      // expected exception
-    }
-    try {
+    });
+
+    expectThrows(IllegalArgumentException.class, () -> {
       new ParallelCompositeReader(random().nextBoolean(), ir1, ir2);
-      fail("didn't get expected exception: indexes don't have same number of documents");
-    } catch (IllegalArgumentException e) {
-      // expected exception
-    }
+    });
+
     assertEquals(1, ir1.getRefCount());
     assertEquals(1, ir2.getRefCount());
     ir1.close();
@@ -273,47 +258,14 @@ public class TestParallelCompositeReader extends LuceneTestCase {
     DirectoryReader ir1 = DirectoryReader.open(dir1),
         ir2 = DirectoryReader.open(dir2);
     CompositeReader[] readers = new CompositeReader[] {ir1, ir2};
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       new ParallelCompositeReader(readers);
-      fail("didn't get expected exception: indexes don't have same subreader structure");
-    } catch (IllegalArgumentException e) {
-      // expected exception
-    }
-    try {
-      new ParallelCompositeReader(random().nextBoolean(), readers, readers);
-      fail("didn't get expected exception: indexes don't have same subreader structure");
-    } catch (IllegalArgumentException e) {
-      // expected exception
-    }
-    assertEquals(1, ir1.getRefCount());
-    assertEquals(1, ir2.getRefCount());
-    ir1.close();
-    ir2.close();
-    assertEquals(0, ir1.getRefCount());
-    assertEquals(0, ir2.getRefCount());
-    dir1.close();
-    dir2.close();
-  }
-  
-  public void testIncompatibleIndexes3() throws IOException {
-    Directory dir1 = getDir1(random());
-    Directory dir2 = getDir2(random());
+    });
 
-    CompositeReader ir1 = new MultiReader(DirectoryReader.open(dir1), SlowCompositeReaderWrapper.wrap(DirectoryReader.open(dir1))),
-        ir2 = new MultiReader(DirectoryReader.open(dir2), DirectoryReader.open(dir2));
-    CompositeReader[] readers = new CompositeReader[] {ir1, ir2};
-    try {
-      new ParallelCompositeReader(readers);
-      fail("didn't get expected exception: indexes don't have same subreader structure");
-    } catch (IllegalArgumentException e) {
-      // expected exception
-    }
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       new ParallelCompositeReader(random().nextBoolean(), readers, readers);
-      fail("didn't get expected exception: indexes don't have same subreader structure");
-    } catch (IllegalArgumentException e) {
-      // expected exception
-    }
+    });
+
     assertEquals(1, ir1.getRefCount());
     assertEquals(1, ir2.getRefCount());
     ir1.close();
@@ -339,7 +291,7 @@ public class TestParallelCompositeReader extends LuceneTestCase {
     assertNull(pr.document(0).get("f3"));
     assertNull(pr.document(0).get("f4"));
     // check that fields are there
-    LeafReader slow = SlowCompositeReaderWrapper.wrap(pr);
+    Fields slow = MultiFields.getFields(pr);
     assertNotNull(slow.terms("f1"));
     assertNotNull(slow.terms("f2"));
     assertNotNull(slow.terms("f3"));
@@ -355,7 +307,7 @@ public class TestParallelCompositeReader extends LuceneTestCase {
     assertNull(pr.document(0).get("f3"));
     assertNull(pr.document(0).get("f4"));
     // check that fields are there
-    slow = SlowCompositeReaderWrapper.wrap(pr);
+    slow = MultiFields.getFields(pr);
     assertNull(slow.terms("f1"));
     assertNull(slow.terms("f2"));
     assertNotNull(slow.terms("f3"));
@@ -371,7 +323,7 @@ public class TestParallelCompositeReader extends LuceneTestCase {
     assertNull(pr.document(0).get("f3"));
     assertNull(pr.document(0).get("f4"));
     // check that fields are there
-    slow = SlowCompositeReaderWrapper.wrap(pr);
+    slow = MultiFields.getFields(pr);
     assertNull(slow.terms("f1"));
     assertNull(slow.terms("f2"));
     assertNotNull(slow.terms("f3"));
@@ -379,14 +331,11 @@ public class TestParallelCompositeReader extends LuceneTestCase {
     pr.close();
     
     // no main readers
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       new ParallelCompositeReader(true,
         new CompositeReader[0],
         new CompositeReader[] {ir1});
-      fail("didn't get expected exception: need a non-empty main-reader array");
-    } catch (IllegalArgumentException iae) {
-      // pass
-    }
+    });
     
     dir1.close();
     dir2.close();

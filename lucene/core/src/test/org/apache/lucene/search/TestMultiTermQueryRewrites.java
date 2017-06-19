@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 
@@ -143,9 +143,10 @@ public class TestMultiTermQueryRewrites extends LuceneTestCase {
   
   private void checkBooleanQueryBoosts(BooleanQuery bq) {
     for (BooleanClause clause : bq.clauses()) {
-      final TermQuery mtq = (TermQuery) clause.getQuery();
+      final BoostQuery boostQ = (BoostQuery) clause.getQuery();
+      final TermQuery mtq = (TermQuery) boostQ.getQuery();
       assertEquals("Parallel sorting of boosts in rewrite mode broken",
-        Float.parseFloat(mtq.getTerm().text()), mtq.getBoost(), 0);
+        Float.parseFloat(mtq.getTerm().text()), boostQ.getBoost(), 0);
     }
   }
   
@@ -195,9 +196,15 @@ public class TestMultiTermQueryRewrites extends LuceneTestCase {
     }
     assertEquals("The multi-segment case must produce same rewritten query", q1, q2);
     assertEquals("The multi-segment case with duplicates must produce same rewritten query", q1, q3);
-    checkBooleanQueryBoosts((BooleanQuery) q1);
-    checkBooleanQueryBoosts((BooleanQuery) q2);
-    checkBooleanQueryBoosts((BooleanQuery) q3);
+    if (q1 instanceof MatchNoDocsQuery) {
+      assertTrue(q1 instanceof MatchNoDocsQuery);
+      assertTrue(q3 instanceof MatchNoDocsQuery);
+    } else {
+      checkBooleanQueryBoosts((BooleanQuery) q1);
+      checkBooleanQueryBoosts((BooleanQuery) q2);
+      checkBooleanQueryBoosts((BooleanQuery) q3);
+      assert false;
+    }
   }
   
   public void testBoosts() throws Exception {
@@ -214,12 +221,12 @@ public class TestMultiTermQueryRewrites extends LuceneTestCase {
     final MultiTermQuery mtq = TermRangeQuery.newStringRange("data", "2", "7", true, true);
     mtq.setRewriteMethod(method);
     try {
-      multiSearcherDupls.rewrite(mtq);
-      fail("Should throw BooleanQuery.TooManyClauses");
-    } catch (BooleanQuery.TooManyClauses e) {
+      BooleanQuery.TooManyClauses expected = expectThrows(BooleanQuery.TooManyClauses.class, () -> {
+        multiSearcherDupls.rewrite(mtq);
+      });
       //  Maybe remove this assert in later versions, when internal API changes:
       assertEquals("Should throw BooleanQuery.TooManyClauses with a stacktrace containing checkMaxClauseCount()",
-        "checkMaxClauseCount", e.getStackTrace()[0].getMethodName());
+        "checkMaxClauseCount", expected.getStackTrace()[0].getMethodName());
     } finally {
       BooleanQuery.setMaxClauseCount(savedMaxClauseCount);
     }

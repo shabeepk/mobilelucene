@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 import java.util.List;
@@ -24,6 +24,7 @@ import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.DocValuesConsumer;
 import org.apache.lucene.codecs.FieldsConsumer;
 import org.apache.lucene.codecs.NormsConsumer;
+import org.apache.lucene.codecs.PointsWriter;
 import org.apache.lucene.codecs.StoredFieldsWriter;
 import org.apache.lucene.codecs.TermVectorsWriter;
 import org.apache.lucene.store.Directory;
@@ -58,6 +59,11 @@ final class SegmentMerger {
     this.codec = segmentInfo.getCodec();
     this.context = context;
     this.fieldInfosBuilder = new FieldInfos.Builder(fieldNumbers);
+    if (mergeState.infoStream.isEnabled("SM")) {
+      if (segmentInfo.getIndexSort() != null) {
+        mergeState.infoStream.message("SM", "index sort during merge: " + segmentInfo.getIndexSort());
+      }
+    }
   }
   
   /** True if any merging should happen */
@@ -108,6 +114,17 @@ final class SegmentMerger {
       long t1 = System.nanoTime();
       mergeState.infoStream.message("SM", ((t1-t0)/1000000) + " msec to merge doc values [" + numMerged + " docs]");
     }
+
+    if (mergeState.infoStream.isEnabled("SM")) {
+      t0 = System.nanoTime();
+    }
+    if (mergeState.mergeFieldInfos.hasPointValues()) {
+      mergePoints(segmentWriteState);
+    }
+    if (mergeState.infoStream.isEnabled("SM")) {
+      long t1 = System.nanoTime();
+      mergeState.infoStream.message("SM", ((t1-t0)/1000000) + " msec to merge points [" + numMerged + " docs]");
+    }
     
     if (mergeState.mergeFieldInfos.hasNorms()) {
       if (mergeState.infoStream.isEnabled("SM")) {
@@ -148,6 +165,12 @@ final class SegmentMerger {
   private void mergeDocValues(SegmentWriteState segmentWriteState) throws IOException {
     try (DocValuesConsumer consumer = codec.docValuesFormat().fieldsConsumer(segmentWriteState)) {
       consumer.merge(mergeState);
+    }
+  }
+
+  private void mergePoints(SegmentWriteState segmentWriteState) throws IOException {
+    try (PointsWriter writer = codec.pointsFormat().fieldsWriter(segmentWriteState)) {
+      writer.merge(mergeState);
     }
   }
 

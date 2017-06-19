@@ -1,10 +1,10 @@
-package org.apache.lucene.search.spans;
-/**
- * Copyright 2005 The Apache Software Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -14,14 +14,15 @@ package org.apache.lucene.search.spans;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spans;
 
+import java.io.IOException;
+import java.util.Objects;
 
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.DocIdSetIterator;
-
-import java.io.IOException;
-import org.lukhnos.portmobile.util.Objects;
+import org.apache.lucene.search.similarities.Similarity;
 
 /**
  * Expert:
@@ -36,12 +37,16 @@ public class TermSpans extends Spans {
   protected int count;
   protected int position;
   protected boolean readPayload;
+  private final float positionsCost;
 
-  public TermSpans(PostingsEnum postings, Term term) {
+  public TermSpans(Similarity.SimScorer scorer,
+                    PostingsEnum postings, Term term, float positionsCost) {
     this.postings = Objects.requireNonNull(postings);
     this.term = Objects.requireNonNull(term);
     this.doc = -1;
     this.position = -1;
+    assert positionsCost > 0; // otherwise the TermSpans should not be created.
+    this.positionsCost = positionsCost;
   }
 
   @Override
@@ -117,6 +122,11 @@ public class TermSpans extends Spans {
   }
 
   @Override
+  public float positionsCost() {
+    return positionsCost;
+  }
+
+  @Override
   public String toString() {
     return "spans(" + term.toString() + ")@" +
             (doc == -1 ? "START" : (doc == NO_MORE_DOCS) ? "ENDDOC"
@@ -126,5 +136,4 @@ public class TermSpans extends Spans {
   public PostingsEnum getPostings() {
     return postings;
   }
-
 }

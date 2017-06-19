@@ -1,5 +1,3 @@
-package org.apache.lucene.uninverting;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.uninverting;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.uninverting;
 
 import static org.apache.lucene.index.SortedSetDocValues.NO_MORE_ORDS;
 
@@ -183,7 +182,7 @@ public class TestFieldCacheVsDocValues extends LuceneTestCase {
     
     DirectoryReader r;
     try {
-      r = DirectoryReader.open(w, true);
+      r = DirectoryReader.open(w);
     } catch (IllegalArgumentException iae) {
       if (iae.getMessage().indexOf("is too large") == -1) {
         throw iae;
@@ -269,7 +268,7 @@ public class TestFieldCacheVsDocValues extends LuceneTestCase {
       w.addDocument(doc);
     }
     
-    DirectoryReader r = DirectoryReader.open(w, true);
+    DirectoryReader r = DirectoryReader.open(w);
     w.close();
 
     LeafReader ar = SlowCompositeReaderWrapper.wrap(r);
@@ -400,7 +399,7 @@ public class TestFieldCacheVsDocValues extends LuceneTestCase {
     
     // now compare again after the merge
     ir = writer.getReader();
-    LeafReader ar = getOnlySegmentReader(ir);
+    LeafReader ar = getOnlyLeafReader(ir);
     SortedSetDocValues expected = FieldCache.DEFAULT.getDocTermOrds(ar, "indexed", null);
     SortedSetDocValues actual = ar.getSortedSetDocValues("dv");
     assertEquals(ir.maxDoc(), expected, actual);
@@ -459,8 +458,8 @@ public class TestFieldCacheVsDocValues extends LuceneTestCase {
     DirectoryReader ir = DirectoryReader.open(dir);
     for (LeafReaderContext context : ir.leaves()) {
       LeafReader r = context.reader();
-      Bits expected = FieldCache.DEFAULT.getDocsWithField(r, "indexed");
-      Bits actual = FieldCache.DEFAULT.getDocsWithField(r, "dv");
+      Bits expected = FieldCache.DEFAULT.getDocsWithField(r, "indexed", null);
+      Bits actual = FieldCache.DEFAULT.getDocsWithField(r, "dv", null);
       assertEquals(expected, actual);
     }
     ir.close();

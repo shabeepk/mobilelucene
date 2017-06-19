@@ -1,5 +1,3 @@
-package org.apache.lucene.search.suggest.document;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.suggest.document;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.suggest.document;
 
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
@@ -66,6 +65,25 @@ public class TopSuggestDocs extends TopDocs {
     @Override
     public int compareTo(SuggestScoreDoc o) {
       return Lookup.CHARSEQUENCE_COMPARATOR.compare(key, o.key);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (other instanceof SuggestScoreDoc == false) {
+        return false;
+      } else {
+        return key.equals(((SuggestScoreDoc) other).key);
+      }
+    }
+
+    @Override
+    public int hashCode() {
+      return key.hashCode();
+    }
+
+    @Override
+    public String toString() {
+      return "key=" + key + " doc=" + doc + " score=" + score + " shardIndex=" + shardIndex;      
     }
   }
 

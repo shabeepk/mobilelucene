@@ -1,5 +1,3 @@
-package org.apache.lucene.queries;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,9 +14,13 @@ package org.apache.lucene.queries;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queries;
+
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.lucene.index.Fields;
 import org.apache.lucene.index.IndexReader;
@@ -29,11 +31,11 @@ import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.similarities.Similarity;
-import org.apache.lucene.util.ToStringUtils;
 
 /**
  * A query that executes high-frequency terms in a optional sub-query to prevent
@@ -146,11 +148,9 @@ public class CommonTermsQuery extends Query {
   @Override
   public Query rewrite(IndexReader reader) throws IOException {
     if (this.terms.isEmpty()) {
-      return new MatchNoDocsQuery();
+      return new MatchNoDocsQuery("CommonTermsQuery with no terms");
     } else if (this.terms.size() == 1) {
-      final Query tq = newTermQuery(this.terms.get(0), null);
-      tq.setBoost(getBoost());
-      return tq;
+      return newTermQuery(this.terms.get(0), null);
     }
     final List<LeafReaderContext> leaves = reader.leaves();
     final int maxDoc = reader.maxDoc();
@@ -226,8 +226,7 @@ public class CommonTermsQuery extends Query {
       }
       lowFreq.setMinimumNumberShouldMatch(lowFreqMinShouldMatch);
       Query lowFreqQuery = lowFreq.build();
-      lowFreqQuery.setBoost(lowFreqBoost);
-      builder.add(lowFreqQuery, Occur.MUST);
+      builder.add(new BoostQuery(lowFreqQuery, lowFreqBoost), Occur.MUST);
     }
     if (highFreqQueries.isEmpty() == false) {
       BooleanQuery.Builder highFreq = new BooleanQuery.Builder();
@@ -237,12 +236,9 @@ public class CommonTermsQuery extends Query {
       }
       highFreq.setMinimumNumberShouldMatch(highFreqMinShouldMatch);
       Query highFreqQuery = highFreq.build();
-      highFreqQuery.setBoost(highFreqBoost);
-      builder.add(highFreqQuery, Occur.SHOULD);
+      builder.add(new BoostQuery(highFreqQuery, highFreqBoost), Occur.SHOULD);
     }
-    Query rewritten = builder.build();
-    rewritten.setBoost(getBoost());
-    return rewritten;
+    return builder.build();
   }
   
   public void collectTermContext(IndexReader reader,
@@ -344,11 +340,53 @@ public class CommonTermsQuery extends Query {
     return highFreqMinNrShouldMatch;
   }
   
+  /**
+   * Gets the list of terms.
+   */
+  public List<Term> getTerms() {
+    return Collections.unmodifiableList(terms);
+  }
+  
+  /**
+   * Gets the maximum threshold of a terms document frequency to be considered a
+   * low frequency term.
+   */
+  public float getMaxTermFrequency() {
+    return maxTermFrequency;
+  }
+  
+  /**
+   * Gets the {@link Occur} used for low frequency terms.
+   */
+  public Occur getLowFreqOccur() {
+    return lowFreqOccur;
+  }
+  
+  /**
+   * Gets the {@link Occur} used for high frequency terms.
+   */
+  public Occur getHighFreqOccur() {
+    return highFreqOccur;
+  }
+  
+  /**
+   * Gets the boost used for low frequency terms.
+   */
+  public float getLowFreqBoost() {
+    return lowFreqBoost;
+  }
+  
+  /**
+   * Gets the boost used for high frequency terms.
+   */
+  public float getHighFreqBoost() {
+    return highFreqBoost;
+  }
+  
   @Override
   public String toString(String field) {
     StringBuilder buffer = new StringBuilder();
-    boolean needParens = (getBoost() != 1.0)
-        || (getLowFreqMinimumNumberShouldMatch() > 0);
+    boolean needParens = (getLowFreqMinimumNumberShouldMatch() > 0);
     if (needParens) {
       buffer.append("(");
     }
@@ -368,51 +406,41 @@ public class CommonTermsQuery extends Query {
       buffer.append(getHighFreqMinimumNumberShouldMatch());
       buffer.append(")");
     }
-    if (getBoost() != 1.0f) {
-      buffer.append(ToStringUtils.boost(getBoost()));
-    }
     return buffer.toString();
   }
   
   @Override
   public int hashCode() {
     final int prime = 31;
-    int result = super.hashCode();
+    int result = classHash();
     result = prime * result + (disableCoord ? 1231 : 1237);
     result = prime * result + Float.floatToIntBits(highFreqBoost);
-    result = prime * result
-        + ((highFreqOccur == null) ? 0 : highFreqOccur.hashCode());
+    result = prime * result + Objects.hashCode(highFreqOccur);
+    result = prime * result + Objects.hashCode(lowFreqOccur);
     result = prime * result + Float.floatToIntBits(lowFreqBoost);
-    result = prime * result
-        + ((lowFreqOccur == null) ? 0 : lowFreqOccur.hashCode());
     result = prime * result + Float.floatToIntBits(maxTermFrequency);
     result = prime * result + Float.floatToIntBits(lowFreqMinNrShouldMatch);
     result = prime * result + Float.floatToIntBits(highFreqMinNrShouldMatch);
-    result = prime * result + ((terms == null) ? 0 : terms.hashCode());
+    result = prime * result + Objects.hashCode(terms);
     return result;
   }
-  
+
   @Override
-  public boolean equals(Object obj) {
-    if (this == obj) return true;
-    if (!super.equals(obj)) return false;
-    if (getClass() != obj.getClass()) return false;
-    CommonTermsQuery other = (CommonTermsQuery) obj;
-    if (disableCoord != other.disableCoord) return false;
-    if (Float.floatToIntBits(highFreqBoost) != Float
-        .floatToIntBits(other.highFreqBoost)) return false;
-    if (highFreqOccur != other.highFreqOccur) return false;
-    if (Float.floatToIntBits(lowFreqBoost) != Float
-        .floatToIntBits(other.lowFreqBoost)) return false;
-    if (lowFreqOccur != other.lowFreqOccur) return false;
-    if (Float.floatToIntBits(maxTermFrequency) != Float
-        .floatToIntBits(other.maxTermFrequency)) return false;
-    if (lowFreqMinNrShouldMatch != other.lowFreqMinNrShouldMatch) return false;
-    if (highFreqMinNrShouldMatch != other.highFreqMinNrShouldMatch) return false;
-    if (terms == null) {
-      if (other.terms != null) return false;
-    } else if (!terms.equals(other.terms)) return false;
-    return true;
+  public boolean equals(Object other) {
+    return sameClassAs(other) &&
+           equalsTo(getClass().cast(other));
+  }
+
+  private boolean equalsTo(CommonTermsQuery other) {
+    return disableCoord == other.disableCoord &&
+           Float.floatToIntBits(highFreqBoost) == Float.floatToIntBits(other.highFreqBoost) &&
+           highFreqOccur == other.highFreqOccur &&
+           lowFreqOccur == other.lowFreqOccur &&
+           Float.floatToIntBits(lowFreqBoost) == Float.floatToIntBits(other.lowFreqBoost) &&
+           Float.floatToIntBits(maxTermFrequency) == Float.floatToIntBits(other.maxTermFrequency) &&
+           lowFreqMinNrShouldMatch == other.lowFreqMinNrShouldMatch &&
+           highFreqMinNrShouldMatch == other.highFreqMinNrShouldMatch &&
+           terms.equals(other.terms);
   }
 
   /**

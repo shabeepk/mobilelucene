@@ -1,5 +1,3 @@
-package org.apache.lucene.util.automaton;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,8 +14,10 @@ package org.apache.lucene.util.automaton;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util.automaton;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -206,8 +206,8 @@ public class AutomatonTestUtil {
     }
 
     public int[] getRandomAcceptedString(Random r) {
-
-      final List<Integer> soFar = new ArrayList<>();
+      int[] codePoints = new int[0];
+      int codepointCount = 0;
 
       int s = 0;
 
@@ -249,26 +249,34 @@ public class AutomatonTestUtil {
         } else {
           t = transitions[s][r.nextInt(transitions[s].length)];
         }
-        soFar.add(getRandomCodePoint(r, t.min, t.max));
+        codePoints = ArrayUtil.grow(codePoints, codepointCount + 1);
+        codePoints[codepointCount++] = getRandomCodePoint(r, t.min, t.max);
         s = t.dest;
       }
 
-      return ArrayUtil.toIntArray(soFar);
+      return Arrays.copyOf(codePoints, codepointCount);
+    }
+  }
+
+  private static Automaton randomSingleAutomaton(Random random) {
+    while (true) {
+      try {
+        Automaton a1 = new RegExp(AutomatonTestUtil.randomRegexp(random), RegExp.NONE).toAutomaton();
+        if (random.nextBoolean()) {
+          a1 = Operations.complement(a1, DEFAULT_MAX_DETERMINIZED_STATES);
+        }
+        return a1;
+      } catch (TooComplexToDeterminizeException tctde) {
+        // This can (rarely) happen if the random regexp is too hard; just try again...
+      }
     }
   }
   
   /** return a random NFA/DFA for testing */
   public static Automaton randomAutomaton(Random random) {
     // get two random Automata from regexps
-    Automaton a1 = new RegExp(AutomatonTestUtil.randomRegexp(random), RegExp.NONE).toAutomaton();
-    if (random.nextBoolean()) {
-      a1 = Operations.complement(a1, DEFAULT_MAX_DETERMINIZED_STATES);
-    }
-    
-    Automaton a2 = new RegExp(AutomatonTestUtil.randomRegexp(random), RegExp.NONE).toAutomaton();
-    if (random.nextBoolean()) {
-      a2 = Operations.complement(a2, DEFAULT_MAX_DETERMINIZED_STATES);
-    }
+    Automaton a1 = randomSingleAutomaton(random);
+    Automaton a2 = randomSingleAutomaton(random);
 
     // combine them in random ways
     switch (random.nextInt(4)) {

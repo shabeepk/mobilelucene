@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.synonym;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.analysis.synonym;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.synonym;
+
 
 import java.io.IOException;
 import java.io.Reader;
@@ -36,9 +36,7 @@ import org.apache.lucene.util.BytesRefBuilder;
 import org.apache.lucene.util.BytesRefHash;
 import org.apache.lucene.util.CharsRef;
 import org.apache.lucene.util.CharsRefBuilder;
-import org.apache.lucene.util.IntsRef;
 import org.apache.lucene.util.IntsRefBuilder;
-import org.apache.lucene.util.UnicodeUtil;
 import org.apache.lucene.util.fst.ByteSequenceOutputs;
 import org.apache.lucene.util.fst.FST;
 import org.apache.lucene.util.fst.Util;
@@ -76,6 +74,11 @@ public class SynonymMap {
     private int maxHorizontalContext;
     private final boolean dedup;
 
+    /** Default constructor, passes {@code dedup=true}. */
+    public Builder() {
+      this(true);
+    }
+
     /** If dedup is true then identical rules (same input,
      *  same output) will be added only once. */
     public Builder(boolean dedup) {
@@ -111,8 +114,6 @@ public class SynonymMap {
       reuse.setLength(upto);
       return reuse.get();
     }
-    
-
 
     /** only used for asserting! */
     private boolean hasHoles(CharsRef chars) {

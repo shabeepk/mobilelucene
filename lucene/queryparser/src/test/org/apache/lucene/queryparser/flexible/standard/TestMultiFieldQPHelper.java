@@ -1,5 +1,3 @@
-package org.apache.lucene.queryparser.flexible.standard;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.queryparser.flexible.standard;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queryparser.flexible.standard;
 
 import java.io.Reader;
 import java.io.StringReader;
@@ -33,6 +32,7 @@ import org.apache.lucene.queryparser.flexible.standard.config.StandardQueryConfi
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.store.Directory;
@@ -56,9 +56,22 @@ public class TestMultiFieldQPHelper extends LuceneTestCase {
     assertStopQueryEquals("one stop", "b:one t:one");
     assertStopQueryEquals("one (stop)", "b:one t:one");
     assertStopQueryEquals("one ((stop))", "b:one t:one");
-    assertStopQueryEquals("stop", "");
-    assertStopQueryEquals("(stop)", "");
-    assertStopQueryEquals("((stop))", "");
+    assertStopQueryIsMatchNoDocsQuery("stop");
+    assertStopQueryIsMatchNoDocsQuery("(stop)");
+    assertStopQueryIsMatchNoDocsQuery("((stop))");
+  }
+
+  // verify parsing of query using a stopping analyzer
+  private void assertStopQueryIsMatchNoDocsQuery(String qtxt) throws Exception {
+    String[] fields = { "b", "t" };
+    Occur occur[] = { Occur.SHOULD, Occur.SHOULD };
+    TestQPHelper.QPTestAnalyzer a = new TestQPHelper.QPTestAnalyzer();
+    StandardQueryParser mfqp = new StandardQueryParser();
+    mfqp.setMultiFields(fields);
+    mfqp.setAnalyzer(a);
+
+    Query q = mfqp.parse(qtxt, null);
+    assertTrue(q instanceof MatchNoDocsQuery);
   }
 
   // verify parsing of query using a stopping analyzer
@@ -98,13 +111,13 @@ public class TestMultiFieldQPHelper extends LuceneTestCase {
         .toString());
 
     q = mfqp.parse("one^2 two", null);
-    assertEquals("((b:one t:one)^2.0) (b:two t:two)", q.toString());
+    assertEquals("(b:one t:one)^2.0 (b:two t:two)", q.toString());
 
     q = mfqp.parse("one~ two", null);
     assertEquals("(b:one~2 t:one~2) (b:two t:two)", q.toString());
 
     q = mfqp.parse("one~0.8 two^2", null);
-    assertEquals("(b:one~0 t:one~0) ((b:two t:two)^2.0)", q.toString());
+    assertEquals("(b:one~0 t:one~0) (b:two t:two)^2.0", q.toString());
 
     q = mfqp.parse("one* two*", null);
     assertEquals("(b:one* t:one*) (b:two* t:two*)", q.toString());
@@ -156,24 +169,24 @@ public class TestMultiFieldQPHelper extends LuceneTestCase {
 
     // Check for simple
     Query q = mfqp.parse("one", null);
-    assertEquals("b:one^5.0 t:one^10.0", q.toString());
+    assertEquals("(b:one)^5.0 (t:one)^10.0", q.toString());
 
     // Check for AND
     q = mfqp.parse("one AND two", null);
-    assertEquals("+(b:one^5.0 t:one^10.0) +(b:two^5.0 t:two^10.0)", q
+    assertEquals("+((b:one)^5.0 (t:one)^10.0) +((b:two)^5.0 (t:two)^10.0)", q
         .toString());
 
     // Check for OR
     q = mfqp.parse("one OR two", null);
-    assertEquals("(b:one^5.0 t:one^10.0) (b:two^5.0 t:two^10.0)", q.toString());
+    assertEquals("((b:one)^5.0 (t:one)^10.0) ((b:two)^5.0 (t:two)^10.0)", q.toString());
 
     // Check for AND and a field
     q = mfqp.parse("one AND two AND foo:test", null);
-    assertEquals("+(b:one^5.0 t:one^10.0) +(b:two^5.0 t:two^10.0) +foo:test", q
+    assertEquals("+((b:one)^5.0 (t:one)^10.0) +((b:two)^5.0 (t:two)^10.0) +foo:test", q
         .toString());
 
     q = mfqp.parse("one^3 AND two^4", null);
-    assertEquals("+((b:one^5.0 t:one^10.0)^3.0) +((b:two^5.0 t:two^10.0)^4.0)",
+    assertEquals("+((b:one)^5.0 (t:one)^10.0)^3.0 +((b:two)^5.0 (t:two)^10.0)^4.0",
         q.toString());
   }
 
@@ -196,24 +209,22 @@ public class TestMultiFieldQPHelper extends LuceneTestCase {
     assertEquals("(b:one +b:more) t:two", q.toString());
 
     String[] queries5 = { "blah" };
-    try {
-      q = QueryParserUtil.parse(queries5, fields, new MockAnalyzer(random()));
-      fail();
-    } catch (IllegalArgumentException e) {
-      // expected exception, array length differs
-    }
+    // expected exception, array length differs
+    expectThrows(IllegalArgumentException.class, () -> {
+      QueryParserUtil.parse(queries5, fields, new MockAnalyzer(random()));
+    });
 
     // check also with stop words for this static form (qtxts[], fields[]).
     TestQPHelper.QPTestAnalyzer stopA = new TestQPHelper.QPTestAnalyzer();
 
     String[] queries6 = { "((+stop))", "+((stop))" };
     q = QueryParserUtil.parse(queries6, fields, stopA);
-    assertEquals(" ", q.toString());
+    assertEquals("MatchNoDocsQuery(\"\") MatchNoDocsQuery(\"\")", q.toString());
+    //assertEquals(" ", q.toString());
 
     String[] queries7 = { "one ((+stop)) +more", "+((stop)) +two" };
     q = QueryParserUtil.parse(queries7, fields, stopA);
     assertEquals("(b:one +b:more) (+t:two)", q.toString());
-
   }
 
   public void testStaticMethod2() throws QueryNodeException {
@@ -227,13 +238,11 @@ public class TestMultiFieldQPHelper extends LuceneTestCase {
     q = QueryParserUtil.parse("one two", fields, flags, new MockAnalyzer(random()));
     assertEquals("+(b:one b:two) -(t:one t:two)", q.toString());
 
-    try {
+    // expected exception, array length differs
+    expectThrows(IllegalArgumentException.class, () -> {
       BooleanClause.Occur[] flags2 = { BooleanClause.Occur.MUST };
-      q = QueryParserUtil.parse("blah", fields, flags2, new MockAnalyzer(random()));
-      fail();
-    } catch (IllegalArgumentException e) {
-      // expected exception, array length differs
-    }
+      QueryParserUtil.parse("blah", fields, flags2, new MockAnalyzer(random()));
+    });
   }
 
   public void testStaticMethod2Old() throws QueryNodeException {
@@ -252,13 +261,11 @@ public class TestMultiFieldQPHelper extends LuceneTestCase {
     q = QueryParserUtil.parse("one two", fields, flags, new MockAnalyzer(random()));
     assertEquals("+(b:one b:two) -(t:one t:two)", q.toString());
 
-    try {
+    // expected exception, array length differs
+    expectThrows(IllegalArgumentException.class, () -> {
       BooleanClause.Occur[] flags2 = { BooleanClause.Occur.MUST };
-      q = QueryParserUtil.parse("blah", fields, flags2, new MockAnalyzer(random()));
-      fail();
-    } catch (IllegalArgumentException e) {
-      // expected exception, array length differs
-    }
+      QueryParserUtil.parse("blah", fields, flags2, new MockAnalyzer(random()));
+    });
   }
 
   public void testStaticMethod3() throws QueryNodeException {
@@ -270,14 +277,12 @@ public class TestMultiFieldQPHelper extends LuceneTestCase {
         new MockAnalyzer(random()));
     assertEquals("+f1:one -f2:two f3:three", q.toString());
 
-    try {
+    // expected exception, array length differs
+    expectThrows(IllegalArgumentException.class, () -> {
       BooleanClause.Occur[] flags2 = { BooleanClause.Occur.MUST };
-      q = QueryParserUtil
+      QueryParserUtil
           .parse(queries, fields, flags2, new MockAnalyzer(random()));
-      fail();
-    } catch (IllegalArgumentException e) {
-      // expected exception, array length differs
-    }
+    });
   }
 
   public void testStaticMethod3Old() throws QueryNodeException {
@@ -289,14 +294,12 @@ public class TestMultiFieldQPHelper extends LuceneTestCase {
         new MockAnalyzer(random()));
     assertEquals("+b:one -t:two", q.toString());
 
-    try {
+    // expected exception, array length differs
+    expectThrows(IllegalArgumentException.class, () -> {
       BooleanClause.Occur[] flags2 = { BooleanClause.Occur.MUST };
-      q = QueryParserUtil
+      QueryParserUtil
           .parse(queries, fields, flags2, new MockAnalyzer(random()));
-      fail();
-    } catch (IllegalArgumentException e) {
-      // expected exception, array length differs
-    }
+    });
   }
 
   public void testAnalyzerReturningNull() throws QueryNodeException {

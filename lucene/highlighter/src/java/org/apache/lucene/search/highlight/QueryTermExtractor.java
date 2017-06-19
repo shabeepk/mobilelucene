@@ -1,4 +1,3 @@
-package org.apache.lucene.search.highlight;
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -15,7 +14,7 @@ package org.apache.lucene.search.highlight;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+package org.apache.lucene.search.highlight;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -25,7 +24,7 @@ import org.apache.lucene.index.MultiReader;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.FilteredQuery;
+import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 
@@ -80,7 +79,7 @@ public final class QueryTermExtractor
           try
             {
                 int docFreq=reader.docFreq(new Term(fieldName,terms[i].term));
-                //IDF algorithm taken from DefaultSimilarity class
+                //IDF algorithm taken from ClassicSimilarity class
                 float idf=(float)(Math.log(totalNumDocs/(double)(docFreq+1)) + 1.0);
                 terms[i].weight*=idf;
             } 
@@ -103,7 +102,7 @@ public final class QueryTermExtractor
   public static final WeightedTerm[] getTerms(Query query, boolean prohibited, String fieldName)
   {
     HashSet<WeightedTerm> terms=new HashSet<>();
-    getTerms(query,terms,prohibited,fieldName);
+    getTerms(query, 1f, terms,prohibited,fieldName);
     return terms.toArray(new WeightedTerm[0]);
   }
 
@@ -119,12 +118,13 @@ public final class QueryTermExtractor
       return getTerms(query,prohibited,null);
   }
 
-  private static final void getTerms(Query query, HashSet<WeightedTerm> terms, boolean prohibited, String fieldName) {
+  private static final void getTerms(Query query, float boost, HashSet<WeightedTerm> terms, boolean prohibited, String fieldName) {
     try {
-      if (query instanceof BooleanQuery)
-        getTermsFromBooleanQuery((BooleanQuery) query, terms, prohibited, fieldName);
-      else if (query instanceof FilteredQuery)
-        getTermsFromFilteredQuery((FilteredQuery) query, terms, prohibited, fieldName);
+      if (query instanceof BoostQuery) {
+        BoostQuery boostQuery = (BoostQuery) query;
+        getTerms(boostQuery.getQuery(), boost * boostQuery.getBoost(), terms, prohibited, fieldName);
+      } else if (query instanceof BooleanQuery)
+        getTermsFromBooleanQuery((BooleanQuery) query, boost, terms, prohibited, fieldName);
       else {
         HashSet<Term> nonWeightedTerms = new HashSet<>();
         try {
@@ -135,7 +135,7 @@ public final class QueryTermExtractor
         for (Iterator<Term> iter = nonWeightedTerms.iterator(); iter.hasNext(); ) {
           Term term = iter.next();
           if ((fieldName == null) || (term.field().equals(fieldName))) {
-            terms.add(new WeightedTerm(query.getBoost(), term.text()));
+            terms.add(new WeightedTerm(boost, term.text()));
           }
         }
       }
@@ -155,17 +155,13 @@ public final class QueryTermExtractor
    * something common which would allow access to child queries so what follows here are query-specific
    * implementations for accessing embedded query elements.
    */
-  private static final void getTermsFromBooleanQuery(BooleanQuery query, HashSet<WeightedTerm> terms, boolean prohibited, String fieldName)
+  private static final void getTermsFromBooleanQuery(BooleanQuery query, float boost, HashSet<WeightedTerm> terms, boolean prohibited, String fieldName)
   {
     for (BooleanClause clause : query)
     {
       if (prohibited || clause.getOccur()!=BooleanClause.Occur.MUST_NOT)
-        getTerms(clause.getQuery(), terms, prohibited, fieldName);
+        getTerms(clause.getQuery(), boost, terms, prohibited, fieldName);
     }
-  }
-  private static void getTermsFromFilteredQuery(FilteredQuery query, HashSet<WeightedTerm> terms, boolean prohibited, String fieldName)
-  {
-    getTerms(query.getQuery(),terms,prohibited,fieldName);
   }
 
 }

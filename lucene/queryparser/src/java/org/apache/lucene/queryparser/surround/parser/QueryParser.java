@@ -6,8 +6,6 @@ import java.util.List;
 import java.io.StringReader;
 
 
-import org.apache.lucene.analysis.TokenStream;
-
 import org.apache.lucene.queryparser.surround.query.SrndQuery;
 import org.apache.lucene.queryparser.surround.query.FieldsQuery;
 import org.apache.lucene.queryparser.surround.query.OrQuery;
@@ -483,7 +481,7 @@ public class QueryParser implements QueryParserConstants {
       weight = jj_consume_token(NUMBER);
       float f;
       try {
-        f = Float.valueOf(weight.image).floatValue();
+        f = Float.parseFloat(weight.image);
       } catch (Exception floatExc) {
         {if (true) throw new ParseException(boostErrorMessage + weight.image + " (" + floatExc + ")");}
       }

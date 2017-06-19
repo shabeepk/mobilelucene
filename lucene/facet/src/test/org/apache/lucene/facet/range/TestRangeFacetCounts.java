@@ -1,5 +1,3 @@
-package org.apache.lucene.facet.range;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.facet.range;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.facet.range;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -25,11 +24,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoubleDocValuesField;
-import org.apache.lucene.document.DoubleField;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.FloatDocValuesField;
-import org.apache.lucene.document.FloatField;
-import org.apache.lucene.document.LongField;
+import org.apache.lucene.document.DoublePoint;
+import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.document.NumericDocValuesField;
 import org.apache.lucene.facet.DrillDownQuery;
 import org.apache.lucene.facet.DrillSideways;
@@ -50,25 +46,21 @@ import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.RandomIndexWriter;
 import org.apache.lucene.index.Term;
-import org.apache.lucene.queries.function.FunctionValues;
 import org.apache.lucene.queries.function.ValueSource;
-import org.apache.lucene.queries.function.docvalues.DoubleDocValues;
 import org.apache.lucene.queries.function.valuesource.DoubleFieldSource;
-import org.apache.lucene.queries.function.valuesource.FloatFieldSource;
 import org.apache.lucene.queries.function.valuesource.LongFieldSource;
-import org.apache.lucene.search.DocIdSet;
+import org.apache.lucene.search.DoubleValues;
+import org.apache.lucene.search.DoubleValuesSource;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchAllDocsQuery;
-import org.apache.lucene.search.NumericRangeQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOUtils;
+import org.apache.lucene.util.NumericUtils;
 import org.apache.lucene.util.TestUtil;
-
 
 public class TestRangeFacetCounts extends FacetTestCase {
 
@@ -109,32 +101,19 @@ public class TestRangeFacetCounts extends FacetTestCase {
     d.close();
   }
 
-  @SuppressWarnings("unused")
   public void testUselessRange() {
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       new LongRange("useless", 7, true, 6, true);
-      fail("did not hit expected exception");
-    } catch (IllegalArgumentException iae) {
-      // expected
-    }
-    try {
+    });
+    expectThrows(IllegalArgumentException.class, () -> {
       new LongRange("useless", 7, true, 7, false);
-      fail("did not hit expected exception");
-    } catch (IllegalArgumentException iae) {
-      // expected
-    }
-    try {
+    });
+    expectThrows(IllegalArgumentException.class, () -> {
       new DoubleRange("useless", 7.0, true, 6.0, true);
-      fail("did not hit expected exception");
-    } catch (IllegalArgumentException iae) {
-      // expected
-    }
-    try {
+    });
+    expectThrows(IllegalArgumentException.class, () -> {
       new DoubleRange("useless", 7.0, true, 7.0, false);
-      fail("did not hit expected exception");
-    } catch (IllegalArgumentException iae) {
-      // expected
-    }
+    });
   }
 
   public void testLongMinMax() throws Exception {
@@ -223,7 +202,7 @@ public class TestRangeFacetCounts extends FacetTestCase {
       // For computing range facet counts:
       doc.add(new NumericDocValuesField("field", l));
       // For drill down by numeric range:
-      doc.add(new LongField("field", l, Field.Store.NO));
+      doc.add(new LongPoint("field", l));
 
       if ((l&3) == 0) {
         doc.add(new FacetField("dim", "a"));
@@ -237,7 +216,7 @@ public class TestRangeFacetCounts extends FacetTestCase {
 
     final TaxonomyReader tr = new DirectoryTaxonomyReader(tw);
 
-    IndexSearcher s = newSearcher(r);
+    IndexSearcher s = newSearcher(r, false);
 
     if (VERBOSE) {
       System.out.println("TEST: searcher=" + s);
@@ -299,7 +278,7 @@ public class TestRangeFacetCounts extends FacetTestCase {
 
     // Third search, drill down on "less than or equal to 10":
     ddq = new DrillDownQuery(config);
-    ddq.add("field", NumericRangeQuery.newLongRange("field", 0L, 10L, true, true));
+    ddq.add("field", LongPoint.newRangeQuery("field", 0L, 10L));
     dsr = ds.search(null, ddq, 10);
 
     assertEquals(11, dsr.hits.totalHits);
@@ -340,37 +319,6 @@ public class TestRangeFacetCounts extends FacetTestCase {
     IOUtils.close(r, d);
   }
 
-  public void testBasicFloat() throws Exception {
-    Directory d = newDirectory();
-    RandomIndexWriter w = new RandomIndexWriter(random(), d);
-    Document doc = new Document();
-    FloatDocValuesField field = new FloatDocValuesField("field", 0.0f);
-    doc.add(field);
-    for(long l=0;l<100;l++) {
-      field.setFloatValue(l);
-      w.addDocument(doc);
-    }
-
-    IndexReader r = w.getReader();
-
-    FacetsCollector fc = new FacetsCollector();
-
-    IndexSearcher s = newSearcher(r);
-    s.search(new MatchAllDocsQuery(), fc);
-
-    Facets facets = new DoubleRangeFacetCounts("field", new FloatFieldSource("field"), fc,
-        new DoubleRange("less than 10", 0.0f, true, 10.0f, false),
-        new DoubleRange("less than or equal to 10", 0.0f, true, 10.0f, true),
-        new DoubleRange("over 90", 90.0f, false, 100.0f, false),
-        new DoubleRange("90 or above", 90.0f, true, 100.0f, false),
-        new DoubleRange("over 1000", 1000.0f, false, Double.POSITIVE_INFINITY, false));
-    
-    assertEquals("dim=field path=[] value=21 childCount=5\n  less than 10 (10)\n  less than or equal to 10 (11)\n  over 90 (9)\n  90 or above (10)\n  over 1000 (0)\n",
-                 facets.getTopChildren(10, "field").toString());
-    w.close();
-    IOUtils.close(r, d);
-  }
-
   public void testRandomLongs() throws Exception {
     Directory dir = newDirectory();
     RandomIndexWriter w = new RandomIndexWriter(random(), dir);
@@ -387,14 +335,14 @@ public class TestRangeFacetCounts extends FacetTestCase {
       long v = random().nextLong();
       values[i] = v;
       doc.add(new NumericDocValuesField("field", v));
-      doc.add(new LongField("field", v, Field.Store.NO));
+      doc.add(new LongPoint("field", v));
       w.addDocument(doc);
       minValue = Math.min(minValue, v);
       maxValue = Math.max(maxValue, v);
     }
     IndexReader r = w.getReader();
 
-    IndexSearcher s = newSearcher(r);
+    IndexSearcher s = newSearcher(r, false);
     FacetsConfig config = new FacetsConfig();
     
     int numIters = atLeast(10);
@@ -440,7 +388,10 @@ public class TestRangeFacetCounts extends FacetTestCase {
         }
         boolean minIncl;
         boolean maxIncl;
-        if (min == max) {
+
+        // NOTE: max - min >= 0 is here to handle the common overflow case!
+        if (max - min >= 0 && max - min < 2) {
+          // If max == min or max == min+1, we always do inclusive, else we might pass an empty range and hit exc from LongRange's ctor:
           minIncl = true;
           maxIncl = true;
         } else {
@@ -479,9 +430,9 @@ public class TestRangeFacetCounts extends FacetTestCase {
       Query fastMatchQuery;
       if (random().nextBoolean()) {
         if (random().nextBoolean()) {
-          fastMatchQuery = NumericRangeQuery.newLongRange("field", minValue, maxValue, true, true);
+          fastMatchQuery = LongPoint.newRangeQuery("field", minValue, maxValue);
         } else {
-          fastMatchQuery = NumericRangeQuery.newLongRange("field", minAcceptedValue, maxAcceptedValue, true, true);
+          fastMatchQuery = LongPoint.newRangeQuery("field", minAcceptedValue, maxAcceptedValue);
         }
       } else {
         fastMatchQuery = null;
@@ -503,162 +454,7 @@ public class TestRangeFacetCounts extends FacetTestCase {
         // Test drill-down:
         DrillDownQuery ddq = new DrillDownQuery(config);
         if (random().nextBoolean()) {
-          ddq.add("field", NumericRangeQuery.newLongRange("field", range.min, range.max, range.minInclusive, range.maxInclusive));
-        } else {
-          ddq.add("field", range.getQuery(fastMatchQuery, vs));
-        }
-        assertEquals(expectedCounts[rangeID], s.search(ddq, 10).totalHits);
-      }
-    }
-
-    w.close();
-    IOUtils.close(r, dir);
-  }
-
-  public void testRandomFloats() throws Exception {
-    Directory dir = newDirectory();
-    RandomIndexWriter w = new RandomIndexWriter(random(), dir);
-
-    int numDocs = atLeast(1000);
-    float[] values = new float[numDocs];
-    float minValue = Float.POSITIVE_INFINITY;
-    float maxValue = Float.NEGATIVE_INFINITY;
-    for(int i=0;i<numDocs;i++) {
-      Document doc = new Document();
-      float v = random().nextFloat();
-      values[i] = v;
-      doc.add(new FloatDocValuesField("field", v));
-      doc.add(new FloatField("field", v, Field.Store.NO));
-      w.addDocument(doc);
-      minValue = Math.min(minValue, v);
-      maxValue = Math.max(maxValue, v);
-    }
-    IndexReader r = w.getReader();
-
-    IndexSearcher s = newSearcher(r);
-    FacetsConfig config = new FacetsConfig();
-    
-    int numIters = atLeast(10);
-    for(int iter=0;iter<numIters;iter++) {
-      if (VERBOSE) {
-        System.out.println("TEST: iter=" + iter);
-      }
-      int numRange = TestUtil.nextInt(random(), 1, 5);
-      DoubleRange[] ranges = new DoubleRange[numRange];
-      int[] expectedCounts = new int[numRange];
-      float minAcceptedValue = Float.POSITIVE_INFINITY;
-      float maxAcceptedValue = Float.NEGATIVE_INFINITY;
-      if (VERBOSE) {
-        System.out.println("TEST: " + numRange + " ranges");
-      }
-      for(int rangeID=0;rangeID<numRange;rangeID++) {
-        double min;
-        if (rangeID > 0 && random().nextInt(10) == 7) {
-          // Use an existing boundary:
-          DoubleRange prevRange = ranges[random().nextInt(rangeID)];
-          if (random().nextBoolean()) {
-            min = prevRange.min;
-          } else {
-            min = prevRange.max;
-          }
-        } else {
-          min = random().nextDouble();
-        }
-        double max;
-        if (rangeID > 0 && random().nextInt(10) == 7) {
-          // Use an existing boundary:
-          DoubleRange prevRange = ranges[random().nextInt(rangeID)];
-          if (random().nextBoolean()) {
-            max = prevRange.min;
-          } else {
-            max = prevRange.max;
-          }
-        } else {
-          max = random().nextDouble();
-        }
-
-        if (min > max) {
-          double x = min;
-          min = max;
-          max = x;
-        }
-
-        // Must truncate to float precision so that the
-        // drill-down counts (which use NRQ.newFloatRange)
-        // are correct:
-        min = (float) min;
-        max = (float) max;
-
-        boolean minIncl;
-        boolean maxIncl;
-        if (min == max) {
-          minIncl = true;
-          maxIncl = true;
-        } else {
-          minIncl = random().nextBoolean();
-          maxIncl = random().nextBoolean();
-        }
-        ranges[rangeID] = new DoubleRange("r" + rangeID, min, minIncl, max, maxIncl);
-
-        if (VERBOSE) {
-          System.out.println("TEST:   range " + rangeID + ": " + ranges[rangeID]);
-        }
-
-        // Do "slow but hopefully correct" computation of
-        // expected count:
-        for(int i=0;i<numDocs;i++) {
-          boolean accept = true;
-          if (minIncl) {
-            accept &= values[i] >= min;
-          } else {
-            accept &= values[i] > min;
-          }
-          if (maxIncl) {
-            accept &= values[i] <= max;
-          } else {
-            accept &= values[i] < max;
-          }
-          if (VERBOSE) {
-            System.out.println("TEST:   check doc=" + i + " val=" + values[i] + " accept=" + accept);
-          }
-          if (accept) {
-            expectedCounts[rangeID]++;
-            minAcceptedValue = Math.min(minAcceptedValue, values[i]);
-            maxAcceptedValue = Math.max(maxAcceptedValue, values[i]);
-          }
-        }
-      }
-
-      FacetsCollector sfc = new FacetsCollector();
-      s.search(new MatchAllDocsQuery(), sfc);
-      Query fastMatchQuery;
-      if (random().nextBoolean()) {
-        if (random().nextBoolean()) {
-          fastMatchQuery = NumericRangeQuery.newFloatRange("field", minValue, maxValue, true, true);
-        } else {
-          fastMatchQuery = NumericRangeQuery.newFloatRange("field", minAcceptedValue, maxAcceptedValue, true, true);
-        }
-      } else {
-        fastMatchQuery = null;
-      }
-      ValueSource vs = new FloatFieldSource("field");
-      Facets facets = new DoubleRangeFacetCounts("field", vs, sfc, fastMatchQuery, ranges);
-      FacetResult result = facets.getTopChildren(10, "field");
-      assertEquals(numRange, result.labelValues.length);
-      for(int rangeID=0;rangeID<numRange;rangeID++) {
-        if (VERBOSE) {
-          System.out.println("TEST: verify range " + rangeID + " expectedCount=" + expectedCounts[rangeID]);
-        }
-        LabelAndValue subNode = result.labelValues[rangeID];
-        assertEquals("r" + rangeID, subNode.label);
-        assertEquals(expectedCounts[rangeID], subNode.value.intValue());
-
-        DoubleRange range = ranges[rangeID];
-
-        // Test drill-down:
-        DrillDownQuery ddq = new DrillDownQuery(config);
-        if (random().nextBoolean()) {
-          ddq.add("field", NumericRangeQuery.newFloatRange("field", (float) range.min, (float) range.max, range.minInclusive, range.maxInclusive));
+          ddq.add("field", LongPoint.newRangeQuery("field", range.min, range.max));
         } else {
           ddq.add("field", range.getQuery(fastMatchQuery, vs));
         }
@@ -683,14 +479,14 @@ public class TestRangeFacetCounts extends FacetTestCase {
       double v = random().nextDouble();
       values[i] = v;
       doc.add(new DoubleDocValuesField("field", v));
-      doc.add(new DoubleField("field", v, Field.Store.NO));
+      doc.add(new DoublePoint("field", v));
       w.addDocument(doc);
       minValue = Math.min(minValue, v);
       maxValue = Math.max(maxValue, v);
     }
     IndexReader r = w.getReader();
 
-    IndexSearcher s = newSearcher(r);
+    IndexSearcher s = newSearcher(r, false);
     FacetsConfig config = new FacetsConfig();
     
     int numIters = atLeast(10);
@@ -737,7 +533,11 @@ public class TestRangeFacetCounts extends FacetTestCase {
 
         boolean minIncl;
         boolean maxIncl;
-        if (min == max) {
+        
+        long minAsLong = NumericUtils.doubleToSortableLong(min);
+        long maxAsLong = NumericUtils.doubleToSortableLong(max);
+        // NOTE: maxAsLong - minAsLong >= 0 is here to handle the common overflow case!
+        if (maxAsLong - minAsLong >= 0 && maxAsLong - minAsLong < 2) {
           minIncl = true;
           maxIncl = true;
         } else {
@@ -773,9 +573,9 @@ public class TestRangeFacetCounts extends FacetTestCase {
       Query fastMatchFilter;
       if (random().nextBoolean()) {
         if (random().nextBoolean()) {
-          fastMatchFilter = NumericRangeQuery.newDoubleRange("field", minValue, maxValue, true, true);
+          fastMatchFilter = DoublePoint.newRangeQuery("field", minValue, maxValue);
         } else {
-          fastMatchFilter = NumericRangeQuery.newDoubleRange("field", minAcceptedValue, maxAcceptedValue, true, true);
+          fastMatchFilter = DoublePoint.newRangeQuery("field", minAcceptedValue, maxAcceptedValue);
         }
       } else {
         fastMatchFilter = null;
@@ -797,7 +597,7 @@ public class TestRangeFacetCounts extends FacetTestCase {
         // Test drill-down:
         DrillDownQuery ddq = new DrillDownQuery(config);
         if (random().nextBoolean()) {
-          ddq.add("field", NumericRangeQuery.newDoubleRange("field", range.min, range.max, range.minInclusive, range.maxInclusive));
+          ddq.add("field", DoublePoint.newRangeQuery("field", range.min, range.max));
         } else {
           ddq.add("field", range.getQuery(fastMatchFilter, vs));
         }
@@ -858,26 +658,21 @@ public class TestRangeFacetCounts extends FacetTestCase {
     }
 
     @Override
-    public boolean equals(Object obj) {
-      if (super.equals(obj) == false) {
-        return false;
-      }
-      UsedQuery that = (UsedQuery) obj;
-      return in.equals(that.in);
+    public boolean equals(Object other) {
+      return sameClassAs(other) &&
+             in.equals(((UsedQuery) other).in);
     }
 
     @Override
     public int hashCode() {
-      return 31 * super.hashCode() + in.hashCode();
+      return classHash() + in.hashCode();
     }
 
     @Override
     public Query rewrite(IndexReader reader) throws IOException {
       final Query inRewritten = in.rewrite(reader);
       if (in != inRewritten) {
-        Query rewritten = new UsedQuery(inRewritten, used);
-        rewritten.setBoost(getBoost());
-        return rewritten;
+        return new UsedQuery(inRewritten, used);
       }
       return super.rewrite(reader);
     }
@@ -923,7 +718,7 @@ public class TestRangeFacetCounts extends FacetTestCase {
 
   }
 
-  public void testCustomDoublesValueSource() throws Exception {
+  public void testCustomDoubleValuesSource() throws Exception {
     Directory dir = newDirectory();
     RandomIndexWriter writer = new RandomIndexWriter(random(), dir);
     
@@ -935,33 +730,30 @@ public class TestRangeFacetCounts extends FacetTestCase {
     // Test wants 3 docs in one segment:
     writer.forceMerge(1);
 
-    final ValueSource vs = new ValueSource() {
-        @SuppressWarnings("rawtypes")
-        @Override
-        public FunctionValues getValues(Map ignored, LeafReaderContext ignored2) {
-          return new DoubleDocValues(null) {
-            @Override
-            public double doubleVal(int doc) {
-              return doc+1;
-            }
-          };
-        }
+    final DoubleValuesSource vs = new DoubleValuesSource() {
 
-        @Override
-        public boolean equals(Object o) {
-          return o != null && getClass() == o.getClass();
-        }
+      @Override
+      public DoubleValues getValues(LeafReaderContext ctx, DoubleValues scores) throws IOException {
+        return new DoubleValues() {
+          int doc = -1;
+          @Override
+          public double doubleValue() throws IOException {
+            return doc + 1;
+          }
 
-        @Override
-        public int hashCode() {
-          return getClass().hashCode();
-        }
+          @Override
+          public boolean advanceExact(int doc) throws IOException {
+            this.doc = doc;
+            return true;
+          }
+        };
+      }
 
-        @Override
-        public String description() {
-          throw new UnsupportedOperationException();
-        }
-      };
+      @Override
+      public boolean needsScores() {
+        return false;
+      }
+    };
 
     FacetsConfig config = new FacetsConfig();
     

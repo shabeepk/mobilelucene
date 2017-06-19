@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spans;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,11 +14,13 @@ package org.apache.lucene.search.spans;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spans;
+
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
-import org.lukhnos.portmobile.util.Objects;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.lucene.index.IndexReaderContext;
@@ -33,7 +33,6 @@ import org.apache.lucene.index.TermState;
 import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.util.ToStringUtils;
 
 /** Matches spans containing a term.
  * This should not be used for terms that are indexed at position Integer.MAX_VALUE.
@@ -68,7 +67,7 @@ public class SpanTermQuery extends SpanQuery {
   public SpanWeight createWeight(IndexSearcher searcher, boolean needsScores) throws IOException {
     final TermContext context;
     final IndexReaderContext topContext = searcher.getTopReaderContext();
-    if (termContext == null || termContext.topReaderContext != topContext) {
+    if (termContext == null || termContext.wasBuiltFor(topContext) == false) {
       context = TermContext.build(topContext, term);
     }
     else {
@@ -100,7 +99,7 @@ public class SpanTermQuery extends SpanQuery {
     @Override
     public Spans getSpans(final LeafReaderContext context, Postings requiredPostings) throws IOException {
 
-      assert termContext.topReaderContext == ReaderUtil.getTopLevelContext(context) : "The top-reader used to create Weight (" + termContext.topReaderContext + ") is not the same as the current reader's top-reader (" + ReaderUtil.getTopLevelContext(context);
+      assert termContext.wasBuiltFor(ReaderUtil.getTopLevelContext(context)) : "The top-reader used to create Weight is not the same as the current reader's top-reader (" + ReaderUtil.getTopLevelContext(context);
 
       final TermState state = termContext.get(context.ord);
       if (state == null) { // term is not present in that reader
@@ -118,8 +117,38 @@ public class SpanTermQuery extends SpanQuery {
       termsEnum.seekExact(term.bytes(), state);
 
       final PostingsEnum postings = termsEnum.postings(null, requiredPostings.getRequiredPostings());
-      return new TermSpans(postings, term);
+      float positionsCost = termPositionsCost(termsEnum) * PHRASE_TO_SPAN_TERM_POSITIONS_COST;
+      return new TermSpans(getSimScorer(context), postings, term, positionsCost);
     }
+  }
+
+  /** A guess of
+   * the relative cost of dealing with the term positions
+   * when using a SpanNearQuery instead of a PhraseQuery.
+   */
+  private static final float PHRASE_TO_SPAN_TERM_POSITIONS_COST = 4.0f;
+
+  private static final int TERM_POSNS_SEEK_OPS_PER_DOC = 128;
+
+  private static final int TERM_OPS_PER_POS = 7;
+
+  /** Returns an expected cost in simple operations
+   *  of processing the occurrences of a term
+   *  in a document that contains the term.
+   *  <br>This may be inaccurate when {@link TermsEnum#totalTermFreq()} is not available.
+   *  @param termsEnum The term is the term at which this TermsEnum is positioned.
+   *  <p>
+   *  This is a copy of org.apache.lucene.search.PhraseQuery.termPositionsCost().
+   *  <br>
+   *  TODO: keep only a single copy of this method and the constants used in it
+   *  when SpanTermQuery moves to the o.a.l.search package.
+   */
+  static float termPositionsCost(TermsEnum termsEnum) throws IOException {
+    int docFreq = termsEnum.docFreq();
+    assert docFreq > 0;
+    long totalTermFreq = termsEnum.totalTermFreq(); // -1 when not available
+    float expOccurrencesInMatchingDoc = (totalTermFreq < docFreq) ? 1 : (totalTermFreq / (float) docFreq);
+    return TERM_POSNS_SEEK_OPS_PER_DOC + expOccurrencesInMatchingDoc * TERM_OPS_PER_POS;
   }
 
   @Override
@@ -129,25 +158,18 @@ public class SpanTermQuery extends SpanQuery {
       buffer.append(term.text());
     else
       buffer.append(term.toString());
-    buffer.append(ToStringUtils.boost(getBoost()));
     return buffer.toString();
   }
 
   @Override
   public int hashCode() {
-    final int prime = 31;
-    int result = super.hashCode();
-    result = prime * result + term.hashCode();
-    return result;
+    return classHash() ^ term.hashCode();
   }
 
   @Override
-  public boolean equals(Object obj) {
-    if (! super.equals(obj)) {
-      return false;
-    }
-    SpanTermQuery other = (SpanTermQuery) obj;
-    return term.equals(other.term);
+  public boolean equals(Object other) {
+    return sameClassAs(other) &&
+           term.equals(((SpanTermQuery) other).term);
   }
 
 }

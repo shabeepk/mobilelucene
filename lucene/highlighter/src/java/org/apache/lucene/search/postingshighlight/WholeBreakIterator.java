@@ -1,5 +1,3 @@
-package org.apache.lucene.search.postingshighlight;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.postingshighlight;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.postingshighlight;
 
 import java.text.BreakIterator;
 import java.text.CharacterIterator;
@@ -43,7 +42,7 @@ public final class WholeBreakIterator extends BreakIterator {
       throw new IllegalArgumentException("offset out of bounds");
     } else if (pos == end) {
       // this conflicts with the javadocs, but matches actual behavior (Oracle has a bug in something)
-      // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=9000909
+      // https://bugs.openjdk.java.net/browse/JDK-8015110
       current = end;
       return DONE;
     } else {
@@ -90,7 +89,7 @@ public final class WholeBreakIterator extends BreakIterator {
       throw new IllegalArgumentException("offset out of bounds");
     } else if (pos == start) {
       // this conflicts with the javadocs, but matches actual behavior (Oracle has a bug in something)
-      // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=9000909
+      // https://bugs.openjdk.java.net/browse/JDK-8015110
       current = start;
       return DONE;
     } else {

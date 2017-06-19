@@ -1,5 +1,3 @@
-package org.apache.lucene.store;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.store;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.store;
+
 
 import java.io.IOException;
 
@@ -38,7 +38,7 @@ public final class RateLimitedIndexOutput extends IndexOutput {
   private long currentMinPauseCheckBytes;
 
   public RateLimitedIndexOutput(final RateLimiter rateLimiter, final IndexOutput delegate) {
-    super("RateLimitedIndexOutput(" + delegate + ")");
+    super("RateLimitedIndexOutput(" + delegate + ")", delegate.getName());
     this.delegate = delegate;
     this.rateLimiter = rateLimiter;
     this.currentMinPauseCheckBytes = rateLimiter.getMinPauseCheckBytes();

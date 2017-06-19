@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,21 +14,18 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.util.List;
 
 import org.apache.lucene.store.*;
-
-// Extra imports by portmobile.
-import org.lukhnos.portmobile.j2objc.annotations.Weak;
 
 /**
  Instances of this reader type can only
  be used to get stored fields from the underlying LeafReaders,
  but it is not possible to directly retrieve postings. To do that, get
  the {@link LeafReaderContext} for all sub-readers via {@link #leaves()}.
- Alternatively, you can mimic an {@link LeafReader} (with a serious slowdown),
- by wrapping composite readers with {@link SlowCompositeReaderWrapper}.
  
  <p>IndexReader instances for indexes on disk are usually constructed
  with a call to one of the static <code>DirectoryReader.open()</code> methods,
@@ -57,7 +52,6 @@ import org.lukhnos.portmobile.j2objc.annotations.Weak;
 */
 public abstract class CompositeReader extends IndexReader {
 
-  @Weak
   private volatile CompositeReaderContext readerContext = null; // lazy init
 
   /** Sole constructor. (For invocation by subclass 

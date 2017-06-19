@@ -1,22 +1,4 @@
 /*
- * Created on 25-Jan-2006
- */
-package org.apache.lucene.queryparser.xml.builders;
-
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
-
-import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
-import org.apache.lucene.queries.mlt.MoreLikeThisQuery;
-import org.apache.lucene.queryparser.xml.QueryBuilder;
-import org.apache.lucene.search.Query;
-import org.apache.lucene.queryparser.xml.DOMUtils;
-import org.apache.lucene.queryparser.xml.ParserException;
-import org.w3c.dom.Element;
-/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -32,6 +14,22 @@ import org.w3c.dom.Element;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queryparser.xml.builders;
+
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
+import org.apache.lucene.queries.mlt.MoreLikeThisQuery;
+import org.apache.lucene.queryparser.xml.QueryBuilder;
+import org.apache.lucene.search.BoostQuery;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.queryparser.xml.DOMUtils;
+import org.apache.lucene.queryparser.xml.ParserException;
+import org.w3c.dom.Element;
 
 /**
  * Builder for {@link MoreLikeThisQuery}
@@ -98,9 +96,12 @@ public class LikeThisQueryBuilder implements QueryBuilder {
       mlt.setMinDocFreq(minDocFreq);
     }
 
-    mlt.setBoost(DOMUtils.getAttribute(e, "boost", 1.0f));
-
-    return mlt;
+    Query q = mlt;
+    float boost = DOMUtils.getAttribute(e, "boost", 1.0f);
+    if (boost != 1f) {
+      q = new BoostQuery(mlt, boost);
+    }
+    return q;
   }
 
 }

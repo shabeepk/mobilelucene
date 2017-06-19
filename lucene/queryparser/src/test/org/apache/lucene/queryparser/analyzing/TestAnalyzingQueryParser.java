@@ -1,5 +1,3 @@
-package org.apache.lucene.queryparser.analyzing;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,15 +14,15 @@ package org.apache.lucene.queryparser.analyzing;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queryparser.analyzing;
 
 import java.io.IOException;
 import java.util.Map;
 import java.util.TreeMap;
 
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.MockAnalyzer;
+import org.apache.lucene.analysis.CharacterUtils;
 import org.apache.lucene.analysis.MockBytesAnalyzer;
-import org.apache.lucene.analysis.MockTokenFilter;
 import org.apache.lucene.analysis.MockTokenizer;
 import org.apache.lucene.analysis.TokenFilter;
 import org.apache.lucene.analysis.TokenStream;
@@ -101,54 +99,15 @@ public class TestAnalyzingQueryParser extends LuceneTestCase {
       
     a = new ASCIIAnalyzer();
   }
-
-  public void testSingleChunkExceptions() {
-    boolean ex = false;
-    String termStr = "the*tre";
-      
-    Analyzer stopsAnalyzer = new MockAnalyzer
-        (random(), MockTokenizer.WHITESPACE, true, MockTokenFilter.ENGLISH_STOPSET);
-    try {
-      String q = parseWithAnalyzingQueryParser(termStr, stopsAnalyzer, true);     
-    } catch (ParseException e){
-      if (e.getMessage().contains("returned nothing")){
-        ex = true;
-      }
-    }
-    assertEquals("Should have returned nothing", true, ex);
-    ex = false;
-     
-    AnalyzingQueryParser qp = new AnalyzingQueryParser(FIELD, a);
-    try{
-      qp.analyzeSingleChunk(FIELD, "", "not a single chunk");
-    } catch (ParseException e){
-      if (e.getMessage().contains("multiple terms")){
-        ex = true;
-      }
-    }
-    assertEquals("Should have produced multiple terms", true, ex);
-  }
    
   public void testWildcardAlone() throws ParseException {
     //seems like crazy edge case, but can be useful in concordance 
-    boolean pex = false;
-    try{
-      Query q = getAnalyzedQuery("*", a, false);
-    } catch (ParseException e){
-      pex = true;
-    }
-    assertEquals("Wildcard alone with allowWildcard=false", true, pex);
+    expectThrows(ParseException.class, () -> {
+      getAnalyzedQuery("*", a, false);
+    });
       
-    pex = false;
-    try {
-      String qString = parseWithAnalyzingQueryParser("*", a, true);
-      assertEquals("Every word", "*", qString);
-    } catch (ParseException e){
-      pex = true;
-    }
-      
-    assertEquals("Wildcard alone with allowWildcard=true", false, pex);
-
+    String qString = parseWithAnalyzingQueryParser("*", a, true);
+    assertEquals("Every word", "*", qString);
   }
   public void testWildCardEscapes() throws ParseException, IOException {
 
@@ -163,15 +122,9 @@ public class TestAnalyzingQueryParser extends LuceneTestCase {
 
   }
   public void testWildCardQueryNoLeadingAllowed() {
-    boolean ex = false;
-    try{
-      String q = parseWithAnalyzingQueryParser(wildcardInput[0], a, false);
-
-    } catch (ParseException e){
-      ex = true;
-    }
-    assertEquals("Testing initial wildcard not allowed",
-        true, ex);
+    expectThrows(ParseException.class, () -> {
+      parseWithAnalyzingQueryParser(wildcardInput[0], a, false);
+    });
   }
 
   public void testWildCardQuery() throws ParseException {
@@ -249,11 +202,35 @@ public class TestAnalyzingQueryParser extends LuceneTestCase {
     }
   }
 
+  final static class LowercaseFilter extends TokenFilter {
+
+    final CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
+
+    LowercaseFilter(TokenStream input) {
+      super(input);
+    }
+
+    @Override
+    public final boolean incrementToken() throws IOException {
+      if (input.incrementToken()) {
+        CharacterUtils.toLowerCase(termAtt.buffer(), 0, termAtt.length());
+        return true;
+      } else
+        return false;
+    }
+
+  }
+
   final static class ASCIIAnalyzer extends Analyzer {
     @Override
     public TokenStreamComponents createComponents(String fieldName) {
       Tokenizer result = new MockTokenizer(MockTokenizer.WHITESPACE, true);
       return new TokenStreamComponents(result, new FoldingFilter(result));
+    }
+
+    @Override
+    protected TokenStream normalize(String fieldName, TokenStream in) {
+      return new FoldingFilter(new LowercaseFilter(in));
     }
   }
    

@@ -1,5 +1,3 @@
-package org.apache.lucene.search.join;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,12 +14,13 @@ package org.apache.lucene.search.join;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.join;
 
 import java.io.IOException;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 
-import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.Term;
@@ -34,91 +33,71 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.util.BitSetIterator;
-import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefHash;
 import org.apache.lucene.util.FixedBitSet;
 
 class TermsIncludingScoreQuery extends Query {
 
-  final String field;
-  final boolean multipleValuesPerDocument;
-  final BytesRefHash terms;
-  final float[] scores;
-  final int[] ords;
-  final Query originalQuery;
-  final Query unwrittenOriginalQuery;
+  private final ScoreMode scoreMode;
+  private final String toField;
+  private final boolean multipleValuesPerDocument;
+  private final BytesRefHash terms;
+  private final float[] scores;
+  private final int[] ords;
 
-  TermsIncludingScoreQuery(String field, boolean multipleValuesPerDocument, BytesRefHash terms, float[] scores, Query originalQuery) {
-    this.field = field;
+  // These fields are used for equals() and hashcode() only
+  private final Query fromQuery;
+  private final String fromField;
+  // id of the context rather than the context itself in order not to hold references to index readers
+  private final Object topReaderContextId;
+
+  TermsIncludingScoreQuery(ScoreMode scoreMode, String toField, boolean multipleValuesPerDocument, BytesRefHash terms, float[] scores,
+                           String fromField, Query fromQuery, Object indexReaderContextId) {
+    this.scoreMode = scoreMode;
+    this.toField = toField;
     this.multipleValuesPerDocument = multipleValuesPerDocument;
     this.terms = terms;
     this.scores = scores;
-    this.originalQuery = originalQuery;
-    this.ords = terms.sort(BytesRef.getUTF8SortedAsUnicodeComparator());
-    this.unwrittenOriginalQuery = originalQuery;
-  }
+    this.ords = terms.sort();
 
-  private TermsIncludingScoreQuery(String field, boolean multipleValuesPerDocument, BytesRefHash terms, float[] scores, int[] ords, Query originalQuery, Query unwrittenOriginalQuery) {
-    this.field = field;
-    this.multipleValuesPerDocument = multipleValuesPerDocument;
-    this.terms = terms;
-    this.scores = scores;
-    this.originalQuery = originalQuery;
-    this.ords = ords;
-    this.unwrittenOriginalQuery = unwrittenOriginalQuery;
+    this.fromField = fromField;
+    this.fromQuery = fromQuery;
+    this.topReaderContextId = indexReaderContextId;
   }
 
   @Override
   public String toString(String string) {
-    return String.format(Locale.ROOT, "TermsIncludingScoreQuery{field=%s;originalQuery=%s}", field, unwrittenOriginalQuery);
+    return String.format(Locale.ROOT, "TermsIncludingScoreQuery{field=%s;fromQuery=%s}", toField, fromQuery);
   }
 
   @Override
-  public Query rewrite(IndexReader reader) throws IOException {
-    final Query originalQueryRewrite = originalQuery.rewrite(reader);
-    if (originalQueryRewrite != originalQuery) {
-      Query rewritten = new TermsIncludingScoreQuery(field, multipleValuesPerDocument, terms, scores,
-          ords, originalQueryRewrite, originalQuery);
-      rewritten.setBoost(getBoost());
-      return rewritten;
-    } else {
-      return this;
-    }
+  public boolean equals(Object other) {
+    return sameClassAs(other) &&
+           equalsTo(getClass().cast(other));
   }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj) {
-      return true;
-    } if (!super.equals(obj)) {
-      return false;
-    } if (getClass() != obj.getClass()) {
-      return false;
-    }
-
-    TermsIncludingScoreQuery other = (TermsIncludingScoreQuery) obj;
-    if (!field.equals(other.field)) {
-      return false;
-    }
-    if (!unwrittenOriginalQuery.equals(other.unwrittenOriginalQuery)) {
-      return false;
-    }
-    return true;
+  
+  private boolean equalsTo(TermsIncludingScoreQuery other) {
+    return Objects.equals(scoreMode, other.scoreMode) &&
+        Objects.equals(toField, other.toField) &&
+        Objects.equals(fromField, other.fromField) &&
+        Objects.equals(fromQuery, other.fromQuery) &&
+        Objects.equals(topReaderContextId, other.topReaderContextId);
   }
 
   @Override
   public int hashCode() {
-    final int prime = 31;
-    int result = super.hashCode();
-    result += prime * field.hashCode();
-    result += prime * unwrittenOriginalQuery.hashCode();
-    return result;
+    return classHash() + Objects.hash(scoreMode, toField, fromField, fromQuery, topReaderContextId);
   }
 
   @Override
   public Weight createWeight(IndexSearcher searcher, boolean needsScores) throws IOException {
-    final Weight originalWeight = originalQuery.createWeight(searcher, needsScores);
+    if (needsScores == false) {
+      // We don't need scores then quickly change the query:
+      TermsQuery termsQuery = new TermsQuery(toField, terms, fromField, fromQuery, topReaderContextId);
+      return searcher.rewrite(termsQuery).createWeight(searcher, false);
+    }
+    final Weight fromWeight = fromQuery.createWeight(searcher, needsScores);
     return new Weight(TermsIncludingScoreQuery.this) {
 
       @Override
@@ -126,7 +105,7 @@ class TermsIncludingScoreQuery extends Query {
 
       @Override
       public Explanation explain(LeafReaderContext context, int doc) throws IOException {
-        Terms terms = context.reader().terms(field);
+        Terms terms = context.reader().terms(toField);
         if (terms != null) {
           TermsEnum segmentTermsEnum = terms.iterator();
           BytesRef spare = new BytesRef();
@@ -146,17 +125,17 @@ class TermsIncludingScoreQuery extends Query {
 
       @Override
       public float getValueForNormalization() throws IOException {
-        return originalWeight.getValueForNormalization() * TermsIncludingScoreQuery.this.getBoost() * TermsIncludingScoreQuery.this.getBoost();
+        return fromWeight.getValueForNormalization();
       }
 
       @Override
-      public void normalize(float norm, float topLevelBoost) {
-        originalWeight.normalize(norm, topLevelBoost * TermsIncludingScoreQuery.this.getBoost());
+      public void normalize(float norm, float boost) {
+        fromWeight.normalize(norm, boost);
       }
 
       @Override
       public Scorer scorer(LeafReaderContext context) throws IOException {
-        Terms terms = context.reader().terms(field);
+        Terms terms = context.reader().terms(toField);
         if (terms == null) {
           return null;
         }
@@ -174,14 +153,12 @@ class TermsIncludingScoreQuery extends Query {
 
     };
   }
-  
+
   class SVInOrderScorer extends Scorer {
 
     final DocIdSetIterator matchingDocsIterator;
     final float[] scores;
     final long cost;
-
-    int currentDoc = -1;
 
     SVInOrderScorer(Weight weight, TermsEnum termsEnum, int maxDoc, long cost) throws IOException {
       super(weight);
@@ -211,7 +188,7 @@ class TermsIncludingScoreQuery extends Query {
 
     @Override
     public float score() throws IOException {
-      return scores[currentDoc];
+      return scores[docID()];
     }
 
     @Override
@@ -221,23 +198,14 @@ class TermsIncludingScoreQuery extends Query {
 
     @Override
     public int docID() {
-      return currentDoc;
+      return matchingDocsIterator.docID();
     }
 
     @Override
-    public int nextDoc() throws IOException {
-      return currentDoc = matchingDocsIterator.nextDoc();
+    public DocIdSetIterator iterator() {
+      return matchingDocsIterator;
     }
 
-    @Override
-    public int advance(int target) throws IOException {
-      return currentDoc = matchingDocsIterator.advance(target);
-    }
-
-    @Override
-    public long cost() {
-      return cost;
-    }
   }
 
   // This scorer deals with the fact that a document can have more than one score from multiple related documents.

@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,9 +14,13 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
 
+
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Random;
 
 public class TestArrayUtil extends LuceneTestCase {
@@ -50,12 +52,9 @@ public class TestArrayUtil extends LuceneTestCase {
   }
 
   public void testTooBig() {
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       ArrayUtil.oversize(ArrayUtil.MAX_ARRAY_LENGTH+1, 1);
-      fail("did not hit exception");
-    } catch (IllegalArgumentException iae) {
-      // expected
-    }
+    });
   }
 
   public void testExactLimit() {
@@ -73,56 +72,47 @@ public class TestArrayUtil extends LuceneTestCase {
     }
   }
 
+  private static int parseInt(String s) {
+    int start = random().nextInt(5);
+    char[] chars = new char[s.length() + start + random().nextInt(4)];
+    s.getChars(0, s.length(), chars, start);
+    return ArrayUtil.parseInt(chars, start, s.length());
+  }
+
   public void testParseInt() throws Exception {
-    int test;
-    try {
-      test = ArrayUtil.parseInt("".toCharArray());
-      assertTrue(false);
-    } catch (NumberFormatException e) {
-      //expected
-    }
-    try {
-      test = ArrayUtil.parseInt("foo".toCharArray());
-      assertTrue(false);
-    } catch (NumberFormatException e) {
-      //expected
-    }
-    try {
-      test = ArrayUtil.parseInt(String.valueOf(Long.MAX_VALUE).toCharArray());
-      assertTrue(false);
-    } catch (NumberFormatException e) {
-      //expected
-    }
-    try {
-      test = ArrayUtil.parseInt("0.34".toCharArray());
-      assertTrue(false);
-    } catch (NumberFormatException e) {
-      //expected
-    }
+    expectThrows(NumberFormatException.class, () -> {
+      parseInt("");
+    });
 
-    try {
-      test = ArrayUtil.parseInt("1".toCharArray());
-      assertTrue(test + " does not equal: " + 1, test == 1);
-      test = ArrayUtil.parseInt("-10000".toCharArray());
-      assertTrue(test + " does not equal: " + -10000, test == -10000);
-      test = ArrayUtil.parseInt("1923".toCharArray());
-      assertTrue(test + " does not equal: " + 1923, test == 1923);
-      test = ArrayUtil.parseInt("-1".toCharArray());
-      assertTrue(test + " does not equal: " + -1, test == -1);
-      test = ArrayUtil.parseInt("foo 1923 bar".toCharArray(), 4, 4);
-      assertTrue(test + " does not equal: " + 1923, test == 1923);
-    } catch (NumberFormatException e) {
-      e.printStackTrace();
-      assertTrue(false);
-    }
+    expectThrows(NumberFormatException.class, () -> {
+      parseInt("foo");
+    });
 
+    expectThrows(NumberFormatException.class, () -> {
+      parseInt(String.valueOf(Long.MAX_VALUE));
+    });
+
+    expectThrows(NumberFormatException.class, () -> {
+      parseInt("0.34");
+    });
+
+    int test = parseInt("1");
+    assertTrue(test + " does not equal: " + 1, test == 1);
+    test = parseInt("-10000");
+    assertTrue(test + " does not equal: " + -10000, test == -10000);
+    test = parseInt("1923");
+    assertTrue(test + " does not equal: " + 1923, test == 1923);
+    test = parseInt("-1");
+    assertTrue(test + " does not equal: " + -1, test == -1);
+    test = ArrayUtil.parseInt("foo 1923 bar".toCharArray(), 4, 4);
+    assertTrue(test + " does not equal: " + 1923, test == 1923);
   }
 
   public void testSliceEquals() {
     String left = "this is equal";
     String right = left;
-    char[] leftChars = left.toCharArray();
-    char[] rightChars = right.toCharArray();
+    byte[] leftChars = left.getBytes(StandardCharsets.UTF_8);
+    byte[] rightChars = right.getBytes(StandardCharsets.UTF_8);
     assertTrue(left + " does not equal: " + right, ArrayUtil.equals(leftChars, 0, rightChars, 0, left.length()));
     
     assertFalse(left + " does not equal: " + right, ArrayUtil.equals(leftChars, 1, rightChars, 0, left.length()));
@@ -286,5 +276,38 @@ public class TestArrayUtil extends LuceneTestCase {
     ArrayUtil.introSort(a, Collections.reverseOrder());
     ArrayUtil.timSort(a, Collections.reverseOrder());
   }
-  
+
+  public void testSelect() {
+    for (int iter = 0; iter < 100; ++iter) {
+      doTestSelect();
+    }
+  }
+
+  private void doTestSelect() {
+    final int from = random().nextInt(5);
+    final int to = from + TestUtil.nextInt(random(), 1, 10000);
+    final int max = random().nextBoolean() ? random().nextInt(100) : random().nextInt(100000);
+    Integer[] arr = new Integer[from + to + random().nextInt(5)];
+    for (int i = 0; i < arr.length; ++i) {
+      arr[i] = TestUtil.nextInt(random(), 0, max);
+    }
+    final int k = TestUtil.nextInt(random(), from, to - 1);
+
+    Integer[] expected = arr.clone();
+    Arrays.sort(expected, from, to);
+
+    Integer[] actual = arr.clone();
+    ArrayUtil.select(actual, from, to, k, Comparator.naturalOrder());
+
+    assertEquals(expected[k], actual[k]);
+    for (int i = 0; i < actual.length; ++i) {
+      if (i < from || i >= to) {
+        assertSame(arr[i], actual[i]);
+      } else if (i <= k) {
+        assertTrue(actual[i].intValue() <= actual[k].intValue());
+      } else {
+        assertTrue(actual[i].intValue() >= actual[k].intValue());
+      }
+    }
+  }
 }

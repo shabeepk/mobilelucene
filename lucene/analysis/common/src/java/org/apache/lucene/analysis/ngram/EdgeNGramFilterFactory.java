@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.ngram;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,13 +14,14 @@ package org.apache.lucene.analysis.ngram;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.ngram;
+
 
 import java.util.Map;
 
 import org.apache.lucene.analysis.TokenFilter;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.util.TokenFilterFactory;
-import org.apache.lucene.util.Version;
 
 /**
  * Creates new instances of {@link EdgeNGramTokenFilter}.
@@ -50,9 +49,6 @@ public class EdgeNGramFilterFactory extends TokenFilterFactory {
 
   @Override
   public TokenFilter create(TokenStream input) {
-    if (luceneMatchVersion.onOrAfter(Version.LUCENE_4_4_0)) {
-      return new EdgeNGramTokenFilter(input, minGramSize, maxGramSize);
-    }
-    return new Lucene43EdgeNGramTokenFilter(input, minGramSize, maxGramSize);
+    return new EdgeNGramTokenFilter(input, minGramSize, maxGramSize);
   }
 }

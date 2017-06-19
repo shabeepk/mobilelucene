@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.simpletext;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,10 +14,12 @@ package org.apache.lucene.codecs.simpletext;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.simpletext;
+
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import org.lukhnos.portmobile.charset.StandardCharsets;
+import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.ParseException;
@@ -140,6 +140,9 @@ public class SimpleTextCompoundFormat extends CompoundFormat {
       
       @Override
       public IndexOutput createOutput(String name, IOContext context) { throw new UnsupportedOperationException(); }
+
+      @Override
+      public IndexOutput createTempOutput(String prefix, String suffix, IOContext context) { throw new UnsupportedOperationException(); }
       
       @Override
       public void sync(Collection<String> names) { throw new UnsupportedOperationException(); }
@@ -148,7 +151,10 @@ public class SimpleTextCompoundFormat extends CompoundFormat {
       public void deleteFile(String name) { throw new UnsupportedOperationException(); }
       
       @Override
-      public void renameFile(String source, String dest) { throw new UnsupportedOperationException(); }
+      public void rename(String source, String dest) { throw new UnsupportedOperationException(); }
+
+      @Override
+      public void syncMetaData() { throw new UnsupportedOperationException(); }
       
       @Override
       public Lock obtainLock(String name) { throw new UnsupportedOperationException(); }
@@ -211,7 +217,7 @@ public class SimpleTextCompoundFormat extends CompoundFormat {
   }
   
   // helper method to strip strip away 'prefix' from 'scratch' and return as String
-  private String stripPrefix(BytesRefBuilder scratch, BytesRef prefix) throws IOException {
+  private String stripPrefix(BytesRefBuilder scratch, BytesRef prefix) {
     return new String(scratch.bytes(), prefix.length, scratch.length() - prefix.length, StandardCharsets.UTF_8);
   }
   

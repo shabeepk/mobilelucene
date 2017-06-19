@@ -1,14 +1,12 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
+ * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,6 +14,8 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
+
 import java.io.IOException;
 
 import org.apache.lucene.store.DataInput;
@@ -59,7 +59,7 @@ public class ThrottledIndexOutput extends IndexOutput {
   public ThrottledIndexOutput(int bytesPerSecond, long flushDelayMillis,
       long closeDelayMillis, long seekDelayMillis, long minBytesWritten,
       IndexOutput delegate) {
-    super("ThrottledIndexOutput(" + delegate + ")");
+    super("ThrottledIndexOutput(" + delegate + ")", delegate == null ? "n/a" : delegate.getName());
     assert bytesPerSecond > 0;
     this.delegate = delegate;
     this.bytesPerSecond = bytesPerSecond;
@@ -117,8 +117,9 @@ public class ThrottledIndexOutput extends IndexOutput {
   }
 
   private static final void sleep(long ms) {
-    if (ms <= 0)
+    if (ms <= 0) {
       return;
+    }
     try {
       Thread.sleep(ms);
     } catch (InterruptedException e) {

@@ -87,7 +87,7 @@ CODE_BLOCK_RE = re.compile(r'(.+import\s+.+?\n)(.+)', re.M | re.S)
 
 
 def process_source(path):
-    with open(path) as f:
+    with open(path, encoding='utf8') as f:
         code = f.read()
 
     m = CODE_BLOCK_RE.match(code)

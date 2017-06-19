@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,8 +14,9 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
 
-import java.io.IOException;
+
 import java.io.Reader;
 import java.io.StringReader;
 import java.util.Collections;
@@ -42,7 +41,7 @@ import org.apache.lucene.util.TestUtil;
 
 public class TestIndexableField extends LuceneTestCase {
 
-  private class MyField implements IndexableField {
+  private static class MyField implements IndexableField {
 
     private final int counter;
     private final IndexableFieldType fieldType = new IndexableFieldType() {
@@ -89,6 +88,16 @@ public class TestIndexableField extends LuceneTestCase {
       @Override
       public DocValuesType docValuesType() {
         return DocValuesType.NONE;
+      }
+
+      @Override
+      public int pointDimensionCount() {
+        return 0;
+      }
+
+      @Override
+      public int pointNumBytes() {
+        return 0;
       }
     };
 
@@ -149,7 +158,7 @@ public class TestIndexableField extends LuceneTestCase {
     }
 
     @Override
-    public TokenStream tokenStream(Analyzer analyzer, TokenStream previous) throws IOException {
+    public TokenStream tokenStream(Analyzer analyzer, TokenStream previous) {
       return readerValue() != null ? analyzer.tokenStream(name(), readerValue()) :
         analyzer.tokenStream(name(), new StringReader(stringValue()));
     }
@@ -181,7 +190,7 @@ public class TestIndexableField extends LuceneTestCase {
       final int finalBaseCount = baseCount;
       baseCount += fieldCount-1;
 
-      w.addDocument(new Iterable<IndexableField>() {
+      Iterable<IndexableField> d = new Iterable<IndexableField>() {
         @Override
         public Iterator<IndexableField> iterator() {
           return new Iterator<IndexableField>() {
@@ -209,7 +218,8 @@ public class TestIndexableField extends LuceneTestCase {
             }
           };
         }
-        });
+        };
+      w.addDocument(d);
     }
 
     final IndexReader r = w.getReader();
@@ -221,6 +231,7 @@ public class TestIndexableField extends LuceneTestCase {
       if (VERBOSE) {
         System.out.println("TEST: verify doc id=" + id + " (" + fieldsPerDoc[id] + " fields) counter=" + counter);
       }
+
       final TopDocs hits = s.search(new TermQuery(new Term("id", ""+id)), 1);
       assertEquals(1, hits.totalHits);
       final int docID = hits.scoreDocs[0].doc;

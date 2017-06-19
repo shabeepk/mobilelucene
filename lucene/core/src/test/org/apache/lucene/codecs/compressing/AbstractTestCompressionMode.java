@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.compressing;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.codecs.compressing;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.compressing;
+
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -26,7 +26,7 @@ import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.util.TestUtil;
 
-import com.carrotsearch.randomizedtesting.generators.RandomInts;
+import com.carrotsearch.randomizedtesting.generators.RandomNumbers;
 
 public abstract class AbstractTestCompressionMode extends LuceneTestCase {
 
@@ -35,7 +35,7 @@ public abstract class AbstractTestCompressionMode extends LuceneTestCase {
   static byte[] randomArray() {
     final int max = random().nextBoolean()
         ? random().nextInt(4)
-        : random().nextInt(256);
+        : random().nextInt(255);
     final int length = random().nextBoolean()
         ? random().nextInt(20)
         : random().nextInt(192 * 1024);
@@ -45,7 +45,7 @@ public abstract class AbstractTestCompressionMode extends LuceneTestCase {
   static byte[] randomArray(int length, int max) {
     final byte[] arr = new byte[length];
     for (int i = 0; i < arr.length; ++i) {
-      arr[i] = (byte) RandomInts.randomIntBetween(random(), 0, max);
+      arr[i] = (byte) RandomNumbers.randomIntBetween(random(), 0, max);
     }
     return arr;
   }
@@ -130,7 +130,7 @@ public abstract class AbstractTestCompressionMode extends LuceneTestCase {
   }
 
   public void testIncompressible() throws IOException {
-    final byte[] decompressed = new byte[RandomInts.randomIntBetween(random(), 20, 256)];
+    final byte[] decompressed = new byte[RandomNumbers.randomIntBetween(random(), 20, 256)];
     for (int i = 0; i < decompressed.length; ++i) {
       decompressed[i] = (byte) i;
     }

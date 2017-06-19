@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.lucene50;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.codecs.lucene50;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.lucene50;
+
 
 import org.apache.lucene.analysis.MockAnalyzer;
 import org.apache.lucene.document.Document;
@@ -87,7 +87,7 @@ public class TestBlockPostingsFormat2 extends LuceneTestCase {
     Document doc = newDocument();
     for (int i = 0; i < Lucene50PostingsFormat.BLOCK_SIZE; i++) {
       for (IndexableField f : doc.getFields()) {
-        ((Field)f).setStringValue(f.name() + " " + f.name() + "_2");
+        ((Field) f).setStringValue(f.name() + " " + f.name() + "_2");
       }
       iw.addDocument(doc);
     }
@@ -98,7 +98,7 @@ public class TestBlockPostingsFormat2 extends LuceneTestCase {
     Document doc = newDocument();
     for (int i = 0; i < Lucene50PostingsFormat.BLOCK_SIZE * 16; i++) {
       for (IndexableField f : doc.getFields()) {
-        ((Field)f).setStringValue(f.name() + " " + f.name() + "_2");
+        ((Field) f).setStringValue(f.name() + " " + f.name() + "_2");
       }
       iw.addDocument(doc);
     }
@@ -109,7 +109,7 @@ public class TestBlockPostingsFormat2 extends LuceneTestCase {
     Document doc = newDocument();
     for (int i = 0; i < Lucene50PostingsFormat.BLOCK_SIZE/2; i++) {
       for (IndexableField f : doc.getFields()) {
-        ((Field)f).setStringValue(f.name() + " " + f.name() + " " + f.name() + "_2 " + f.name() + "_2");
+        ((Field) f).setStringValue(f.name() + " " + f.name() + " " + f.name() + "_2 " + f.name() + "_2");
       }
       iw.addDocument(doc);
     }
@@ -127,7 +127,7 @@ public class TestBlockPostingsFormat2 extends LuceneTestCase {
           val.append(proto);
           val.append(" ");
         }
-        ((Field)f).setStringValue(val.toString());
+        ((Field) f).setStringValue(val.toString());
       }
       iw.addDocument(doc);
     }

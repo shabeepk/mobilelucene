@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.MockAnalyzer;
@@ -25,7 +25,6 @@ import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.MockDirectoryWrapper;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.util.TestUtil;
@@ -153,7 +152,7 @@ public class TestOmitPositions extends LuceneTestCase {
     // flush
     writer.close();
 
-    SegmentReader reader = getOnlySegmentReader(DirectoryReader.open(ram));
+    LeafReader reader = getOnlyLeafReader(DirectoryReader.open(ram));
     FieldInfos fi = reader.getFieldInfos();
     // docs + docs = docs
     assertEquals(IndexOptions.DOCS, fi.fieldInfo("f1").getIndexOptions());
@@ -189,10 +188,7 @@ public class TestOmitPositions extends LuceneTestCase {
   // Verifies no *.prx exists when all fields omit term positions:
   public void testNoPrxFile() throws Throwable {
     Directory ram = newDirectory();
-    if (ram instanceof MockDirectoryWrapper) {
-      // we verify some files get deleted
-      ((MockDirectoryWrapper)ram).setEnableVirusScanner(false);
-    }
+
     Analyzer analyzer = new MockAnalyzer(random());
     IndexWriter writer = new IndexWriter(ram, newIndexWriterConfig(analyzer)
                                                 .setMaxBufferedDocs(3)

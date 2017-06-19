@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 import java.util.HashSet;
@@ -26,14 +26,15 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.MockDirectoryWrapper;
 import org.apache.lucene.util.LineFileDocs;
+import org.apache.lucene.util.LuceneTestCase.SuppressFileSystems;
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.util.PrintStreamInfoStream;
 import org.apache.lucene.util.TestUtil;
 
+@SuppressFileSystems("WindowsFS")
 public class TestIndexWriterOutOfFileDescriptors extends LuceneTestCase {
   public void test() throws Exception {
     MockDirectoryWrapper dir = newMockFSDirectory(createTempDir("TestIndexWriterOutOfFileDescriptors"));
-    dir.setPreventDoubleWrite(false);
     double rate = random().nextDouble()*0.01;
     //System.out.println("rate=" + rate);
     dir.setRandomIOExceptionRateOnOpen(rate);
@@ -84,7 +85,13 @@ public class TestIndexWriterOutOfFileDescriptors extends LuceneTestCase {
           w.addDocument(docs.nextDoc());
         }
         dir.setRandomIOExceptionRateOnOpen(0.0);
-        w.close();
+        if (ms instanceof ConcurrentMergeScheduler) {
+          ((ConcurrentMergeScheduler) ms).sync();
+        }
+        // If exc hit CMS then writer will be tragically closed:
+        if (w.getTragicException() == null) {
+          w.close();
+        }
         w = null;
 
         // NOTE: This is O(N^2)!  Only enable for temporary debugging:

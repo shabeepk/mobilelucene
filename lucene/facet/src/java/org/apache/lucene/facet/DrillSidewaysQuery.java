@@ -1,5 +1,3 @@
-package org.apache.lucene.facet;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.facet;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.facet;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -72,7 +72,7 @@ class DrillSidewaysQuery extends Query {
       newQuery = rewrittenQuery;
     }
     if (newQuery == baseQuery) {
-      return this;
+      return super.rewrite(reader);
     } else {
       return new DrillSidewaysQuery(newQuery, drillDownCollector, drillSidewaysCollectors, drillDownQueries, scoreSubDocsAtOnce);
     }
@@ -101,8 +101,8 @@ class DrillSidewaysQuery extends Query {
       }
 
       @Override
-      public void normalize(float norm, float topLevelBoost) {
-        baseWeight.normalize(norm, topLevelBoost);
+      public void normalize(float norm, float boost) {
+        baseWeight.normalize(norm, boost);
       }
 
       @Override
@@ -161,29 +161,24 @@ class DrillSidewaysQuery extends Query {
   @Override
   public int hashCode() {
     final int prime = 31;
-    int result = super.hashCode();
-    result = prime * result + ((baseQuery == null) ? 0 : baseQuery.hashCode());
-    result = prime * result
-        + ((drillDownCollector == null) ? 0 : drillDownCollector.hashCode());
+    int result = classHash();
+    result = prime * result + Objects.hashCode(baseQuery);
+    result = prime * result + Objects.hashCode(drillDownCollector);
     result = prime * result + Arrays.hashCode(drillDownQueries);
     result = prime * result + Arrays.hashCode(drillSidewaysCollectors);
     return result;
   }
 
   @Override
-  public boolean equals(Object obj) {
-    if (this == obj) return true;
-    if (!super.equals(obj)) return false;
-    if (getClass() != obj.getClass()) return false;
-    DrillSidewaysQuery other = (DrillSidewaysQuery) obj;
-    if (baseQuery == null) {
-      if (other.baseQuery != null) return false;
-    } else if (!baseQuery.equals(other.baseQuery)) return false;
-    if (drillDownCollector == null) {
-      if (other.drillDownCollector != null) return false;
-    } else if (!drillDownCollector.equals(other.drillDownCollector)) return false;
-    if (!Arrays.equals(drillDownQueries, other.drillDownQueries)) return false;
-    if (!Arrays.equals(drillSidewaysCollectors, other.drillSidewaysCollectors)) return false;
-    return true;
+  public boolean equals(Object other) {
+    return sameClassAs(other) &&
+           equalsTo(getClass().cast(other));
+  }
+  
+  private boolean equalsTo(DrillSidewaysQuery other) {
+    return Objects.equals(baseQuery, other.baseQuery) &&
+           Objects.equals(drillDownCollector, other.drillDownCollector) &&
+           Arrays.equals(drillDownQueries, other.drillDownQueries) &&
+           Arrays.equals(drillSidewaysCollectors, other.drillSidewaysCollectors);
   }
 }

@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import org.apache.lucene.store.*;
 import org.apache.lucene.analysis.*;
@@ -70,7 +70,7 @@ public class TestFlex extends LuceneTestCase {
     w.addDocument(doc);
     w.forceMerge(1);
     DirectoryReader r = w.getReader();
-    TermsEnum terms = getOnlySegmentReader(r).fields().terms("f").iterator();
+    TermsEnum terms = getOnlyLeafReader(r).fields().terms("f").iterator();
     assertTrue(terms.next() != null);
     try {
       assertEquals(0, terms.ord());

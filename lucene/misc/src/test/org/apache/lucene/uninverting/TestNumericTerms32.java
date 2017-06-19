@@ -1,5 +1,3 @@
-package org.apache.lucene.uninverting;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.uninverting;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.uninverting;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -23,11 +22,11 @@ import java.util.Map;
 import org.apache.lucene.analysis.MockAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.FieldType;
-import org.apache.lucene.document.IntField;
+import org.apache.lucene.document.LegacyIntField;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.RandomIndexWriter;
 import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.NumericRangeQuery;
+import org.apache.lucene.search.LegacyNumericRangeQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Sort;
@@ -63,7 +62,7 @@ public class TestNumericTerms32 extends LuceneTestCase {
         .setMaxBufferedDocs(TestUtil.nextInt(random(), 100, 1000))
         .setMergePolicy(newLogMergePolicy()));
     
-    final FieldType storedInt = new FieldType(IntField.TYPE_NOT_STORED);
+    final FieldType storedInt = new FieldType(LegacyIntField.TYPE_NOT_STORED);
     storedInt.setStored(true);
     storedInt.freeze();
 
@@ -76,10 +75,10 @@ public class TestNumericTerms32 extends LuceneTestCase {
     final FieldType storedInt2 = new FieldType(storedInt);
     storedInt2.setNumericPrecisionStep(2);
 
-    IntField
-      field8 = new IntField("field8", 0, storedInt8),
-      field4 = new IntField("field4", 0, storedInt4),
-      field2 = new IntField("field2", 0, storedInt2);
+    LegacyIntField
+      field8 = new LegacyIntField("field8", 0, storedInt8),
+      field4 = new LegacyIntField("field4", 0, storedInt4),
+      field2 = new LegacyIntField("field2", 0, storedInt2);
     
     Document doc = new Document();
     // add fields, that have a distance to test general functionality
@@ -97,9 +96,9 @@ public class TestNumericTerms32 extends LuceneTestCase {
     }
   
     Map<String,Type> map = new HashMap<>();
-    map.put("field2", Type.INTEGER);
-    map.put("field4", Type.INTEGER);
-    map.put("field8", Type.INTEGER);
+    map.put("field2", Type.LEGACY_INTEGER);
+    map.put("field4", Type.LEGACY_INTEGER);
+    map.put("field8", Type.LEGACY_INTEGER);
     reader = UninvertingReader.wrap(writer.getReader(), map);
     searcher=newSearcher(reader);
     writer.close();
@@ -126,7 +125,7 @@ public class TestNumericTerms32 extends LuceneTestCase {
       if (lower>upper) {
         int a=lower; lower=upper; upper=a;
       }
-      Query tq=NumericRangeQuery.newIntRange(field, precisionStep, lower, upper, true, true);
+      Query tq= LegacyNumericRangeQuery.newIntRange(field, precisionStep, lower, upper, true, true);
       TopDocs topDocs = searcher.search(tq, noDocs, new Sort(new SortField(field, SortField.Type.INT, true)));
       if (topDocs.totalHits==0) continue;
       ScoreDoc[] sd = topDocs.scoreDocs;

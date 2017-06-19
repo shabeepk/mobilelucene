@@ -1,26 +1,3 @@
-package org.apache.lucene.facet.taxonomy.directory;
-
-import java.io.IOException;
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import org.apache.lucene.document.Document;
-import org.apache.lucene.facet.FacetsConfig;
-import org.apache.lucene.facet.taxonomy.FacetLabel;
-import org.apache.lucene.facet.taxonomy.LRUHashMap;
-import org.apache.lucene.facet.taxonomy.ParallelTaxonomyArrays;
-import org.apache.lucene.facet.taxonomy.TaxonomyReader;
-import org.apache.lucene.index.CorruptIndexException; // javadocs
-import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.PostingsEnum;
-import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.MultiFields;
-import org.apache.lucene.search.DocIdSetIterator;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.IOUtils;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -37,6 +14,28 @@ import org.apache.lucene.util.IOUtils;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.facet.taxonomy.directory;
+
+import java.io.IOException;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import org.apache.lucene.document.Document;
+import org.apache.lucene.facet.FacetsConfig;
+import org.apache.lucene.facet.taxonomy.FacetLabel;
+import org.apache.lucene.facet.taxonomy.LRUHashMap;
+import org.apache.lucene.facet.taxonomy.ParallelTaxonomyArrays;
+import org.apache.lucene.facet.taxonomy.TaxonomyReader;
+import org.apache.lucene.index.CorruptIndexException; // javadocs
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.MultiFields;
+import org.apache.lucene.index.PostingsEnum;
+import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.IOUtils;
 
 /**
  * A {@link TaxonomyReader} which retrieves stored taxonomy information from a
@@ -179,7 +178,7 @@ public class DirectoryTaxonomyReader extends TaxonomyReader {
             recreated = true;
           }
         } else if (!t1.equals(t2)) {
-          // t1 != null and t2 cannot be null b/c DirTaxoWriter always puts the commit data.
+          // t1 != null and t2 must not be null b/c DirTaxoWriter always puts the commit data.
           // it's ok to use String.equals because we require the two epoch values to be the same.
           recreated = true;
         }
@@ -217,7 +216,7 @@ public class DirectoryTaxonomyReader extends TaxonomyReader {
   /** Open the {@link DirectoryReader} from this {@link
    *  IndexWriter}. */
   protected DirectoryReader openIndexReader(IndexWriter writer) throws IOException {
-    return DirectoryReader.open(writer, false);
+    return DirectoryReader.open(writer);
   }
 
   /**

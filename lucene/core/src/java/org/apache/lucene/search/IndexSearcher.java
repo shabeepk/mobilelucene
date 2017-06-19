@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -23,7 +23,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import org.lukhnos.portmobile.util.Objects;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -43,7 +43,7 @@ import org.apache.lucene.index.StoredFieldVisitor;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.TermContext;
 import org.apache.lucene.index.Terms;
-import org.apache.lucene.search.similarities.DefaultSimilarity;
+import org.apache.lucene.search.similarities.BM25Similarity;
 import org.apache.lucene.search.similarities.Similarity;
 import org.apache.lucene.store.NIOFSDirectory;    // javadoc
 import org.apache.lucene.util.Bits;
@@ -53,8 +53,7 @@ import org.apache.lucene.util.ThreadInterruptedException;
 /** Implements search over a single IndexReader.
  *
  * <p>Applications usually need only call the inherited
- * {@link #search(Query,int)}
- * or {@link #search(Query,Filter,int)} methods. For
+ * {@link #search(Query,int)} method. For
  * performance reasons, if your index is unchanging, you
  * should share a single IndexSearcher instance across
  * multiple searches instead of creating a new one
@@ -64,7 +63,7 @@ import org.apache.lucene.util.ThreadInterruptedException;
  * to obtain a new reader and
  * then create a new IndexSearcher from that.  Also, for
  * low-latency turnaround it's best to use a near-real-time
- * reader ({@link DirectoryReader#open(IndexWriter,boolean)}).
+ * reader ({@link DirectoryReader#open(IndexWriter)}).
  * Once you have a new {@link IndexReader}, it's relatively
  * cheap to create a new IndexSearcher from it.
  * 
@@ -88,7 +87,7 @@ public class IndexSearcher {
     }
 
     @Override
-    public SimWeight computeWeight(float queryBoost, CollectionStatistics collectionStats, TermStatistics... termStats) {
+    public SimWeight computeWeight(CollectionStatistics collectionStats, TermStatistics... termStats) {
       return new SimWeight() {
 
         @Override
@@ -97,7 +96,7 @@ public class IndexSearcher {
         }
 
         @Override
-        public void normalize(float queryNorm, float topLevelBoost) {}
+        public void normalize(float queryNorm, float boost) {}
 
       };
     }
@@ -126,9 +125,14 @@ public class IndexSearcher {
 
   };
 
-  // disabled by default
-  private static QueryCache DEFAULT_QUERY_CACHE = null;
+  private static QueryCache DEFAULT_QUERY_CACHE;
   private static QueryCachingPolicy DEFAULT_CACHING_POLICY = new UsageTrackingQueryCachingPolicy();
+  static {
+    final int maxCachedQueries = 1000;
+    // min of 32MB or 5% of the heap size
+    final long maxRamBytesUsed = Math.min(1L << 25, Runtime.getRuntime().maxMemory() / 20);
+    DEFAULT_QUERY_CACHE = new LRUQueryCache(maxCachedQueries, maxRamBytesUsed);
+  }
 
   final IndexReader reader; // package private for testing!
   
@@ -143,7 +147,7 @@ public class IndexSearcher {
   private final ExecutorService executor;
 
   // the default Similarity
-  private static final Similarity defaultSimilarity = new DefaultSimilarity();
+  private static final Similarity defaultSimilarity = new BM25Similarity();
 
   private QueryCache queryCache = DEFAULT_QUERY_CACHE;
   private QueryCachingPolicy queryCachingPolicy = DEFAULT_CACHING_POLICY;
@@ -265,6 +269,17 @@ public class IndexSearcher {
   }
 
   /**
+   * Return the query cache of this {@link IndexSearcher}. This will be either
+   * the {@link #getDefaultQueryCache() default query cache} or the query cache
+   * that was last set through {@link #setQueryCache(QueryCache)}. A return
+   * value of {@code null} indicates that caching is disabled.
+   * @lucene.experimental
+   */
+  public QueryCache getQueryCache() {
+    return queryCache;
+  }
+
+  /**
    * Set the {@link QueryCachingPolicy} to use for query caching.
    * This method should be called <b>before</b> starting using this
    * {@link IndexSearcher}.
@@ -273,6 +288,16 @@ public class IndexSearcher {
    */
   public void setQueryCachingPolicy(QueryCachingPolicy queryCachingPolicy) {
     this.queryCachingPolicy = Objects.requireNonNull(queryCachingPolicy);
+  }
+
+  /**
+   * Return the query cache of this {@link IndexSearcher}. This will be either
+   * the {@link #getDefaultQueryCachingPolicy() default policy} or the policy
+   * that was last set through {@link #setQueryCachingPolicy(QueryCachingPolicy)}.
+   * @lucene.experimental
+   */
+  public QueryCachingPolicy getQueryCachingPolicy() {
+    return queryCachingPolicy;
   }
 
   /**
@@ -287,7 +312,6 @@ public class IndexSearcher {
     }
     return slices;
   }
-
   
   /** Return the {@link IndexReader} this searches. */
   public IndexReader getIndexReader() {
@@ -331,23 +355,38 @@ public class IndexSearcher {
    *  When {@code needsScores} is {@code true}, this returns the
    *  {@link Similarity} that has been set through {@link #setSimilarity(Similarity)}
    *  or the {@link #getDefaultSimilarity()} default {@link Similarity} if none
-   *  has been set explicitely. */
+   *  has been set explicitly. */
   public Similarity getSimilarity(boolean needsScores) {
     return needsScores ? similarity : NON_SCORING_SIMILARITY;
-  }
-  
-  /** @lucene.internal
-   *  @deprecated Use {@link BooleanQuery boolean queries} with
-   *              {@link BooleanClause.Occur#FILTER} clauses instead */
-  @Deprecated
-  protected Query wrapFilter(Query query, Filter filter) {
-    return (filter == null) ? query : new FilteredQuery(query, filter);
   }
 
   /**
    * Count how many documents match the given query.
    */
   public int count(Query query) throws IOException {
+    query = rewrite(query);
+    while (true) {
+      // remove wrappers that don't matter for counts
+      if (query instanceof ConstantScoreQuery) {
+        query = ((ConstantScoreQuery) query).getQuery();
+      } else {
+        break;
+      }
+    }
+
+    // some counts can be computed in constant time
+    if (query instanceof MatchAllDocsQuery) {
+      return reader.numDocs();
+    } else if (query instanceof TermQuery && reader.hasDeletions() == false) {
+      Term term = ((TermQuery) query).getTerm();
+      int count = 0;
+      for (LeafReaderContext leaf : reader.leaves()) {
+        count += leaf.reader().docFreq(term);
+      }
+      return count;
+    }
+
+    // general case: create a collecor and count matches
     final CollectorManager<TotalHitCountCollector, Integer> collectorManager = new CollectorManager<TotalHitCountCollector, Integer>() {
 
       @Override
@@ -379,13 +418,12 @@ public class IndexSearcher {
    * @throws BooleanQuery.TooManyClauses If a query would exceed 
    *         {@link BooleanQuery#getMaxClauseCount()} clauses.
    */
-  public TopDocs searchAfter(final ScoreDoc after, Query query, int numHits) throws IOException {
+  public TopDocs searchAfter(ScoreDoc after, Query query, int numHits) throws IOException {
     final int limit = Math.max(1, reader.maxDoc());
     if (after != null && after.doc >= limit) {
       throw new IllegalArgumentException("after.doc exceeds the number of documents in the reader: after.doc="
           + after.doc + " limit=" + limit);
     }
-    numHits = Math.min(numHits, limit);
 
     final int cappedNumHits = Math.min(numHits, limit);
 
@@ -403,7 +441,7 @@ public class IndexSearcher {
         for (TopScoreDocCollector collector : collectors) {
           topDocs[i++] = collector.topDocs();
         }
-        return TopDocs.merge(cappedNumHits, topDocs);
+        return TopDocs.merge(0, cappedNumHits, topDocs, true);
       }
 
     };
@@ -411,24 +449,6 @@ public class IndexSearcher {
     return search(query, manager);
   }
 
-  /** Finds the top <code>n</code>
-   * hits for <code>query</code>, applying <code>filter</code> if non-null,
-   * where all results are after a previous result (<code>after</code>).
-   * <p>
-   * By passing the bottom result from a previous page as <code>after</code>,
-   * this method can be used for efficient 'deep-paging' across potentially
-   * large result sets.
-   *
-   * @throws BooleanQuery.TooManyClauses If a query would exceed 
-   *         {@link BooleanQuery#getMaxClauseCount()} clauses.
-   * @deprecated Use {@link BooleanQuery boolean queries} with
-   *              {@link BooleanClause.Occur#FILTER} clauses instead
-   */
-  @Deprecated
-  public final TopDocs searchAfter(ScoreDoc after, Query query, Filter filter, int n) throws IOException {
-    return searchAfter(after, wrapFilter(query, filter), n);
-  }
-  
   /** Finds the top <code>n</code>
    * hits for <code>query</code>.
    *
@@ -438,40 +458,6 @@ public class IndexSearcher {
   public TopDocs search(Query query, int n)
     throws IOException {
     return searchAfter(null, query, n);
-  }
-
-
-  /** Finds the top <code>n</code>
-   * hits for <code>query</code>, applying <code>filter</code> if non-null.
-   *
-   * @throws BooleanQuery.TooManyClauses If a query would exceed 
-   *         {@link BooleanQuery#getMaxClauseCount()} clauses.
-   * @deprecated Use {@link BooleanQuery boolean queries} with
-   *              {@link BooleanClause.Occur#FILTER} clauses instead
-   */
-  @Deprecated
-  public final TopDocs search(Query query, Filter filter, int n)
-    throws IOException {
-    return search(wrapFilter(query, filter), n);
-  }
-
-  /** Lower-level search API.
-   *
-   * <p>{@link LeafCollector#collect(int)} is called for every matching
-   * document.
-   *
-   * @param query to match documents
-   * @param filter if non-null, used to permit documents to be collected.
-   * @param results to receive hits
-   * @throws BooleanQuery.TooManyClauses If a query would exceed 
-   *         {@link BooleanQuery#getMaxClauseCount()} clauses.
-   * @deprecated Use {@link BooleanQuery boolean queries} with
-   *              {@link BooleanClause.Occur#FILTER} clauses instead
-   */
-  @Deprecated
-  public final void search(Query query, Filter filter, Collector results)
-    throws IOException {
-    search(wrapFilter(query, filter), results);
   }
 
   /** Lower-level search API.
@@ -485,55 +471,13 @@ public class IndexSearcher {
     throws IOException {
     search(leafContexts, createNormalizedWeight(query, results.needsScores()), results);
   }
-  
-  /** Search implementation with arbitrary sorting.  Finds
-   * the top <code>n</code> hits for <code>query</code>, applying
-   * <code>filter</code> if non-null, and sorting the hits by the criteria in
-   * <code>sort</code>.
-   * 
-   * <p>NOTE: this does not compute scores by default; use
-   * {@link IndexSearcher#search(Query,Filter,int,Sort,boolean,boolean)} to
-   * control scoring.
-   *
-   * @throws BooleanQuery.TooManyClauses If a query would exceed 
-   *         {@link BooleanQuery#getMaxClauseCount()} clauses.
-   * @deprecated Use {@link BooleanQuery boolean queries} with
-   *              {@link BooleanClause.Occur#FILTER} clauses instead
-   */
-  @Deprecated
-  public final TopFieldDocs search(Query query, Filter filter, int n,
-                             Sort sort) throws IOException {
-    return search(query, filter, n, sort, false, false);
-  }
 
   /** Search implementation with arbitrary sorting, plus
    * control over whether hit scores and max score
    * should be computed.  Finds
-   * the top <code>n</code> hits for <code>query</code>, applying
-   * <code>filter</code> if non-null, and sorting the hits by the criteria in
-   * <code>sort</code>.  If <code>doDocScores</code> is <code>true</code>
-   * then the score of each hit will be computed and
-   * returned.  If <code>doMaxScore</code> is
-   * <code>true</code> then the maximum score over all
-   * collected hits will be computed.
-   * 
-   * @throws BooleanQuery.TooManyClauses If a query would exceed 
-   *         {@link BooleanQuery#getMaxClauseCount()} clauses.
-   * @deprecated Use {@link BooleanQuery boolean queries} with
-   *              {@link BooleanClause.Occur#FILTER} clauses instead
-   */
-  @Deprecated
-  public final TopFieldDocs search(Query query, Filter filter, int n,
-                             Sort sort, boolean doDocScores, boolean doMaxScore) throws IOException {
-    return searchAfter(null, query, filter, n, sort, doDocScores, doMaxScore);
-  }
-
-  /** Search implementation with arbitrary sorting, plus
-   * control over whether hit scores and max score
-   * should be computed.  Finds
-   * the top <code>n</code> hits for <code>query</code>, applying
-   * <code>filter</code> if non-null, and sorting the hits by the criteria in
-   * <code>sort</code>.  If <code>doDocScores</code> is <code>true</code>
+   * the top <code>n</code> hits for <code>query</code>, and sorting
+   * the hits by the criteria in <code>sort</code>.
+   * If <code>doDocScores</code> is <code>true</code>
    * then the score of each hit will be computed and
    * returned.  If <code>doMaxScore</code> is
    * <code>true</code> then the maximum score over all
@@ -542,40 +486,21 @@ public class IndexSearcher {
    * @throws BooleanQuery.TooManyClauses If a query would exceed 
    *         {@link BooleanQuery#getMaxClauseCount()} clauses.
    */
-  public final TopFieldDocs search(Query query, int n,
-                             Sort sort, boolean doDocScores, boolean doMaxScore) throws IOException {
+  public TopFieldDocs search(Query query, int n,
+      Sort sort, boolean doDocScores, boolean doMaxScore) throws IOException {
     return searchAfter(null, query, n, sort, doDocScores, doMaxScore);
   }
 
-  /** Finds the top <code>n</code>
-   * hits for <code>query</code>, applying <code>filter</code> if non-null,
-   * where all results are after a previous result (<code>after</code>).
-   * <p>
-   * By passing the bottom result from a previous page as <code>after</code>,
-   * this method can be used for efficient 'deep-paging' across potentially
-   * large result sets.
-   *
-   * @throws BooleanQuery.TooManyClauses If a query would exceed 
-   *         {@link BooleanQuery#getMaxClauseCount()} clauses.
-   * @deprecated Use {@link BooleanQuery boolean queries} with
-   *              {@link BooleanClause.Occur#FILTER} clauses instead
-   */
-  @Deprecated
-  public final TopFieldDocs searchAfter(ScoreDoc after, Query query, Filter filter, int n, Sort sort) throws IOException {
-    return searchAfter(after, query, filter, n, sort, false, false);
-  }
-
   /**
-   * Search implementation with arbitrary sorting and no filter.
+   * Search implementation with arbitrary sorting.
    * @param query The query to search for
    * @param n Return only the top n results
    * @param sort The {@link org.apache.lucene.search.Sort} object
    * @return The top docs, sorted according to the supplied {@link org.apache.lucene.search.Sort} instance
    * @throws IOException if there is a low-level I/O error
    */
-  public TopFieldDocs search(Query query, int n,
-                             Sort sort) throws IOException {
-    return search(query, null, n, sort, false, false);
+  public TopFieldDocs search(Query query, int n, Sort sort) throws IOException {
+    return searchAfter(null, query, n, sort, false, false);
   }
 
   /** Finds the top <code>n</code>
@@ -590,7 +515,7 @@ public class IndexSearcher {
    *         {@link BooleanQuery#getMaxClauseCount()} clauses.
    */
   public TopDocs searchAfter(ScoreDoc after, Query query, int n, Sort sort) throws IOException {
-    return searchAfter(after, query, null, n, sort, false, false);
+    return searchAfter(after, query, n, sort, false, false);
   }
 
   /** Finds the top <code>n</code>
@@ -608,37 +533,8 @@ public class IndexSearcher {
    *
    * @throws BooleanQuery.TooManyClauses If a query would exceed 
    *         {@link BooleanQuery#getMaxClauseCount()} clauses.
-   * @deprecated Use {@link BooleanQuery boolean queries} with
-   *              {@link BooleanClause.Occur#FILTER} clauses instead
    */
-  @Deprecated
-  public final TopFieldDocs searchAfter(ScoreDoc after, Query query, Filter filter, int numHits, Sort sort,
-      boolean doDocScores, boolean doMaxScore) throws IOException {
-    if (after != null && !(after instanceof FieldDoc)) {
-      // TODO: if we fix type safety of TopFieldDocs we can
-      // remove this
-      throw new IllegalArgumentException("after must be a FieldDoc; got " + after);
-    }
-    return searchAfter((FieldDoc) after, wrapFilter(query, filter), numHits, sort, doDocScores, doMaxScore);
-  }
-
-  /** Finds the top <code>n</code>
-   * hits for <code>query</code> where all results are after a previous 
-   * result (<code>after</code>), allowing control over
-   * whether hit scores and max score should be computed.
-   * <p>
-   * By passing the bottom result from a previous page as <code>after</code>,
-   * this method can be used for efficient 'deep-paging' across potentially
-   * large result sets.  If <code>doDocScores</code> is <code>true</code>
-   * then the score of each hit will be computed and
-   * returned.  If <code>doMaxScore</code> is
-   * <code>true</code> then the maximum score over all
-   * collected hits will be computed.
-   *
-   * @throws BooleanQuery.TooManyClauses If a query would exceed 
-   *         {@link BooleanQuery#getMaxClauseCount()} clauses.
-   */
-  public final TopFieldDocs searchAfter(ScoreDoc after, Query query, int numHits, Sort sort,
+  public TopFieldDocs searchAfter(ScoreDoc after, Query query, int numHits, Sort sort,
       boolean doDocScores, boolean doMaxScore) throws IOException {
     if (after != null && !(after instanceof FieldDoc)) {
       // TODO: if we fix type safety of TopFieldDocs we can
@@ -648,8 +544,8 @@ public class IndexSearcher {
     return searchAfter((FieldDoc) after, query, numHits, sort, doDocScores, doMaxScore);
   }
 
-  private TopFieldDocs searchAfter(final FieldDoc after, Query query, int numHits, final Sort sort,
-      final boolean doDocScores, final boolean doMaxScore) throws IOException {
+  private TopFieldDocs searchAfter(FieldDoc after, Query query, int numHits, Sort sort,
+      boolean doDocScores, boolean doMaxScore) throws IOException {
     final int limit = Math.max(1, reader.maxDoc());
     if (after != null && after.doc >= limit) {
       throw new IllegalArgumentException("after.doc exceeds the number of documents in the reader: after.doc="
@@ -672,7 +568,7 @@ public class IndexSearcher {
         for (TopFieldCollector collector : collectors) {
           topDocs[i++] = collector.topDocs();
         }
-        return TopDocs.merge(sort, cappedNumHits, topDocs);
+        return TopDocs.merge(sort, 0, cappedNumHits, topDocs, true);
       }
 
     };
@@ -922,6 +818,7 @@ public class IndexSearcher {
       sumTotalTermFreq = terms.getSumTotalTermFreq();
       sumDocFreq = terms.getSumDocFreq();
     }
+
     return new CollectionStatistics(field, reader.maxDoc(), docCount, sumTotalTermFreq, sumDocFreq);
   }
 }

@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 
@@ -71,22 +71,12 @@ public class TestDocValuesScoring extends LuceneTestCase {
     final Similarity base = searcher1.getSimilarity(true);
     // boosting
     IndexSearcher searcher2 = newSearcher(ir, false);
-    searcher2.setSimilarity(new PerFieldSimilarityWrapper() {
+    searcher2.setSimilarity(new PerFieldSimilarityWrapper(base) {
       final Similarity fooSim = new BoostingSimilarity(base, "foo_boost");
 
       @Override
       public Similarity get(String field) {
         return "foo".equals(field) ? fooSim : base;
-      }
-
-      @Override
-      public float coord(int overlap, int maxOverlap) {
-        return base.coord(overlap, maxOverlap);
-      }
-
-      @Override
-      public float queryNorm(float sumOfSquaredWeights) {
-        return base.queryNorm(sumOfSquaredWeights);
       }
     });
     
@@ -153,8 +143,8 @@ public class TestDocValuesScoring extends LuceneTestCase {
     }
 
     @Override
-    public SimWeight computeWeight(float queryBoost, CollectionStatistics collectionStats, TermStatistics... termStats) {
-      return sim.computeWeight(queryBoost, collectionStats, termStats);
+    public SimWeight computeWeight(CollectionStatistics collectionStats, TermStatistics... termStats) {
+      return sim.computeWeight(collectionStats, termStats);
     }
 
     @Override

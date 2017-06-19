@@ -1,5 +1,3 @@
-package org.apache.lucene.search.similarities;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search.similarities;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.similarities;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -50,10 +50,10 @@ public class MultiSimilarity extends Similarity {
   }
 
   @Override
-  public SimWeight computeWeight(float queryBoost, CollectionStatistics collectionStats, TermStatistics... termStats) {
+  public SimWeight computeWeight(CollectionStatistics collectionStats, TermStatistics... termStats) {
     SimWeight subStats[] = new SimWeight[sims.length];
     for (int i = 0; i < subStats.length; i++) {
-      subStats[i] = sims[i].computeWeight(queryBoost, collectionStats, termStats);
+      subStats[i] = sims[i].computeWeight(collectionStats, termStats);
     }
     return new MultiStats(subStats);
   }
@@ -120,9 +120,9 @@ public class MultiSimilarity extends Similarity {
     }
 
     @Override
-    public void normalize(float queryNorm, float topLevelBoost) {
+    public void normalize(float queryNorm, float boost) {
       for (SimWeight stat : subStats) {
-        stat.normalize(queryNorm, topLevelBoost);
+        stat.normalize(queryNorm, boost);
       }
     }
   }

@@ -1,5 +1,3 @@
-package org.apache.lucene.util.packed;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,16 +14,15 @@ package org.apache.lucene.util.packed;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util.packed;
 
-import static org.apache.lucene.util.BitUtil.zigZagDecode;
+
 import static org.apache.lucene.util.packed.AbstractBlockPackedWriter.MAX_BLOCK_SIZE;
 import static org.apache.lucene.util.packed.AbstractBlockPackedWriter.MIN_BLOCK_SIZE;
 import static org.apache.lucene.util.packed.PackedInts.checkBlockSize;
 import static org.apache.lucene.util.packed.PackedInts.numBlocks;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Collections;
 
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.Accountable;
@@ -52,14 +49,6 @@ public class MonotonicBlockPackedReader extends LongValues implements Accountabl
 
   /** Sole constructor. */
   public static MonotonicBlockPackedReader of(IndexInput in, int packedIntsVersion, int blockSize, long valueCount, boolean direct) throws IOException {
-    if (packedIntsVersion < PackedInts.VERSION_MONOTONIC_WITHOUT_ZIGZAG) {
-      return new MonotonicBlockPackedReader(in, packedIntsVersion, blockSize, valueCount, direct) {
-        @Override
-        protected long decodeDelta(long delta) {
-          return zigZagDecode(delta);
-        }
-      };
-    }
     return new MonotonicBlockPackedReader(in, packedIntsVersion, blockSize, valueCount, direct);
   }
 
@@ -73,11 +62,7 @@ public class MonotonicBlockPackedReader extends LongValues implements Accountabl
     subReaders = new PackedInts.Reader[numBlocks];
     long sumBPV = 0;
     for (int i = 0; i < numBlocks; ++i) {
-      if (packedIntsVersion < PackedInts.VERSION_MONOTONIC_WITHOUT_ZIGZAG) {
-        minValues[i] = in.readVLong();
-      } else {
-        minValues[i] = in.readZLong();
-      }
+      minValues[i] = in.readZLong();
       averages[i] = Float.intBitsToFloat(in.readInt());
       final int bitsPerValue = in.readVInt();
       sumBPV += bitsPerValue;
@@ -105,11 +90,7 @@ public class MonotonicBlockPackedReader extends LongValues implements Accountabl
     assert index >= 0 && index < valueCount;
     final int block = (int) (index >>> blockShift);
     final int idx = (int) (index & blockMask);
-    return expected(minValues[block], averages[block], idx) + decodeDelta(subReaders[block].get(idx));
-  }
-
-  protected long decodeDelta(long delta) {
-    return delta;
+    return expected(minValues[block], averages[block], idx) + subReaders[block].get(idx);
   }
 
   /** Returns the number of values */
@@ -126,11 +107,6 @@ public class MonotonicBlockPackedReader extends LongValues implements Accountabl
       sizeInBytes += reader.ramBytesUsed();
     }
     return sizeInBytes;
-  }
-  
-  @Override
-  public Collection<Accountable> getChildResources() {
-    return Collections.emptyList();
   }
   
   @Override

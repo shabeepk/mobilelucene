@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,9 +14,12 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 import java.util.Set;
+import java.util.Objects;
 
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
@@ -28,7 +29,6 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.RandomIndexWriter;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.LuceneTestCase;
 
@@ -75,14 +75,6 @@ public class TestNeedsScores extends LuceneTestCase {
     assertEquals(5, searcher.search(constantScore, 5).totalHits);
   }
   
-  /** when converted to a filter */
-  public void testQueryWrapperFilter() throws Exception {
-    Query query = new MatchAllDocsQuery();
-    Query term = new TermQuery(new Term("field", "this"));
-    Filter filter = new QueryWrapperFilter(new AssertNeedsScores(term, false));
-    assertEquals(5, searcher.search(new FilteredQuery(query, filter), 5).totalHits);
-  }
-  
   /** when not sorting by score */
   public void testSortByField() throws Exception {
     Query query = new AssertNeedsScores(new MatchAllDocsQuery(), false);
@@ -104,12 +96,12 @@ public class TestNeedsScores extends LuceneTestCase {
     final boolean value;
     
     AssertNeedsScores(Query in, boolean value) {
-      this.in = in;
+      this.in = Objects.requireNonNull(in);
       this.value = value;
     }
 
     @Override
-    public Weight createWeight(IndexSearcher searcher, final boolean needsScores) throws IOException {
+    public Weight createWeight(IndexSearcher searcher, boolean needsScores) throws IOException {
       final Weight w = in.createWeight(searcher, needsScores);
       return new Weight(AssertNeedsScores.this) {
         @Override
@@ -144,7 +136,7 @@ public class TestNeedsScores extends LuceneTestCase {
     public Query rewrite(IndexReader reader) throws IOException {
       Query in2 = in.rewrite(reader);
       if (in2 == in) {
-        return this;
+        return super.rewrite(reader);
       } else {
         return new AssertNeedsScores(in2, value);
       }
@@ -153,23 +145,21 @@ public class TestNeedsScores extends LuceneTestCase {
     @Override
     public int hashCode() {
       final int prime = 31;
-      int result = super.hashCode();
-      result = prime * result + ((in == null) ? 0 : in.hashCode());
+      int result = classHash();
+      result = prime * result + in.hashCode();
       result = prime * result + (value ? 1231 : 1237);
       return result;
     }
 
     @Override
-    public boolean equals(Object obj) {
-      if (this == obj) return true;
-      if (!super.equals(obj)) return false;
-      if (getClass() != obj.getClass()) return false;
-      AssertNeedsScores other = (AssertNeedsScores) obj;
-      if (in == null) {
-        if (other.in != null) return false;
-      } else if (!in.equals(other.in)) return false;
-      if (value != other.value) return false;
-      return true;
+    public boolean equals(Object other) {
+      return sameClassAs(other) &&
+             equalsTo(getClass().cast(other));
+    }
+    
+    private boolean equalsTo(AssertNeedsScores other) {
+      return in.equals(other.in) && 
+             value == other.value;
     }
 
     @Override

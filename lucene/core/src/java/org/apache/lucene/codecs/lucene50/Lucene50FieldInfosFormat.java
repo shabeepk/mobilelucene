@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.lucene50;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.codecs.lucene50;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.lucene50;
+
 
 import java.io.IOException;
 import java.util.Collections;
@@ -152,7 +152,7 @@ public final class Lucene50FieldInfosFormat extends FieldInfosFormat {
           lastAttributes = attributes;
           try {
             infos[i] = new FieldInfo(name, fieldNumber, storeTermVector, omitNorms, storePayloads, 
-                                     indexOptions, docValuesType, dvGen, attributes);
+                                     indexOptions, docValuesType, dvGen, attributes, 0, 0);
             infos[i].checkConsistency();
           } catch (IllegalStateException e) {
             throw new CorruptIndexException("invalid fieldinfo for field: " + name + ", fieldNumber=" + fieldNumber, input, e);

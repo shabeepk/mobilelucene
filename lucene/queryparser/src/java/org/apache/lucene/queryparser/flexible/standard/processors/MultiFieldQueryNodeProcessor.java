@@ -1,5 +1,3 @@
-package org.apache.lucene.queryparser.flexible.standard.processors;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,8 +14,9 @@ package org.apache.lucene.queryparser.flexible.standard.processors;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queryparser.flexible.standard.processors;
 
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.lucene.queryparser.flexible.core.QueryNodeException;
@@ -91,32 +90,25 @@ public class MultiFieldQueryNodeProcessor extends QueryNodeProcessorImpl {
 
           if (fields.length == 1) {
             return fieldNode;
-
           } else {
-            LinkedList<QueryNode> children = new LinkedList<>();
-            children.add(fieldNode);
+            List<QueryNode> children = new ArrayList<>(fields.length);
 
+            children.add(fieldNode);
             for (int i = 1; i < fields.length; i++) {
               try {
                 fieldNode = (FieldableNode) fieldNode.cloneTree();
                 fieldNode.setField(fields[i]);
 
                 children.add(fieldNode);
-
               } catch (CloneNotSupportedException e) {
-                // should never happen
+                throw new RuntimeException(e);
               }
-
             }
 
             return new GroupQueryNode(new OrQueryNode(children));
-
           }
-
         }
-
       }
-
     }
 
     return node;
@@ -126,9 +118,6 @@ public class MultiFieldQueryNodeProcessor extends QueryNodeProcessorImpl {
   @Override
   protected List<QueryNode> setChildrenOrder(List<QueryNode> children)
       throws QueryNodeException {
-
     return children;
-
   }
-
 }

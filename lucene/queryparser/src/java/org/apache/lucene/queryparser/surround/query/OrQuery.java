@@ -1,4 +1,3 @@
-package org.apache.lucene.queryparser.surround.query;
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -15,7 +14,7 @@ package org.apache.lucene.queryparser.surround.query;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+package org.apache.lucene.queryparser.surround.query;
 import java.util.List;
 import java.util.Iterator;
 import org.apache.lucene.search.Query;
@@ -40,9 +39,9 @@ public class OrQuery extends ComposedQuery implements DistanceSubQuery {
   
   @Override
   public String distanceSubQueryNotAllowed() {
-    Iterator sqi = getSubQueriesIterator();
+    Iterator<SrndQuery> sqi = getSubQueriesIterator();
     while (sqi.hasNext()) {
-      SrndQuery leq = (SrndQuery) sqi.next();
+      SrndQuery leq = sqi.next();
       if (leq instanceof DistanceSubQuery) {
         String m = ((DistanceSubQuery)leq).distanceSubQueryNotAllowed();
         if (m != null) {
@@ -57,9 +56,10 @@ public class OrQuery extends ComposedQuery implements DistanceSubQuery {
     
   @Override
   public void addSpanQueries(SpanNearClauseFactory sncf) throws IOException {
-    Iterator sqi = getSubQueriesIterator();
+    Iterator<SrndQuery> sqi = getSubQueriesIterator();
     while (sqi.hasNext()) {
-      ((DistanceSubQuery)sqi.next()).addSpanQueries(sncf);
+      SrndQuery s = sqi.next();
+      ((DistanceSubQuery) s).addSpanQueries(sncf);
     }
   }
 }

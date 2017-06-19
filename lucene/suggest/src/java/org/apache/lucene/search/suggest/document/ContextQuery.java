@@ -1,5 +1,3 @@
-package org.apache.lucene.search.suggest.document;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.suggest.document;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.suggest.document;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -35,7 +34,7 @@ import org.apache.lucene.util.automaton.Operations;
 import org.apache.lucene.util.fst.Util;
 
 /**
- * A {@link CompletionQuery} that match documents specified by
+ * A {@link CompletionQuery} that matches documents specified by
  * a wrapped {@link CompletionQuery} supporting boosting and/or filtering
  * by specified contexts.
  * <p>
@@ -239,7 +238,7 @@ public class ContextQuery extends CompletionQuery {
     }
   }
 
-  private class ContextCompletionWeight extends CompletionWeight {
+  private static class ContextCompletionWeight extends CompletionWeight {
 
     private final Map<IntsRef, Float> contextMap;
     private final int[] contextLengths;
@@ -316,4 +315,15 @@ public class ContextQuery extends CompletionQuery {
       return currentBoost + innerWeight.boost();
     }
   }
+
+  @Override
+  public boolean equals(Object o) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public int hashCode() {
+    throw new UnsupportedOperationException();
+  }
+
 }

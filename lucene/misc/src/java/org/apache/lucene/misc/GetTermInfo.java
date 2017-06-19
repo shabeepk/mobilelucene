@@ -1,5 +1,3 @@
-package org.apache.lucene.misc;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,8 +14,9 @@ package org.apache.lucene.misc;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.misc;
 
-import org.lukhnos.portmobile.file.Paths;
+import java.nio.file.Paths;
 import java.util.Locale;
 
 import org.apache.lucene.store.Directory;

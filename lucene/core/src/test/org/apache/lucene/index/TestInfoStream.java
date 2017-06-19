@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -57,7 +57,7 @@ public class TestInfoStream extends LuceneTestCase {
   public void testTestPointsOn() throws Exception {
     Directory dir = newDirectory();
     IndexWriterConfig iwc = new IndexWriterConfig(null);
-    final AtomicBoolean seenTestPoint = new AtomicBoolean();
+    AtomicBoolean seenTestPoint = new AtomicBoolean();
     iwc.setInfoStream(new InfoStream() {
       @Override
       public void close() throws IOException {}

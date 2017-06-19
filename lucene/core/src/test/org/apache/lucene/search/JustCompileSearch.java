@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 import java.util.Set;
@@ -24,12 +24,11 @@ import org.apache.lucene.index.FieldInvertState;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.similarities.Similarity;
-import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.PriorityQueue;
 
 /**
  * Holds all implementations of classes in the o.a.l.search package as a
- * back-compatibility test. It does not run any tests per-se, however if 
+ * back-compatibility test. It does not run any tests per-se, however if
  * someone adds a method to an interface or abstract method to an abstract
  * class, one of the implementations here will fail to compile and so we know
  * back-compat policy was violated.
@@ -60,7 +59,7 @@ final class JustCompileSearch {
       throw new UnsupportedOperationException(UNSUPPORTED_MSG);
     }
   }
-  
+
   static final class JustCompileDocIdSet extends DocIdSet {
 
     @Override
@@ -85,18 +84,18 @@ final class JustCompileSearch {
     public int nextDoc() {
       throw new UnsupportedOperationException(UNSUPPORTED_MSG);
     }
-    
+
     @Override
     public int advance(int target) {
       throw new UnsupportedOperationException(UNSUPPORTED_MSG);
     }
-    
+
     @Override
     public long cost() {
       throw new UnsupportedOperationException(UNSUPPORTED_MSG);
     }
   }
-  
+
   static final class JustCompileFieldComparator extends FieldComparator<Object> {
 
     @Override
@@ -127,35 +126,7 @@ final class JustCompileSearch {
         int sortPos, boolean reversed) {
       throw new UnsupportedOperationException(UNSUPPORTED_MSG);
     }
-    
-  }
 
-  static final class JustCompileFilter extends Filter {
-    // Filter is just an abstract class with no abstract methods. However it is
-    // still added here in case someone will add abstract methods in the future.
-    
-    @Override
-    public DocIdSet getDocIdSet(LeafReaderContext context, Bits acceptDocs) {
-      return null;
-    }
-
-    @Override
-    public String toString(String field) {
-      return "JustCompileFilter";
-    }
-  }
-
-  static final class JustCompileFilteredDocIdSet extends FilteredDocIdSet {
-
-    public JustCompileFilteredDocIdSet(DocIdSet innerSet) {
-      super(innerSet);
-    }
-
-    @Override
-    protected boolean match(int docid) {
-      throw new UnsupportedOperationException(UNSUPPORTED_MSG);
-    }
-    
   }
 
   static final class JustCompileFilteredDocIdSetIterator extends FilteredDocIdSetIterator {
@@ -168,7 +139,7 @@ final class JustCompileSearch {
     protected boolean match(int doc) {
       throw new UnsupportedOperationException(UNSUPPORTED_MSG);
     }
-    
+
     @Override
     public long cost() {
       throw new UnsupportedOperationException(UNSUPPORTED_MSG);
@@ -181,9 +152,18 @@ final class JustCompileSearch {
     public String toString(String field) {
       throw new UnsupportedOperationException(UNSUPPORTED_MSG);
     }
-    
+
+    @Override
+    public boolean equals(Object obj) {
+      throw new UnsupportedOperationException(UNSUPPORTED_MSG);
+    }
+
+    @Override
+    public int hashCode() {
+      throw new UnsupportedOperationException(UNSUPPORTED_MSG);
+    }
   }
-  
+
   static final class JustCompileScorer extends Scorer {
 
     protected JustCompileScorer(Weight weight) {
@@ -194,7 +174,7 @@ final class JustCompileSearch {
     public float score() {
       throw new UnsupportedOperationException(UNSUPPORTED_MSG);
     }
-    
+
     @Override
     public int freq() {
       throw new UnsupportedOperationException(UNSUPPORTED_MSG);
@@ -206,25 +186,15 @@ final class JustCompileSearch {
     }
 
     @Override
-    public int nextDoc() {
-      throw new UnsupportedOperationException(UNSUPPORTED_MSG);
-    }
-    
-    @Override
-    public int advance(int target) {
-      throw new UnsupportedOperationException(UNSUPPORTED_MSG);
-    }
-
-    @Override
-    public long cost() {
+    public DocIdSetIterator iterator() {
       throw new UnsupportedOperationException(UNSUPPORTED_MSG);
     }
   }
-  
+
   static final class JustCompileSimilarity extends Similarity {
 
     @Override
-    public SimWeight computeWeight(float queryBoost, CollectionStatistics collectionStats, TermStatistics... termStats) {
+    public SimWeight computeWeight(CollectionStatistics collectionStats, TermStatistics... termStats) {
       throw new UnsupportedOperationException(UNSUPPORTED_MSG);
     }
 
@@ -303,5 +273,5 @@ final class JustCompileSearch {
     }
 
   }
-  
+
 }

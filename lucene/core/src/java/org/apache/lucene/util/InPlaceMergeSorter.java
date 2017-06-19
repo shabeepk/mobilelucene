@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
+
 
 /** {@link Sorter} implementation based on the merge-sort algorithm that merges
  *  in place (no extra memory will be allocated). Small arrays are sorted with
@@ -33,8 +33,8 @@ public abstract class InPlaceMergeSorter extends Sorter {
   }
 
   void mergeSort(int from, int to) {
-    if (to - from < THRESHOLD) {
-      insertionSort(from, to);
+    if (to - from < BINARY_SORT_THRESHOLD) {
+      binarySort(from, to);
     } else {
       final int mid = (from + to) >>> 1;
       mergeSort(from, mid);

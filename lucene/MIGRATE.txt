@@ -1,96 +1,26 @@
 # Apache Lucene Migration Guide
 
-## Lucene 3.x index format no longer supported
+## Query.hashCode and Query.equals are now abstract methods (LUCENE-7277)
+Any custom query subclasses should redeclare equivalence relationship according
+to the subclass's details. See code patterns used in existing core Lucene query
+classes for details.
 
-Lucene 5 no longer supports the Lucene 3.x index format. Opening
-indexes will result in `IndexFormatTooOldException`. It is recommended
-to either reindex all your data, or upgrade the old indexes with
-the `IndexUpgrader` tool of latest Lucene 4 version (4.10.x).
-Those indexes can then be read (see next section) with Lucene 5.
+## The way how number of document calculated is changed (LUCENE-6711)
+The number of documents (numDocs) is used to calculate term specificity (idf) and average document length (avdl).
+Prior to LUCENE-6711, collectionStats.maxDoc() was used for the statistics.
+Now, collectionStats.docCount() is used whenever possible, if not maxDocs() is used.
 
-## Support for previous Lucene 4.x index formats moved to new module
+Assume that a collection contains 100 documents, and 50 of them have "keywords" field.
+In this example, maxDocs is 100 while docCount is 50 for the "keywords" field.
+The total number of tokens for "keywords" field is divided by docCount to obtain avdl.
+Therefore, docCount which is the total number of documents that have at least one term for the field, is a more precise metric for optional fields.
 
-Lucene 5 will by default only read indexes created with Lucene 5.
-To read and upgrade Lucene 4.x indexes, you must add the
-`lucene-backward-codecs.jar` to the classpath. It is recommended
-to upgrade the old indexes with the `IndexUpgrader` tool,
-so you can remove the backward-codecs module from classpath.
-This will also improve performance.
-
-## All file handling APIs changed to Java 7 NIO.2 (LUCENE-5945)
-
-All APIs around Directory and other file-based resources were changed to make
-use of the new Java 7 NIO.2 API. It is no longer possible to pass
-java.io.File onames to FSDirectory classes. FSDirectory classes now requires
-java.nio.file.Path instances. This allows to place index directories also
-on "virtual file systems" like ZIP or TAR files. To migrate existing code
-use java.io.File#toPath().
-
-In addition, make sure that custom directory implementations throw the new
-IOException types, because Lucene cannot understand the old legacy
-IOExceptions (like java.io.FileNotFoundException) instead of the new ones
-like java.nio.file.NoSuchFileException.
-
-## Directory and LockFactory APIs restructured (LUCENE-5953)
-
-Locking is now under the responsibility of the Directory implementation.
-LockFactory is only used by subclasses of BaseDirectory to delegate locking
-to an impl class. LockFactories are responsible to create a Lock on behalf
-of a BaseDirectory subclass.
-
-The following changes in existing code need to be done:
-
-- LockFactory implementations are singletons now and have no state. They only
-  need to implement one method: makeLock(Directory dir, String name).
-  The passed directory can be used to determine the corect file system path
-  for the lock file or similar, so it knows where to create the lock.
-  In addition, the factory may check with instanceof, if the lock factory
-  can be used with the type of directory at all.
-- It was never really supported to place lock files outside of the index
-  directory and this functionality was removed. If you still rely on this,
-  you can use the following trick: Use FileSwitchDirectory and delegate
-  the file extension ".lock" to another Directory instance pointing to
-  another path. FileSwitchDirectory also delegates lock files based on
-  the extension.
-- If you wrap another directory using FilterDirectory, you cannot make use
-  of LockFactories anymore, because only BaseDirectory knows about them.
-  To wrap locking, you must hook into FilterDirectory.makeLock(String name)
-  and wrap the Lock instance returned, as needed. See MockDirectoryWrapper
-  in lucene-test-framework for an example.
-- It is no longer allowed to pass "null" as LockFactory to FSDirectory
-  implementations. You have to explicitely pass the platform default to the
-  directory (currently always NativeFSLockFactory.INSTANCE, but subject to
-  change!). To get the platform default, call FSLockFactory.getDefault().
-
-## Removed Reader from Tokenizer constructor (LUCENE-5388)
-
-The constructor of Tokenizer no longer takes Reader, as this was a leftover
-from before it was reusable. See the org.apache.lucene.analysis package
-documentation for more details.
-
-## Refactored Collector API (LUCENE-5299)
-
-The Collector API has been refactored to use a different Collector instance
-per segment. It is possible to migrate existing collectors painlessly by
-extending SimpleCollector instead of Collector: SimpleCollector is a
-specialization of Collector that returns itself as a per-segment Collector.
-
-## Refactored FieldComparator API (LUCENE-5702)
-
-Like collectors (see above), field comparators have been refactored to
-produce a new comparator (called LeafFieldComparator) per segment. It is
-possible to migrate existing comparators painlessly by extending
-SimpleFieldComparator, which will implements both FieldComparator and
-LeafFieldComparator and return itself as a per-segment comparator.
-
-## Removed ChainedFilter (LUCENE-5984)
-
-Users are advised to switch to BooleanFilter instead.
-
-## Removed OpenBitSet (LUCENE-6010)
-
-OpenBitSet only differs from LongBitSet by its ability to grow automatically.
-In case growth is required, it would need to be managed externally.
+DefaultSimilarity does not leverage avdl, so this change would have relatively minor change in the result list.
+Because relative idf values of terms will remain same.
+However, when combined with other factors such as term frequency, relative ranking of documents could change.
+Some Similarity implementations (such as the ones instantiated with NormalizationH2 and BM25) take account into avdl and would have notable change in ranked list.
+Especially if you have a collection of documents with varying lengths.
+Because NormalizationH2 tends to punish documents longer than avdl.
 
 ## FunctionValues.exist() Behavior Changes due to ValueSource bug fixes (LUCENE-5961)
 
@@ -99,27 +29,62 @@ situations where some documents do not have values for fields wrapped in other
 ValueSources.  Users who want to preserve the previous behavior may need to wrap 
 their ValueSources in a "DefFunction" along with a ConstValueSource of "0.0".
 
-## PayloadAttributeImpl.clone() (LUCENE-6055)
+## Removal of Filter and FilteredQuery (LUCENE-6301,LUCENE-6583)
 
-PayloadAttributeImpl.clone() did a shallow clone which was incorrect, and was
-fixed to do a deep clone. If you require shallow cloning of the underlying bytes,
-you should override PayloadAttributeImpl.clone() to do a shallow clone instead.
+Filter and FilteredQuery have been removed. Regular queries can be used instead
+of filters as they have been optimized for the filtering case. And you can
+construct a BooleanQuery with one MUST clause for the query, and one FILTER
+clause for the filter in order to have similar behaviour to FilteredQuery.
 
-## Removed out-of-order scoring (LUCENE-6179)
+## PhraseQuery, MultiPhraseQuery, and BooleanQuery made immutable (LUCENE-6531 LUCENE-7064 LUCENE-6570)
 
-Bulk scorers must now always collect documents in order. If you have custom
-collectors, the acceptsDocsOutOfOrder method has been removed and collectors
-can safely assume that they will be collected in order.
+PhraseQuery, MultiPhraseQuery, and BooleanQuery are now immutable and have a
+builder API to help construct them. For instance a BooleanQuery that used to
+be constructed like this:
 
-## Renamed "Atomic" to "Leaf" for segment readers (LUCENE-5569)
+  BooleanQuery bq = new BooleanQuery();
+  bq.add(q1, Occur.SHOULD);
+  bq.add(q2, Occur.SHOULD);
+  bq.add(q3, Occur.MUST);
+  bq.setMinimumNumberShouldMatch(1);
 
-AtomicReader and AtomicReaderContext are now called LeafReader and LeafReaderContext, respectively.
+can now be constructed this way using its builder:
 
-## Removed custom Analyzer per-document indexing APIs from IndexWriter (LUCENE-6212)
+  BooleanQuery bq = new BooleanQuery.Builder()
+      .add(q1, Occur.SHOULD)
+      .add(q2, Occur.SHOULD)
+      .add(q3, Occur.SHOULD)
+      .setMinimumNumberShouldMatch(1)
+      .build();
 
-These methods were removed because they are dangerous since they let
-you analyze each document arbitrarily differently, making it difficult
-to properly analyze text at query time and easy to accidentally "lose"
-search hits.  Instead, you should break out text into separate fields
-and use a different analyzer for each field with
-PerFieldAnalyzerWrapper.
+## AttributeImpl now requires that reflectWith() is implemented (LUCENE-6651)
+
+AttributeImpl removed the default, reflection-based implementation of
+reflectWith(AtrributeReflector). The method was made abstract. If you have
+implemented your own attribute, make sure to add the required method sigature.
+See the Javadocs for an example.
+
+## Query.setBoost() and Query.clone() are removed (LUCENE-6590)
+
+Query.setBoost has been removed. In order to apply a boost to a Query, you now
+need to wrap it inside a BoostQuery. For instance,
+
+  Query q = ...;
+  float boost = ...;
+  q = new BoostQuery(q, boost);
+
+would be equivalent to the following code with the old setBoost API:
+
+  Query q = ...;
+  float boost = ...;
+  q.setBoost(q.getBoost() * boost);
+
+# PointValues replaces NumericField (LUCENE-6917)
+
+PointValues provides faster indexing and searching, a smaller
+index size, and less heap used at search time. See org.apache.lucene.index.PointValues
+for an introduction. 
+
+Legacy numeric encodings from previous versions of Lucene are
+deprecated as LegacyIntField, LegacyFloatField, LegacyLongField, and LegacyDoubleField,
+and can be searched with LegacyNumericRangeQuery.

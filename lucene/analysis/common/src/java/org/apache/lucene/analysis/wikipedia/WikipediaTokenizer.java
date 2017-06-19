@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.lucene.analysis.wikipedia;
 
 import org.apache.lucene.analysis.Tokenizer;
@@ -27,7 +26,6 @@ import org.apache.lucene.util.AttributeFactory;
 import org.apache.lucene.util.AttributeSource;
 
 import java.io.IOException;
-import java.io.Reader;
 import java.util.*;
 
 

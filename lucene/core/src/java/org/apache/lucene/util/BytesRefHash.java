@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,9 +14,10 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
+
 
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.lucene.util.ByteBlockPool.DirectAllocator;
@@ -90,7 +89,7 @@ public final class BytesRefHash {
     this.bytesStartArray = bytesStartArray;
     bytesStart = bytesStartArray.init();
     bytesUsed = bytesStartArray.bytesUsed() == null? Counter.newCounter() : bytesStartArray.bytesUsed();
-    bytesUsed.addAndGet(hashSize * RamUsageEstimator.NUM_BYTES_INT);
+    bytesUsed.addAndGet(hashSize * Integer.BYTES);
   }
 
   /**
@@ -156,46 +155,26 @@ public final class BytesRefHash {
    * Note: This is a destructive operation. {@link #clear()} must be called in
    * order to reuse this {@link BytesRefHash} instance.
    * </p>
-   * 
-   * @param comp
-   *          the {@link Comparator} used for sorting
    */
-  public int[] sort(final Comparator<BytesRef> comp) {
+  public int[] sort() {
     final int[] compact = compact();
-    new IntroSorter() {
+    new StringMSBRadixSorter() {
+
+      BytesRef scratch = new BytesRef();
+
       @Override
       protected void swap(int i, int j) {
-        final int o = compact[i];
+        int tmp = compact[i];
         compact[i] = compact[j];
-        compact[j] = o;
-      }
-      
-      @Override
-      protected int compare(int i, int j) {
-        final int id1 = compact[i], id2 = compact[j];
-        assert bytesStart.length > id1 && bytesStart.length > id2;
-        pool.setBytesRef(scratch1, bytesStart[id1]);
-        pool.setBytesRef(scratch2, bytesStart[id2]);
-        return comp.compare(scratch1, scratch2);
+        compact[j] = tmp;
       }
 
       @Override
-      protected void setPivot(int i) {
-        final int id = compact[i];
-        assert bytesStart.length > id;
-        pool.setBytesRef(pivot, bytesStart[id]);
+      protected BytesRef get(int i) {
+        pool.setBytesRef(scratch, bytesStart[compact[i]]);
+        return scratch;
       }
-  
-      @Override
-      protected int comparePivot(int j) {
-        final int id = compact[j];
-        assert bytesStart.length > id;
-        pool.setBytesRef(scratch2, bytesStart[id]);
-        return comp.compare(pivot, scratch2);
-      }
-      
-      private final BytesRef pivot = new BytesRef(),
-        scratch1 = new BytesRef(), scratch2 = new BytesRef();
+
     }.sort(0, count);
     return compact;
   }
@@ -213,7 +192,7 @@ public final class BytesRefHash {
       newSize /= 2;
     }
     if (newSize != hashSize) {
-      bytesUsed.addAndGet(RamUsageEstimator.NUM_BYTES_INT * -(hashSize - newSize));
+      bytesUsed.addAndGet(Integer.BYTES * -(hashSize - newSize));
       hashSize = newSize;
       ids = new int[hashSize];
       Arrays.fill(ids, -1);
@@ -252,7 +231,7 @@ public final class BytesRefHash {
   public void close() {
     clear(true);
     ids = null;
-    bytesUsed.addAndGet(RamUsageEstimator.NUM_BYTES_INT * -hashSize);
+    bytesUsed.addAndGet(Integer.BYTES * -hashSize);
   }
 
   /**
@@ -408,7 +387,7 @@ public final class BytesRefHash {
    */
   private void rehash(final int newSize, boolean hashOnData) {
     final int newMask = newSize - 1;
-    bytesUsed.addAndGet(RamUsageEstimator.NUM_BYTES_INT * (newSize));
+    bytesUsed.addAndGet(Integer.BYTES * (newSize));
     final int[] newHash = new int[newSize];
     Arrays.fill(newHash, -1);
     for (int i = 0; i < hashSize; i++) {
@@ -449,7 +428,7 @@ public final class BytesRefHash {
     }
 
     hashMask = newMask;
-    bytesUsed.addAndGet(RamUsageEstimator.NUM_BYTES_INT * (-ids.length));
+    bytesUsed.addAndGet(Integer.BYTES * (-ids.length));
     ids = newHash;
     hashSize = newSize;
     hashHalfSize = newSize / 2;
@@ -472,7 +451,7 @@ public final class BytesRefHash {
     
     if (ids == null) {
       ids = new int[hashSize];
-      bytesUsed.addAndGet(RamUsageEstimator.NUM_BYTES_INT * hashSize);
+      bytesUsed.addAndGet(Integer.BYTES * hashSize);
     }
   }
 
@@ -570,8 +549,7 @@ public final class BytesRefHash {
 
     @Override
     public int[] init() {
-      return bytesStart = new int[ArrayUtil.oversize(initSize,
-          RamUsageEstimator.NUM_BYTES_INT)];
+      return bytesStart = new int[ArrayUtil.oversize(initSize, Integer.BYTES)];
     }
 
     @Override

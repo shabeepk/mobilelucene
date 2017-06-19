@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.hunspell;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,12 +14,14 @@ package org.apache.lucene.analysis.hunspell;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.hunspell;
+
 
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CoderResult;
-import org.lukhnos.portmobile.charset.StandardCharsets;
+import java.nio.charset.StandardCharsets;
 
 // many hunspell dictionaries use this encoding, yet java does not have it?!?!
 final class ISO8859_14Decoder extends CharsetDecoder {

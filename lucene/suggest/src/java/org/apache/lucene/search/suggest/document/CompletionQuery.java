@@ -1,5 +1,3 @@
-package org.apache.lucene.search.suggest.document;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.suggest.document;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.suggest.document;
 
 import java.io.IOException;
 
@@ -35,7 +34,7 @@ import static org.apache.lucene.search.suggest.document.CompletionAnalyzer.SEP_L
  * filtered by {@link BitsProducer}. This should be used to query against any {@link SuggestField}s
  * or {@link ContextSuggestField}s of documents.
  * <p>
- * Use {@link SuggestIndexSearcher#suggest(CompletionQuery, int)} to execute any query
+ * Use {@link SuggestIndexSearcher#suggest(CompletionQuery, int, boolean)} to execute any query
  * that provides a concrete implementation of this query. Example below shows using this query
  * to retrieve the top 5 documents.
  *
@@ -132,7 +131,7 @@ public abstract class CompletionQuery extends Query {
         }
       }
     }
-    return this;
+    return super.rewrite(reader);
   }
 
   @Override

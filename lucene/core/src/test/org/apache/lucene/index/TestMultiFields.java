@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -104,8 +104,8 @@ public class TestMultiFields extends LuceneTestCase {
 
       if (VERBOSE) {
         List<BytesRef> termsList = new ArrayList<>(uniqueTerms);
-        Collections.sort(termsList, BytesRef.getUTF8SortedAsUTF16Comparator());
-        System.out.println("TEST: terms in UTF16 order:");
+        Collections.sort(termsList);
+        System.out.println("TEST: terms in UTF-8 order:");
         for(BytesRef b : termsList) {
           System.out.println("  " + UnicodeUtil.toHexString(b.utf8ToString()) + " " + b);
           for(int docID : docs.get(b)) {

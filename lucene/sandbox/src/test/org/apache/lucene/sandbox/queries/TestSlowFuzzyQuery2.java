@@ -1,5 +1,3 @@
-package org.apache.lucene.sandbox.queries;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.sandbox.queries;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.sandbox.queries;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -33,7 +32,7 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MultiTermQuery;
 import org.apache.lucene.search.TopDocs;
-import org.apache.lucene.search.similarities.DefaultSimilarity;
+import org.apache.lucene.search.similarities.ClassicSimilarity;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.LuceneTestCase;
@@ -111,7 +110,7 @@ public class TestSlowFuzzyQuery2 extends LuceneTestCase {
     }
     // even though this uses a boost-only rewrite, this test relies upon queryNorm being the default implementation,
     // otherwise scores are different!
-    searcher.setSimilarity(new DefaultSimilarity());
+    searcher.setSimilarity(new ClassicSimilarity());
     
     writer.close();
     String line;

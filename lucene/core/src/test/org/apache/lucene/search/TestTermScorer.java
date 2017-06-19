@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -29,9 +29,8 @@ import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.index.RandomIndexWriter;
-import org.apache.lucene.index.SlowCompositeReaderWrapper;
 import org.apache.lucene.index.Term;
-import org.apache.lucene.search.similarities.DefaultSimilarity;
+import org.apache.lucene.search.similarities.ClassicSimilarity;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.LuceneTestCase;
 
@@ -52,17 +51,17 @@ public class TestTermScorer extends LuceneTestCase {
     RandomIndexWriter writer = new RandomIndexWriter(random(), directory, 
         newIndexWriterConfig(new MockAnalyzer(random()))
         .setMergePolicy(newLogMergePolicy())
-        .setSimilarity(new DefaultSimilarity()));
+        .setSimilarity(new ClassicSimilarity()));
     for (int i = 0; i < values.length; i++) {
       Document doc = new Document();
-      doc
-          .add(newTextField(FIELD, values[i], Field.Store.YES));
+      doc.add(newTextField(FIELD, values[i], Field.Store.YES));
       writer.addDocument(doc);
     }
-    indexReader = SlowCompositeReaderWrapper.wrap(writer.getReader());
+    writer.forceMerge(1);
+    indexReader = getOnlyLeafReader(writer.getReader());
     writer.close();
-    indexSearcher = newSearcher(indexReader);
-    indexSearcher.setSimilarity(new DefaultSimilarity());
+    indexSearcher = newSearcher(indexReader, false);
+    indexSearcher.setSimilarity(new ClassicSimilarity());
   }
   
   @Override
@@ -121,17 +120,6 @@ public class TestTermScorer extends LuceneTestCase {
     // The scores should be the same
     assertTrue(doc0.score + " does not equal: " + doc5.score,
         doc0.score == doc5.score);
-    /*
-     * Score should be (based on Default Sim.: All floats are approximate tf = 1
-     * numDocs = 6 docFreq(all) = 2 idf = ln(6/3) + 1 = 1.693147 idf ^ 2 =
-     * 2.8667 boost = 1 lengthNorm = 1 //there is 1 term in every document coord
-     * = 1 sumOfSquaredWeights = (idf * boost) ^ 2 = 1.693147 ^ 2 = 2.8667
-     * queryNorm = 1 / (sumOfSquaredWeights)^0.5 = 1 /(1.693147) = 0.590
-     * 
-     * score = 1 * 2.8667 * 1 * 1 * 0.590 = 1.69
-     */
-    assertTrue(doc0.score + " does not equal: " + 1.6931472f,
-        doc0.score == 1.6931472f);
   }
   
   public void testNext() throws Exception {
@@ -144,13 +132,11 @@ public class TestTermScorer extends LuceneTestCase {
     LeafReaderContext context = (LeafReaderContext) indexSearcher.getTopReaderContext();
     Scorer ts = weight.scorer(context);
     assertTrue("next did not return a doc",
-        ts.nextDoc() != DocIdSetIterator.NO_MORE_DOCS);
-    assertTrue("score is not correct", ts.score() == 1.6931472f);
+        ts.iterator().nextDoc() != DocIdSetIterator.NO_MORE_DOCS);
     assertTrue("next did not return a doc",
-        ts.nextDoc() != DocIdSetIterator.NO_MORE_DOCS);
-    assertTrue("score is not correct", ts.score() == 1.6931472f);
+        ts.iterator().nextDoc() != DocIdSetIterator.NO_MORE_DOCS);
     assertTrue("next returned a doc and it should not have",
-        ts.nextDoc() == DocIdSetIterator.NO_MORE_DOCS);
+        ts.iterator().nextDoc() == DocIdSetIterator.NO_MORE_DOCS);
   }
   
   public void testAdvance() throws Exception {
@@ -162,12 +148,12 @@ public class TestTermScorer extends LuceneTestCase {
     assertTrue(indexSearcher.getTopReaderContext() instanceof LeafReaderContext);
     LeafReaderContext context = (LeafReaderContext) indexSearcher.getTopReaderContext();
     Scorer ts = weight.scorer(context);
-    assertTrue("Didn't skip", ts.advance(3) != DocIdSetIterator.NO_MORE_DOCS);
+    assertTrue("Didn't skip", ts.iterator().advance(3) != DocIdSetIterator.NO_MORE_DOCS);
     // The next doc should be doc 5
     assertTrue("doc should be number 5", ts.docID() == 5);
   }
   
-  private class TestHit {
+  private static class TestHit {
     public int doc;
     public float score;
     
@@ -198,15 +184,12 @@ public class TestTermScorer extends LuceneTestCase {
     IndexSearcher indexSearcher = new IndexSearcher(forbiddenNorms);
     
     Weight weight = indexSearcher.createNormalizedWeight(termQuery, true);
-    try {
-      weight.scorer(forbiddenNorms.getContext()).nextDoc();
-      fail("Should load norms");
-    } catch (AssertionError e) {
-      // ok
-    }
+    expectThrows(AssertionError.class, () -> {
+      weight.scorer(forbiddenNorms.getContext()).iterator().nextDoc();
+    });
     
-    weight = indexSearcher.createNormalizedWeight(termQuery, false);
+    Weight weight2 = indexSearcher.createNormalizedWeight(termQuery, false);
     // should not fail this time since norms are not necessary
-    weight.scorer(forbiddenNorms.getContext()).nextDoc();
+    weight2.scorer(forbiddenNorms.getContext()).iterator().nextDoc();
   }
 }

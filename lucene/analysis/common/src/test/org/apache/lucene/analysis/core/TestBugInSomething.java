@@ -1,32 +1,3 @@
-package org.apache.lucene.analysis.core;
-
-import java.io.IOException;
-import java.io.Reader;
-import java.io.StringReader;
-import java.nio.CharBuffer;
-import java.util.Arrays;
-import java.util.HashSet;
-
-import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.BaseTokenStreamTestCase;
-import org.apache.lucene.analysis.CharFilter;
-import org.apache.lucene.analysis.MockCharFilter;
-import org.apache.lucene.analysis.MockTokenFilter;
-import org.apache.lucene.analysis.MockTokenizer;
-import org.apache.lucene.analysis.TokenFilter;
-import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.Tokenizer;
-import org.apache.lucene.analysis.charfilter.MappingCharFilter;
-import org.apache.lucene.analysis.charfilter.NormalizeCharMap;
-import org.apache.lucene.analysis.commongrams.CommonGramsFilter;
-import org.apache.lucene.analysis.miscellaneous.WordDelimiterFilter;
-import org.apache.lucene.analysis.ngram.EdgeNGramTokenizer;
-import org.apache.lucene.analysis.ngram.NGramTokenFilter;
-import org.apache.lucene.analysis.shingle.ShingleFilter;
-import org.apache.lucene.analysis.util.CharArraySet;
-import org.apache.lucene.analysis.wikipedia.WikipediaTokenizer;
-import org.apache.lucene.util.LuceneTestCase.SuppressCodecs;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -43,6 +14,35 @@ import org.apache.lucene.util.LuceneTestCase.SuppressCodecs;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.core;
+
+import java.io.IOException;
+import java.io.Reader;
+import java.io.StringReader;
+import java.nio.CharBuffer;
+import java.util.Arrays;
+import java.util.HashSet;
+
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.BaseTokenStreamTestCase;
+import org.apache.lucene.analysis.CharArraySet;
+import org.apache.lucene.analysis.CharFilter;
+import org.apache.lucene.analysis.MockCharFilter;
+import org.apache.lucene.analysis.MockTokenFilter;
+import org.apache.lucene.analysis.MockTokenizer;
+import org.apache.lucene.analysis.TokenFilter;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.Tokenizer;
+import org.apache.lucene.analysis.charfilter.MappingCharFilter;
+import org.apache.lucene.analysis.charfilter.NormalizeCharMap;
+import org.apache.lucene.analysis.commongrams.CommonGramsFilter;
+import org.apache.lucene.analysis.miscellaneous.WordDelimiterFilter;
+import org.apache.lucene.analysis.ngram.EdgeNGramTokenizer;
+import org.apache.lucene.analysis.ngram.NGramTokenFilter;
+import org.apache.lucene.analysis.shingle.ShingleFilter;
+import org.apache.lucene.analysis.wikipedia.WikipediaTokenizer;
+import org.apache.lucene.util.LuceneTestCase.SuppressCodecs;
+
 
 @SuppressCodecs("Direct")
 public class TestBugInSomething extends BaseTokenStreamTestCase {
@@ -138,75 +138,55 @@ public class TestBugInSomething extends BaseTokenStreamTestCase {
   
   public void testWrapping() throws Exception {
     CharFilter cs = new TestRandomChains.CheckThatYouDidntReadAnythingReaderWrapper(wrappedStream);
-    try {
+    Exception expected = expectThrows(Exception.class, () -> {
       cs.mark(1);
-      fail();
-    } catch (Exception e) {
-      assertEquals("mark(int)", e.getMessage());
-    }
+    });
+    assertEquals("mark(int)", expected.getMessage());
     
-    try {
+    expected = expectThrows(Exception.class, () -> {
       cs.markSupported();
-      fail();
-    } catch (Exception e) {
-      assertEquals("markSupported()", e.getMessage());
-    }
+    });
+    assertEquals("markSupported()", expected.getMessage());
     
-    try {
+    expected = expectThrows(Exception.class, () -> {
       cs.read();
-      fail();
-    } catch (Exception e) {
-      assertEquals("read()", e.getMessage());
-    }
+    });
+    assertEquals("read()", expected.getMessage());
     
-    try {
+    expected = expectThrows(Exception.class, () -> {
       cs.read(new char[0]);
-      fail();
-    } catch (Exception e) {
-      assertEquals("read(char[])", e.getMessage());
-    }
+    });
+    assertEquals("read(char[])", expected.getMessage());
     
-    try {
+    expected = expectThrows(Exception.class, () -> {
       cs.read(CharBuffer.wrap(new char[0]));
-      fail();
-    } catch (Exception e) {
-      assertEquals("read(CharBuffer)", e.getMessage());
-    }
+    });
+    assertEquals("read(CharBuffer)", expected.getMessage());
     
-    try {
+    expected = expectThrows(Exception.class, () -> {
       cs.reset();
-      fail();
-    } catch (Exception e) {
-      assertEquals("reset()", e.getMessage());
-    }
+    });
+    assertEquals("reset()", expected.getMessage());
     
-    try {
+    expected = expectThrows(Exception.class, () -> {
       cs.skip(1);
-      fail();
-    } catch (Exception e) {
-      assertEquals("skip(long)", e.getMessage());
-    }
+    });
+    assertEquals("skip(long)", expected.getMessage());
     
-    try {
+    expected = expectThrows(Exception.class, () -> {
       cs.correctOffset(1);
-      fail();
-    } catch (Exception e) {
-      assertEquals("correct(int)", e.getMessage());
-    }
+    });
+    assertEquals("correct(int)", expected.getMessage());
     
-    try {
+    expected = expectThrows(Exception.class, () -> {
       cs.close();
-      fail();
-    } catch (Exception e) {
-      assertEquals("close()", e.getMessage());
-    }
+    });
+    assertEquals("close()", expected.getMessage());
     
-    try {
+    expected = expectThrows(Exception.class, () -> {
       cs.read(new char[0], 0, 0);
-      fail();
-    } catch (Exception e) {
-      assertEquals("read(char[], int, int)", e.getMessage());
-    }
+    });
+    assertEquals("read(char[], int, int)", expected.getMessage());
   }
   
   // todo: test framework?

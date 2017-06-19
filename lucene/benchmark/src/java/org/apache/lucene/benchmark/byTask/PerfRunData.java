@@ -1,5 +1,3 @@
-package org.apache.lucene.benchmark.byTask;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.benchmark.byTask;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.benchmark.byTask;
+
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -349,6 +349,8 @@ public class PerfRunData implements Closeable {
       // Hold reference to new IR
       indexReader.incRef();
       indexSearcher = new IndexSearcher(indexReader);
+      // TODO Some day we should make the query cache in this module configurable and control clearing the cache
+      indexSearcher.setQueryCache(null);
     } else {
       indexSearcher = null;
     }

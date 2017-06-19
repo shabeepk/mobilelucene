@@ -1,5 +1,3 @@
-package org.apache.lucene.queryparser.flexible.standard.config;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.queryparser.flexible.standard.config;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queryparser.flexible.standard.config;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -120,7 +119,7 @@ public class StandardQueryConfigHandler extends QueryConfigHandler {
      * is <code>null</code>
      * 
      * @see StandardQueryParser#setMultiFields(CharSequence[])
-     * @see StandardQueryParser#getMultiFields(CharSequence[])
+     * @see StandardQueryParser#getMultiFields()
      */
     final public static ConfigurationKey<CharSequence[]> MULTI_FIELDS = ConfigurationKey.newInstance();
     
@@ -168,21 +167,41 @@ public class StandardQueryConfigHandler extends QueryConfigHandler {
     final public static ConfigurationKey<Float> BOOST = ConfigurationKey.newInstance();
     
     /**
-     * Key used to set a field to its {@link NumericConfig}.
+     * Key used to set a field to its {@link LegacyNumericConfig}.
      * 
-     * @see StandardQueryParser#setNumericConfigMap(Map)
-     * @see StandardQueryParser#getNumericConfigMap()
+     * @see StandardQueryParser#setLegacyNumericConfigMap(Map)
+     * @see StandardQueryParser#getLegacyNumericConfigMap()
+     * @deprecated Index with Points instead and use {@link #POINTS_CONFIG}
      */
-    final public static ConfigurationKey<NumericConfig> NUMERIC_CONFIG = ConfigurationKey.newInstance();
+    @Deprecated
+    final public static ConfigurationKey<LegacyNumericConfig> LEGACY_NUMERIC_CONFIG = ConfigurationKey.newInstance();
     
     /**
-     * Key used to set the {@link NumericConfig} in {@link FieldConfig} for numeric fields.
+     * Key used to set the {@link LegacyNumericConfig} in {@link FieldConfig} for numeric fields.
      * 
-     * @see StandardQueryParser#setNumericConfigMap(Map)
-     * @see StandardQueryParser#getNumericConfigMap()
+     * @see StandardQueryParser#setLegacyNumericConfigMap(Map)
+     * @see StandardQueryParser#getLegacyNumericConfigMap()
+     * @deprecated Index with Points instead and use {@link #POINTS_CONFIG_MAP}
      */
-    final public static ConfigurationKey<Map<String,NumericConfig>> NUMERIC_CONFIG_MAP = ConfigurationKey.newInstance();
+    @Deprecated
+    final public static ConfigurationKey<Map<String,LegacyNumericConfig>> LEGACY_NUMERIC_CONFIG_MAP = ConfigurationKey.newInstance();
     
+    /**
+     * Key used to set a field to its {@link PointsConfig}.
+     * 
+     * @see StandardQueryParser#setLegacyNumericConfigMap(Map)
+     * @see StandardQueryParser#getLegacyNumericConfigMap()
+     */
+    final public static ConfigurationKey<PointsConfig> POINTS_CONFIG = ConfigurationKey.newInstance();
+
+    /**
+     * Key used to set the {@link PointsConfig} in {@link FieldConfig} for point fields.
+     * 
+     * @see StandardQueryParser#setLegacyNumericConfigMap(Map)
+     * @see StandardQueryParser#getLegacyNumericConfigMap()
+     */
+    final public static ConfigurationKey<Map<String,PointsConfig>> POINTS_CONFIG_MAP = ConfigurationKey.newInstance();
+
   }
   
   /**
@@ -196,7 +215,8 @@ public class StandardQueryConfigHandler extends QueryConfigHandler {
     // Add listener that will build the FieldConfig.
     addFieldConfigListener(new FieldBoostMapFCListener(this));
     addFieldConfigListener(new FieldDateResolutionFCListener(this));
-    addFieldConfigListener(new NumericFieldConfigListener(this));
+    addFieldConfigListener(new LegacyNumericFieldConfigListener(this));
+    addFieldConfigListener(new PointsConfigListener(this));
     
     // Default Values
     set(ConfigurationKeys.ALLOW_LEADING_WILDCARD, false); // default in 2.9

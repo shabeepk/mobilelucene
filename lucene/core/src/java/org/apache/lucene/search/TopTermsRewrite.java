@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 import java.util.Comparator;
@@ -160,7 +160,9 @@ public abstract class TopTermsRewrite<B> extends TermCollectingRewrite<B> {
 
     for (final ScoreTerm st : scoreTerms) {
       final Term term = new Term(query.field, st.bytes.toBytesRef());
-      addClause(b, term, st.termState.docFreq(), query.getBoost() * st.boost, st.termState); // add to query
+      // We allow negative term scores (fuzzy query does this, for example) while collecting the terms,
+      // but truncate such boosts to 0.0f when building the query:
+      addClause(b, term, st.termState.docFreq(), Math.max(0.0f, st.boost), st.termState); // add to query
     }
     return build(b);
   }

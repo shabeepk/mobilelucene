@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.ja.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.analysis.ja.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.ja.util;
+
 
 import java.util.ArrayList;
 import java.util.regex.Matcher;
@@ -101,7 +101,7 @@ public final class CSVUtil {
     String result = original;
     
     if (result.indexOf('\"') >= 0) {
-      result.replace("\"", ESCAPED_QUOTE);
+      result = result.replace("\"", ESCAPED_QUOTE);
     }
     if(result.indexOf(COMMA) >= 0) {
       result = "\"" + result + "\"";

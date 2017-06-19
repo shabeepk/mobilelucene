@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.lucene50;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.codecs.lucene50;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.lucene50;
+
 
 import java.util.Objects;
 
@@ -26,6 +26,7 @@ import org.apache.lucene.codecs.FieldInfosFormat;
 import org.apache.lucene.codecs.FilterCodec;
 import org.apache.lucene.codecs.LiveDocsFormat;
 import org.apache.lucene.codecs.NormsFormat;
+import org.apache.lucene.codecs.PointsFormat;
 import org.apache.lucene.codecs.PostingsFormat;
 import org.apache.lucene.codecs.SegmentInfoFormat;
 import org.apache.lucene.codecs.StoredFieldsFormat;
@@ -107,7 +108,7 @@ public class Lucene50Codec extends Codec {
   }
   
   @Override
-  public final SegmentInfoFormat segmentInfoFormat() {
+  public SegmentInfoFormat segmentInfoFormat() {
     return segmentInfosFormat;
   }
   
@@ -150,6 +151,11 @@ public class Lucene50Codec extends Codec {
   @Override
   public final DocValuesFormat docValuesFormat() {
     return docValuesFormat;
+  }
+
+  @Override
+  public final PointsFormat pointsFormat() {
+    return PointsFormat.EMPTY;
   }
 
   private final PostingsFormat defaultFormat = PostingsFormat.forName("Lucene50");

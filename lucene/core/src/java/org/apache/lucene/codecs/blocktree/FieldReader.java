@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.blocktree;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.codecs.blocktree;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.blocktree;
+
 
 import java.io.IOException;
 import java.util.Collection;
@@ -34,9 +34,6 @@ import org.apache.lucene.util.RamUsageEstimator;
 import org.apache.lucene.util.automaton.CompiledAutomaton;
 import org.apache.lucene.util.fst.ByteSequenceOutputs;
 import org.apache.lucene.util.fst.FST;
-
-// Extra imports by portmobile.
-import org.lukhnos.portmobile.j2objc.annotations.Weak;
 
 /**
  * BlockTree's implementation of {@link Terms}.
@@ -61,7 +58,6 @@ public final class FieldReader extends Terms implements Accountable {
   final BytesRef minTerm;
   final BytesRef maxTerm;
   final int longsSize;
-  @Weak
   final BlockTreeTermsReader parent;
 
   final FST<BytesRef> index;
@@ -186,6 +182,9 @@ public final class FieldReader extends Terms implements Accountable {
     //System.out.println("intersect: " + compiled.type + " a=" + compiled.automaton);
     // TODO: we could push "it's a range" or "it's a prefix" down into IntersectTermsEnum?
     // can we optimize knowing that...?
+    if (compiled.type != CompiledAutomaton.AUTOMATON_TYPE.NORMAL) {
+      throw new IllegalArgumentException("please use CompiledAutomaton.getTermsEnum instead");
+    }
     return new IntersectTermsEnum(this, compiled.automaton, compiled.runAutomaton, compiled.commonSuffixRef, startTerm, compiled.sinkState);
   }
     

@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,12 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
 
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.DocumentStoredFieldVisitor;
-import org.apache.lucene.store.AlreadyClosedException;
-import org.apache.lucene.util.Bits;  // javadocs
-import org.apache.lucene.util.IOUtils;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -32,12 +26,18 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.DocumentStoredFieldVisitor;
+import org.apache.lucene.store.AlreadyClosedException;
+import org.apache.lucene.util.Bits;  // javadocs
+import org.apache.lucene.util.IOUtils;
+
 /**
  IndexReader is an abstract class, providing an interface for accessing a
  point-in-time view of an index.  Any changes made to the index
  via {@link IndexWriter} will not be visible until a new
  {@code IndexReader} is opened.  It's best to use {@link
- DirectoryReader#open(IndexWriter,boolean)} to obtain an
+ DirectoryReader#open(IndexWriter)} to obtain an
  {@code IndexReader}, if your {@link IndexWriter} is
  in-process.  When you need to re-open to see changes to the
  index, it's best to use {@link DirectoryReader#openIfChanged(DirectoryReader)}
@@ -56,8 +56,6 @@ import java.util.concurrent.atomic.AtomicInteger;
   be used to get stored fields from the underlying LeafReaders,
   but it is not possible to directly retrieve postings. To do that, get
   the sub-readers via {@link CompositeReader#getSequentialSubReaders}.
-  Alternatively, you can mimic an {@link LeafReader} (with a serious slowdown),
-  by wrapping composite readers with {@link SlowCompositeReaderWrapper}.
  </ul>
  
  <p>IndexReader instances for indexes on disk are usually constructed
@@ -138,7 +136,7 @@ public abstract class IndexReader implements Closeable {
     parentReaders.add(reader);
   }
 
-  private void notifyReaderClosedListeners(Throwable th) {
+  private void notifyReaderClosedListeners(Throwable th) throws IOException {
     synchronized(readerClosedListeners) {
       for(ReaderClosedListener listener : readerClosedListeners) {
         try {
@@ -151,7 +149,9 @@ public abstract class IndexReader implements Closeable {
           }
         }
       }
-      IOUtils.reThrowUnchecked(th);
+      if (th != null) {
+        throw IOUtils.rethrowAlways(th);
+      }
     }
   }
 

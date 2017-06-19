@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -42,7 +41,6 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.FailOnNonBulkMergesInfoStream;
-import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.LineFileDocs;
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.util.NamedThreadFactory;
@@ -430,7 +428,7 @@ public abstract class ThreadedIndexingAndSearchingTestCase extends LuceneTestCas
     final long t0 = System.currentTimeMillis();
 
     Random random = new Random(random().nextLong());
-    final LineFileDocs docs = new LineFileDocs(random, true);
+    final LineFileDocs docs = new LineFileDocs(random);
     final Path tempDir = createTempDir(testName);
     dir = getDirectory(newMockFSDirectory(tempDir)); // some subclasses rely on this being MDW
     if (dir instanceof BaseDirectoryWrapper) {
@@ -481,7 +479,7 @@ public abstract class ThreadedIndexingAndSearchingTestCase extends LuceneTestCas
           }
         }
 
-        IndexSearcher searcher = newSearcher(reader);
+        IndexSearcher searcher = newSearcher(reader, false);
         sum += searcher.search(new TermQuery(new Term("body", "united")), 10).totalHits;
 
         if (VERBOSE) {
@@ -654,7 +652,6 @@ public abstract class ThreadedIndexingAndSearchingTestCase extends LuceneTestCas
 
     TestUtil.checkIndex(dir);
     dir.close();
-    IOUtils.rm(tempDir);
 
     if (VERBOSE) {
       System.out.println("TEST: done [" + (System.currentTimeMillis()-t0) + " ms]");

@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spans;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,9 +14,8 @@ package org.apache.lucene.search.spans;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spans;
 
-import java.util.HashSet;
-import java.util.Set;
 
 import org.apache.lucene.analysis.MockAnalyzer;
 import org.apache.lucene.document.Document;
@@ -35,6 +32,9 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.LuceneTestCase;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+
+import java.util.HashSet;
+import java.util.Set;
 
 import static org.apache.lucene.search.spans.SpanTestUtil.assertFinished;
 import static org.apache.lucene.search.spans.SpanTestUtil.assertNext;
@@ -115,9 +115,10 @@ public class TestFieldMaskingSpanQuery extends LuceneTestCase {
                                          field("gender", "male"),
                                          field("first",  "bubba"),
                                          field("last",   "jones")     }));
+    writer.forceMerge(1);
     reader = writer.getReader();
     writer.close();
-    searcher = newSearcher(reader);
+    searcher = new IndexSearcher(getOnlyLeafReader(reader));
   }
 
   @AfterClass
@@ -136,7 +137,6 @@ public class TestFieldMaskingSpanQuery extends LuceneTestCase {
   public void testRewrite0() throws Exception {
     SpanQuery q = new FieldMaskingSpanQuery
       (new SpanTermQuery(new Term("last", "sally")) , "first");
-    q.setBoost(8.7654321f);
     SpanQuery qr = (SpanQuery) searcher.rewrite(q);
 
     QueryUtils.checkEqual(q, qr);
@@ -195,16 +195,6 @@ public class TestFieldMaskingSpanQuery extends LuceneTestCase {
     QueryUtils.checkUnequal(q1, q3);
     QueryUtils.checkUnequal(q1, q4);
     QueryUtils.checkUnequal(q1, q5);
-    
-    SpanQuery qA = new FieldMaskingSpanQuery
-      (new SpanTermQuery(new Term("last", "sally")) , "first");
-    qA.setBoost(9f);
-    SpanQuery qB = new FieldMaskingSpanQuery
-      (new SpanTermQuery(new Term("last", "sally")) , "first");
-    QueryUtils.checkUnequal(qA, qB);
-    qB.setBoost(9f);
-    QueryUtils.checkEqual(qA, qB);
-    
   }
   
   public void testNoop0() throws Exception {
@@ -262,7 +252,7 @@ public class TestFieldMaskingSpanQuery extends LuceneTestCase {
     SpanQuery q  = new SpanOrQuery(q1, new FieldMaskingSpanQuery(q2, "gender"));
     check(q, new int[] { 0, 1, 2, 3, 4 });
 
-    Spans span = MultiSpansWrapper.wrap(searcher.getIndexReader(), q);
+    Spans span = q.createWeight(searcher, false).getSpans(searcher.getIndexReader().leaves().get(0), SpanWeight.Postings.POSITIONS);
     assertNext(span, 0,0,1);
     assertNext(span, 1,0,1);
     assertNext(span, 1,1,2);
@@ -284,8 +274,8 @@ public class TestFieldMaskingSpanQuery extends LuceneTestCase {
     check(qA, new int[] { 0, 1, 2, 4 });
     check(qB, new int[] { 0, 1, 2, 4 });
   
-    Spans spanA = MultiSpansWrapper.wrap(searcher.getIndexReader(), qA);
-    Spans spanB = MultiSpansWrapper.wrap(searcher.getIndexReader(), qB);
+    Spans spanA = qA.createWeight(searcher, false).getSpans(searcher.getIndexReader().leaves().get(0), SpanWeight.Postings.POSITIONS);
+    Spans spanB = qB.createWeight(searcher, false).getSpans(searcher.getIndexReader().leaves().get(0), SpanWeight.Postings.POSITIONS);
     
     while (spanA.nextDoc() != Spans.NO_MORE_DOCS) {
       assertNotSame("spanB not still going", Spans.NO_MORE_DOCS, spanB.nextDoc());
@@ -310,7 +300,7 @@ public class TestFieldMaskingSpanQuery extends LuceneTestCase {
         new FieldMaskingSpanQuery(qB, "id") }, -1, false );
     check(q, new int[] { 0, 1, 2, 3 });
 
-    Spans span = MultiSpansWrapper.wrap(searcher.getIndexReader(), q);
+    Spans span = q.createWeight(searcher, false).getSpans(searcher.getIndexReader().leaves().get(0), SpanWeight.Postings.POSITIONS);
     assertNext(span, 0,0,1);
     assertNext(span, 1,1,2);
     assertNext(span, 2,0,1);

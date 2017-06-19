@@ -1,5 +1,3 @@
-package org.apache.lucene.queryparser.flexible.standard.builders;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.queryparser.flexible.standard.builders;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queryparser.flexible.standard.builders;
 
 import org.apache.lucene.queryparser.flexible.core.QueryNodeException;
 import org.apache.lucene.queryparser.flexible.core.builders.QueryTreeBuilder;
@@ -31,8 +30,10 @@ import org.apache.lucene.queryparser.flexible.core.nodes.QueryNode;
 import org.apache.lucene.queryparser.flexible.core.nodes.SlopQueryNode;
 import org.apache.lucene.queryparser.flexible.core.nodes.TokenizedPhraseQueryNode;
 import org.apache.lucene.queryparser.flexible.standard.nodes.MultiPhraseQueryNode;
-import org.apache.lucene.queryparser.flexible.standard.nodes.NumericQueryNode;
-import org.apache.lucene.queryparser.flexible.standard.nodes.NumericRangeQueryNode;
+import org.apache.lucene.queryparser.flexible.standard.nodes.PointQueryNode;
+import org.apache.lucene.queryparser.flexible.standard.nodes.PointRangeQueryNode;
+import org.apache.lucene.queryparser.flexible.standard.nodes.LegacyNumericQueryNode;
+import org.apache.lucene.queryparser.flexible.standard.nodes.LegacyNumericRangeQueryNode;
 import org.apache.lucene.queryparser.flexible.standard.nodes.PrefixWildcardQueryNode;
 import org.apache.lucene.queryparser.flexible.standard.nodes.TermRangeQueryNode;
 import org.apache.lucene.queryparser.flexible.standard.nodes.RegexpQueryNode;
@@ -58,8 +59,10 @@ public class StandardQueryTreeBuilder extends QueryTreeBuilder implements
     setBuilder(FieldQueryNode.class, new FieldQueryNodeBuilder());
     setBuilder(BooleanQueryNode.class, new BooleanQueryNodeBuilder());
     setBuilder(FuzzyQueryNode.class, new FuzzyQueryNodeBuilder());
-    setBuilder(NumericQueryNode.class, new DummyQueryNodeBuilder());
-    setBuilder(NumericRangeQueryNode.class, new NumericRangeQueryNodeBuilder());
+    setBuilder(LegacyNumericQueryNode.class, new DummyQueryNodeBuilder());
+    setBuilder(LegacyNumericRangeQueryNode.class, new LegacyNumericRangeQueryNodeBuilder());
+    setBuilder(PointQueryNode.class, new DummyQueryNodeBuilder());
+    setBuilder(PointRangeQueryNode.class, new PointRangeQueryNodeBuilder());
     setBuilder(BoostQueryNode.class, new BoostQueryNodeBuilder());
     setBuilder(ModifierQueryNode.class, new ModifierQueryNodeBuilder());
     setBuilder(WildcardQueryNode.class, new WildcardQueryNodeBuilder());

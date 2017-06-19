@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 import java.util.Set;
@@ -32,13 +32,13 @@ import org.apache.lucene.index.Term;
  */
 public abstract class ConstantScoreWeight extends Weight {
 
+  private float boost;
   private float queryNorm;
   private float queryWeight;
 
   protected ConstantScoreWeight(Query query) {
     super(query);
-    queryWeight = getQuery().getBoost();
-    queryNorm = 1f;
+    normalize(1f, 1f);
   }
 
   @Override
@@ -54,9 +54,20 @@ public abstract class ConstantScoreWeight extends Weight {
   }
 
   @Override
-  public final void normalize(float norm, float topLevelBoost) {
-    queryNorm = norm * topLevelBoost;
-    queryWeight *= queryNorm;
+  public void normalize(float norm, float boost) {
+    this.boost = boost;
+    queryNorm = norm;
+    queryWeight = queryNorm * boost;
+  }
+
+  /** Return the normalization factor for this weight. */
+  protected final float queryNorm() {
+    return queryNorm;
+  }
+
+  /** Return the boost for this weight. */
+  protected final float boost() {
+    return boost;
   }
 
   /** Return the score produced by this {@link Weight}. */
@@ -65,15 +76,15 @@ public abstract class ConstantScoreWeight extends Weight {
   }
 
   @Override
-  public final Explanation explain(LeafReaderContext context, int doc) throws IOException {
+  public Explanation explain(LeafReaderContext context, int doc) throws IOException {
     final Scorer s = scorer(context);
     final boolean exists;
     if (s == null) {
       exists = false;
     } else {
-      final TwoPhaseIterator twoPhase = s.asTwoPhaseIterator();
+      final TwoPhaseIterator twoPhase = s.twoPhaseIterator();
       if (twoPhase == null) {
-        exists = s.advance(doc) == doc;
+        exists = s.iterator().advance(doc) == doc;
       } else {
         exists = twoPhase.approximation().advance(doc) == doc && twoPhase.matches();
       }
@@ -82,7 +93,7 @@ public abstract class ConstantScoreWeight extends Weight {
     if (exists) {
       return Explanation.match(
           queryWeight, getQuery().toString() + ", product of:",
-          Explanation.match(getQuery().getBoost(), "boost"), Explanation.match(queryNorm, "queryNorm"));
+          Explanation.match(boost, "boost"), Explanation.match(queryNorm, "queryNorm"));
     } else {
       return Explanation.noMatch(getQuery().toString() + " doesn't match id " + doc);
     }

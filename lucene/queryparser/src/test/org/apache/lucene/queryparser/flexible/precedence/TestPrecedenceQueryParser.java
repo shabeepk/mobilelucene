@@ -1,5 +1,3 @@
-package org.apache.lucene.queryparser.flexible.precedence;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,9 +14,9 @@ package org.apache.lucene.queryparser.flexible.precedence;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queryparser.flexible.precedence;
 
 import java.io.IOException;
-import java.io.Reader;
 import java.text.DateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -38,7 +36,9 @@ import org.apache.lucene.queryparser.flexible.standard.config.StandardQueryConfi
 import org.apache.lucene.queryparser.flexible.standard.parser.ParseException;
 import org.apache.lucene.queryparser.util.QueryParserTestBase; // javadocs
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.FuzzyQuery;
+import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.PhraseQuery;
 import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
@@ -62,7 +62,7 @@ import org.junit.BeforeClass;
  * 
  * @see QueryParserTestBase
  */
-//TODO: refactor this to actually extend that class, overriding the tests
+//TODO: refactor this to actually extend that class (QueryParserTestBase), overriding the tests
 //that it adjusts to fit the precedence requirement, adding its extra tests.
 public class TestPrecedenceQueryParser extends LuceneTestCase {
 
@@ -167,6 +167,20 @@ public class TestPrecedenceQueryParser extends LuceneTestCase {
     }
   }
 
+  public void assertMatchNoDocsQuery(String queryString, Analyzer a) throws Exception {
+    assertMatchNoDocsQuery(getQuery(queryString, a));
+  }
+
+  public void assertMatchNoDocsQuery(Query query) throws Exception {
+    if (query instanceof MatchNoDocsQuery) {
+      // good
+    } else if (query instanceof BooleanQuery && ((BooleanQuery) query).clauses().size() == 0) {
+      // good
+    } else {
+      fail("expected MatchNoDocsQuery or an empty BooleanQuery but got: " + query);
+    }
+  }
+
   public void assertWildcardQueryEquals(String query, boolean lowercase,
       String result) throws Exception {
     PrecedenceQueryParser qp = getParser(null);
@@ -236,13 +250,13 @@ public class TestPrecedenceQueryParser extends LuceneTestCase {
     assertTrue(getQuery("hello", null) instanceof TermQuery);
     assertTrue(getQuery("\"hello there\"", null) instanceof PhraseQuery);
 
-    assertQueryEquals("germ term^2.0", null, "germ term^2.0");
-    assertQueryEquals("(term)^2.0", null, "term^2.0");
+    assertQueryEquals("germ term^2.0", null, "germ (term)^2.0");
+    assertQueryEquals("(term)^2.0", null, "(term)^2.0");
     assertQueryEquals("(germ term)^2.0", null, "(germ term)^2.0");
-    assertQueryEquals("term^2.0", null, "term^2.0");
-    assertQueryEquals("term^2", null, "term^2.0");
-    assertQueryEquals("\"germ term\"^2.0", null, "\"germ term\"^2.0");
-    assertQueryEquals("\"term germ\"^2", null, "\"term germ\"^2.0");
+    assertQueryEquals("term^2.0", null, "(term)^2.0");
+    assertQueryEquals("term^2", null, "(term)^2.0");
+    assertQueryEquals("\"germ term\"^2.0", null, "(\"germ term\")^2.0");
+    assertQueryEquals("\"term germ\"^2", null, "(\"term germ\")^2.0");
 
     assertQueryEquals("(foo OR bar) AND (baz OR boo)", null,
         "+(foo bar) +(baz boo)");
@@ -278,12 +292,12 @@ public class TestPrecedenceQueryParser extends LuceneTestCase {
     assertQueryEquals("\"term germ\"~2 flork", null, "\"term germ\"~2 flork");
     assertQueryEquals("\"term\"~2", null, "term");
     assertQueryEquals("\" \"~2 germ", null, "germ");
-    assertQueryEquals("\"term germ\"~2^2", null, "\"term germ\"~2^2.0");
+    assertQueryEquals("\"term germ\"~2^2", null, "(\"term germ\"~2)^2.0");
   }
 
   public void testNumber() throws Exception {
     // The numbers go away because SimpleAnalzyer ignores them
-    assertQueryEquals("3", null, "");
+    assertMatchNoDocsQuery("3", null);
     assertQueryEquals("term 1.0 1 2", null, "term");
     assertQueryEquals("term term1 term2", null, "term term term");
 
@@ -295,16 +309,17 @@ public class TestPrecedenceQueryParser extends LuceneTestCase {
 
   public void testWildcard() throws Exception {
     assertQueryEquals("term*", null, "term*");
-    assertQueryEquals("term*^2", null, "term*^2.0");
+    assertQueryEquals("term*^2", null, "(term*)^2.0");
     assertQueryEquals("term~", null, "term~2");
     assertQueryEquals("term~0.7", null, "term~1");
-    assertQueryEquals("term~^3", null, "term~2^3.0");
-    assertQueryEquals("term^3~", null, "term~2^3.0");
+    assertQueryEquals("term~^3", null, "(term~2)^3.0");
+    assertQueryEquals("term^3~", null, "(term~2)^3.0");
     assertQueryEquals("term*germ", null, "term*germ");
-    assertQueryEquals("term*germ^3", null, "term*germ^3.0");
+    assertQueryEquals("term*germ^3", null, "(term*germ)^3.0");
 
     assertTrue(getQuery("term*", null) instanceof PrefixQuery);
-    assertTrue(getQuery("term*^2", null) instanceof PrefixQuery);
+    assertTrue(getQuery("term*^2", null) instanceof BoostQuery);
+    assertTrue(((BoostQuery) getQuery("term*^2", null)).getQuery() instanceof PrefixQuery);
     assertTrue(getQuery("term~", null) instanceof FuzzyQuery);
     assertTrue(getQuery("term~0.7", null) instanceof FuzzyQuery);
     FuzzyQuery fq = (FuzzyQuery) getQuery("term~0.7", null);
@@ -313,12 +328,9 @@ public class TestPrecedenceQueryParser extends LuceneTestCase {
     fq = (FuzzyQuery) getQuery("term~", null);
     assertEquals(2, fq.getMaxEdits());
     assertEquals(FuzzyQuery.defaultPrefixLength, fq.getPrefixLength());
-    try {
+    expectThrows(ParseException.class, () -> {
       getQuery("term~1.1", null); // value > 1, throws exception
-      fail();
-    } catch (ParseException pe) {
-      // expected exception
-    }
+    });
     assertTrue(getQuery("term*germ", null) instanceof WildcardQuery);
 
     /*
@@ -370,8 +382,8 @@ public class TestPrecedenceQueryParser extends LuceneTestCase {
     // QueryParser behavior
     assertQueryEquals("term AND NOT phrase term", qpAnalyzer,
         "(+term -(phrase1 phrase2)) term");
-    assertQueryEquals("stop", qpAnalyzer, "");
-    assertQueryEquals("stop OR stop AND stop", qpAnalyzer, "");
+    assertMatchNoDocsQuery("stop", qpAnalyzer);
+    assertMatchNoDocsQuery("stop OR stop AND stop", qpAnalyzer);
     assertTrue(getQuery("term term term", qpAnalyzer) instanceof BooleanQuery);
     assertTrue(getQuery("term +stop", qpAnalyzer) instanceof TermQuery);
   }
@@ -382,7 +394,7 @@ public class TestPrecedenceQueryParser extends LuceneTestCase {
     assertQueryEquals("[ a TO z ]", null, "[a TO z]");
     assertQueryEquals("{ a TO z}", null, "{a TO z}");
     assertQueryEquals("{ a TO z }", null, "{a TO z}");
-    assertQueryEquals("{ a TO z }^2.0", null, "{a TO z}^2.0");
+    assertQueryEquals("{ a TO z }^2.0", null, "({a TO z})^2.0");
     assertQueryEquals("[ a TO z] OR bar", null, "[a TO z] bar");
     assertQueryEquals("[ a TO z] AND bar", null, "+[a TO z] +bar");
     assertQueryEquals("( bar blar { a TO z}) ", null, "bar blar {a TO z}");
@@ -434,14 +446,14 @@ public class TestPrecedenceQueryParser extends LuceneTestCase {
     Map<CharSequence, DateTools.Resolution> fieldMap = new HashMap<>();
     // set a field specific date resolution
     fieldMap.put(monthField, DateTools.Resolution.MONTH);
-    qp.setDateResolution(fieldMap);
+    qp.setDateResolutionMap(fieldMap);
 
     // set default date resolution to MILLISECOND
     qp.setDateResolution(DateTools.Resolution.MILLISECOND);
 
     // set second field specific date resolution
     fieldMap.put(hourField, DateTools.Resolution.HOUR);
-    qp.setDateResolution(fieldMap);
+    qp.setDateResolutionMap(fieldMap);
 
     // for this field no field specific date resolution has been set,
     // so verify if the default resolution is used
@@ -566,10 +578,10 @@ public class TestPrecedenceQueryParser extends LuceneTestCase {
     assertNotNull(q);
     q = qp.parse("\"hello\"^2.0", "field");
     assertNotNull(q);
-    assertEquals(q.getBoost(), (float) 2.0, (float) 0.5);
+    assertEquals(((BoostQuery) q).getBoost(), (float) 2.0, (float) 0.5);
     q = qp.parse("hello^2.0", "field");
     assertNotNull(q);
-    assertEquals(q.getBoost(), (float) 2.0, (float) 0.5);
+    assertEquals(((BoostQuery) q).getBoost(), (float) 2.0, (float) 0.5);
     q = qp.parse("\"on\"^1.0", "field");
     assertNotNull(q);
 
@@ -579,21 +591,17 @@ public class TestPrecedenceQueryParser extends LuceneTestCase {
   }
 
   public void testException() throws Exception {
-    try {
+    expectThrows(QueryNodeParseException.class, () -> {
       assertQueryEquals("\"some phrase", null, "abc");
-      fail("ParseException expected, not thrown");
-    } catch (QueryNodeParseException expected) {
-    }
+    });
   }
 
+  // ParseException expected due to too many boolean clauses
   public void testBooleanQuery() throws Exception {
     BooleanQuery.setMaxClauseCount(2);
-    try {
+    expectThrows(QueryNodeException.class, () -> {
       getParser(new MockAnalyzer(random(), MockTokenizer.WHITESPACE, false)).parse("one two three", "field");
-      fail("ParseException expected due to too many boolean clauses");
-    } catch (QueryNodeException expected) {
-      // too many boolean clauses, so ParseException is expected
-    }
+    });
   }
   
   // LUCENE-792

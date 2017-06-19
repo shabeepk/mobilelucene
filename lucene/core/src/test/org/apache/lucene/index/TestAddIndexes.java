@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -32,11 +32,15 @@ import org.apache.lucene.codecs.memory.MemoryPostingsFormat;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
+import org.apache.lucene.document.IntPoint;
+import org.apache.lucene.document.NumericDocValuesField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexWriterConfig.OpenMode;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.PhraseQuery;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.BaseDirectoryWrapper;
 import org.apache.lucene.store.Directory;
@@ -169,6 +173,9 @@ public class TestAddIndexes extends LuceneTestCase {
       Document doc = new Document();
       doc.add(newStringField("id", "" + (i % 10), Field.Store.NO));
       doc.add(newTextField("content", "bbb " + i, Field.Store.NO));
+      doc.add(new IntPoint("doc", i));
+      doc.add(new IntPoint("doc2d", i, i));
+      doc.add(new NumericDocValuesField("dv", i));
       writer.updateDocument(new Term("id", "" + (i%10)), doc);
     }
     // Deletes one of the 10 added docs, leaving 9:
@@ -202,6 +209,9 @@ public class TestAddIndexes extends LuceneTestCase {
       Document doc = new Document();
       doc.add(newStringField("id", "" + (i % 10), Field.Store.NO));
       doc.add(newTextField("content", "bbb " + i, Field.Store.NO));
+      doc.add(new IntPoint("doc", i));
+      doc.add(new IntPoint("doc2d", i, i));
+      doc.add(new NumericDocValuesField("dv", i));
       writer.updateDocument(new Term("id", "" + (i%10)), doc);
     }
     
@@ -238,6 +248,9 @@ public class TestAddIndexes extends LuceneTestCase {
       Document doc = new Document();
       doc.add(newStringField("id", "" + (i % 10), Field.Store.NO));
       doc.add(newTextField("content", "bbb " + i, Field.Store.NO));
+      doc.add(new IntPoint("doc", i));
+      doc.add(new IntPoint("doc2d", i, i));
+      doc.add(new NumericDocValuesField("dv", i));
       writer.updateDocument(new Term("id", "" + (i%10)), doc);
     }
 
@@ -294,16 +307,13 @@ public class TestAddIndexes extends LuceneTestCase {
     addDocs(writer, 100);
     writer.close();
 
-    writer = newWriter(dir, newIndexWriterConfig(new MockAnalyzer(random())).setOpenMode(OpenMode.APPEND));
-    try {
-      // cannot add self
-      writer.addIndexes(aux, dir);
-      assertTrue(false);
-    }
-    catch (IllegalArgumentException e) {
-      assertEquals(100, writer.maxDoc());
-    }
-    writer.close();
+    // cannot add self
+    IndexWriter writer2 = newWriter(dir, newIndexWriterConfig(new MockAnalyzer(random())).setOpenMode(OpenMode.APPEND));
+    expectThrows(IllegalArgumentException.class, () -> {
+      writer2.addIndexes(aux, dir);
+    });
+    assertEquals(100, writer2.maxDoc());
+    writer2.close();
 
     // make sure the index is correct
     verifyNumDocs(dir, 100);
@@ -510,6 +520,9 @@ public class TestAddIndexes extends LuceneTestCase {
     for (int i = 0; i < numDocs; i++) {
       Document doc = new Document();
       doc.add(newTextField("content", "aaa", Field.Store.NO));
+      doc.add(new IntPoint("doc", i));
+      doc.add(new IntPoint("doc2d", i, i));
+      doc.add(new NumericDocValuesField("dv", i));
       writer.addDocument(doc);
     }
   }
@@ -518,6 +531,9 @@ public class TestAddIndexes extends LuceneTestCase {
     for (int i = 0; i < numDocs; i++) {
       Document doc = new Document();
       doc.add(newTextField("content", "bbb", Field.Store.NO));
+      doc.add(new IntPoint("doc", i));
+      doc.add(new IntPoint("doc2d", i, i));
+      doc.add(new NumericDocValuesField("dv", i));
       writer.addDocument(doc);
     }
   }
@@ -1001,6 +1017,9 @@ public class TestAddIndexes extends LuceneTestCase {
       Document doc = new Document();
       doc.add(newTextField("content", "aaa", Field.Store.NO));
       doc.add(newTextField("id", "" + (docStart + i), Field.Store.YES));
+      doc.add(new IntPoint("doc", i));
+      doc.add(new IntPoint("doc2d", i, i));
+      doc.add(new NumericDocValuesField("dv", i));
       writer.addDocument(doc);
     }
   }
@@ -1067,14 +1086,14 @@ public class TestAddIndexes extends LuceneTestCase {
   }
 
   private static final class CustomPerFieldCodec extends AssertingCodec {
-    private final PostingsFormat simpleTextFormat = PostingsFormat.forName("SimpleText");
+    private final PostingsFormat directFormat = PostingsFormat.forName("Direct");
     private final PostingsFormat defaultFormat = TestUtil.getDefaultPostingsFormat();
     private final PostingsFormat memoryFormat = PostingsFormat.forName("Memory");
 
     @Override
     public PostingsFormat getPostingsFormatForField(String field) {
       if (field.equals("id")) {
-        return simpleTextFormat;
+        return directFormat;
       } else if (field.equals("content")) {
         return memoryFormat;
       } else {
@@ -1082,7 +1101,6 @@ public class TestAddIndexes extends LuceneTestCase {
       }
     }
   }
-
 
   // LUCENE-2790: tests that the non CFS files were deleted by addIndexes
   public void testNonCFSLeftovers() throws Exception {
@@ -1101,7 +1119,6 @@ public class TestAddIndexes extends LuceneTestCase {
     DirectoryReader[] readers = new DirectoryReader[] { DirectoryReader.open(dirs[0]), DirectoryReader.open(dirs[1]) };
     
     MockDirectoryWrapper dir = new MockDirectoryWrapper(random(), new RAMDirectory());
-    dir.setEnableVirusScanner(false); // we check for specific list of files
     IndexWriterConfig conf = new IndexWriterConfig(new MockAnalyzer(random())).setMergePolicy(newLogMergePolicy(true));
     MergePolicy lmp = conf.getMergePolicy();
     // Force creation of CFS:
@@ -1149,12 +1166,9 @@ public class TestAddIndexes extends LuceneTestCase {
       IndexWriterConfig conf = newIndexWriterConfig(new MockAnalyzer(random()));
       conf.setCodec(TestUtil.alwaysPostingsFormat(new MemoryPostingsFormat()));
       IndexWriter w = new IndexWriter(dir, conf);
-      try {
+      expectThrows(IllegalArgumentException.class, () -> {
         w.addIndexes(toAdd);
-        fail("no such codec");
-      } catch (IllegalArgumentException ex) {
-        // expected
-      }
+      });
       w.close();
       IndexReader open = DirectoryReader.open(dir);
       assertEquals(0, open.numDocs());
@@ -1162,12 +1176,9 @@ public class TestAddIndexes extends LuceneTestCase {
       dir.close();
     }
 
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       DirectoryReader.open(toAdd);
-      fail("no such codec");
-    } catch (IllegalArgumentException ex) {
-      // expected
-    }
+    });
     toAdd.close();
   }
 
@@ -1264,15 +1275,61 @@ public class TestAddIndexes extends LuceneTestCase {
     IndexWriterConfig iwc = newIndexWriterConfig(new MockAnalyzer(random()));
     RandomIndexWriter w2 = new RandomIndexWriter(random(), dest, iwc);
 
-    try {
+    expectThrows(LockObtainFailedException.class, () -> {
       w2.addIndexes(src);
-      fail("did not hit expected exception");
-    } catch (LockObtainFailedException lofe) {
-      // expected
-    }
+    });
 
     w1.close();
     w2.close();
     IOUtils.close(src, dest);
+  }
+
+  public void testIllegalIndexSortChange1() throws Exception {
+    Directory dir1 = newDirectory();
+    IndexWriterConfig iwc1 = newIndexWriterConfig(new MockAnalyzer(random()));
+    iwc1.setIndexSort(new Sort(new SortField("foo", SortField.Type.INT)));
+    RandomIndexWriter w1 = new RandomIndexWriter(random(), dir1, iwc1);
+    w1.addDocument(new Document());
+    w1.commit();
+    w1.addDocument(new Document());
+    w1.commit();
+    // so the index sort is in fact burned into the index:
+    w1.forceMerge(1);
+    w1.close();
+
+    Directory dir2 = newDirectory();
+    IndexWriterConfig iwc2 = newIndexWriterConfig(new MockAnalyzer(random()));
+    iwc2.setIndexSort(new Sort(new SortField("foo", SortField.Type.STRING)));
+    RandomIndexWriter w2 = new RandomIndexWriter(random(), dir2, iwc2);
+    String message = expectThrows(IllegalArgumentException.class, () -> {
+        w2.addIndexes(dir1);
+      }).getMessage();
+    assertEquals("cannot change index sort from <int: \"foo\"> to <string: \"foo\">", message);
+    IOUtils.close(dir1, w2, dir2);
+  }
+
+  public void testIllegalIndexSortChange2() throws Exception {
+    Directory dir1 = newDirectory();
+    IndexWriterConfig iwc1 = newIndexWriterConfig(new MockAnalyzer(random()));
+    iwc1.setIndexSort(new Sort(new SortField("foo", SortField.Type.INT)));
+    RandomIndexWriter w1 = new RandomIndexWriter(random(), dir1, iwc1);
+    w1.addDocument(new Document());
+    w1.commit();
+    w1.addDocument(new Document());
+    w1.commit();
+    // so the index sort is in fact burned into the index:
+    w1.forceMerge(1);
+    w1.close();
+
+    Directory dir2 = newDirectory();
+    IndexWriterConfig iwc2 = newIndexWriterConfig(new MockAnalyzer(random()));
+    iwc2.setIndexSort(new Sort(new SortField("foo", SortField.Type.STRING)));
+    RandomIndexWriter w2 = new RandomIndexWriter(random(), dir2, iwc2);
+    IndexReader r1 = DirectoryReader.open(dir1);
+    String message = expectThrows(IllegalArgumentException.class, () -> {
+        w2.addIndexes((SegmentReader) getOnlyLeafReader(r1));
+      }).getMessage();
+    assertEquals("cannot change index sort from <int: \"foo\"> to <string: \"foo\">", message);
+    IOUtils.close(r1, dir1, w2, dir2);
   }
 }

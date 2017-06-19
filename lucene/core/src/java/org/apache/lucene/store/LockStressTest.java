@@ -1,5 +1,3 @@
-package org.apache.lucene.store;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,14 +14,16 @@ package org.apache.lucene.store;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.store;
+
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import org.lukhnos.portmobile.file.Path;
-import org.lukhnos.portmobile.file.Paths;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Random;
 
 import org.apache.lucene.util.SuppressForbidden;
@@ -133,14 +133,14 @@ public class LockStressTest {
     // try to get static INSTANCE field of class
     try {
       return (FSLockFactory) Class.forName(lockFactoryClassName).getField("INSTANCE").get(null);
-    } catch (Exception e) {
+    } catch (ReflectiveOperationException e) {
       // fall-through
     }
     
     // try to create a new instance
     try {
       return Class.forName(lockFactoryClassName).asSubclass(FSLockFactory.class).newInstance();
-    } catch (Exception e) {
+    } catch (ReflectiveOperationException | ClassCastException e) {
       // fall-through
     }
 

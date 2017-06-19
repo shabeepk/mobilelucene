@@ -1,30 +1,29 @@
-package org.apache.lucene.store;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with this
- * work for additional information regarding copyright ownership. The ASF
- * licenses this file to You under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- * 
- * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
+package org.apache.lucene.store;
 
 import java.io.EOFException;
-import java.io.IOException;
-import java.io.FileInputStream;
 import java.io.FileDescriptor;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import org.lukhnos.portmobile.file.Path;
+import java.nio.file.Path;
 
 import org.apache.lucene.store.Directory; // javadoc
 import org.apache.lucene.store.IOContext.Context;
@@ -148,8 +147,7 @@ public class NativeUnixDirectory extends FSDirectory {
     if (context.context != Context.MERGE || context.mergeInfo.estimatedMergeBytes < minBytesDirect) {
       return delegate.createOutput(name, context);
     } else {
-      ensureCanWrite(name);
-      return new NativeUnixIndexOutput(getDirectory().resolve(name), mergeBufferSize);
+      return new NativeUnixIndexOutput(getDirectory().resolve(name), name, mergeBufferSize);
     }
   }
 
@@ -167,8 +165,8 @@ public class NativeUnixDirectory extends FSDirectory {
     private long fileLength;
     private boolean isOpen;
 
-    public NativeUnixIndexOutput(Path path, int bufferSize) throws IOException {
-      super("NativeUnixIndexOutput(path=\"" + path.toString() + "\")");
+    public NativeUnixIndexOutput(Path path, String name, int bufferSize) throws IOException {
+      super("NativeUnixIndexOutput(path=\"" + path.toString() + "\")", name);
       //this.path = path;
       final FileDescriptor fd = NativePosixUtil.open_direct(path.toString(), false);
       fos = new FileOutputStream(fd);

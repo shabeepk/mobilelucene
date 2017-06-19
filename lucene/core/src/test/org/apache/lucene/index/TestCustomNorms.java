@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 import java.io.IOException;
 
 import org.apache.lucene.analysis.MockAnalyzer;
@@ -24,7 +24,7 @@ import org.apache.lucene.document.Field;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.search.CollectionStatistics;
 import org.apache.lucene.search.TermStatistics;
-import org.apache.lucene.search.similarities.DefaultSimilarity;
+import org.apache.lucene.search.similarities.ClassicSimilarity;
 import org.apache.lucene.search.similarities.PerFieldSimilarityWrapper;
 import org.apache.lucene.search.similarities.Similarity;
 import org.apache.lucene.store.Directory;
@@ -66,8 +66,8 @@ public class TestCustomNorms extends LuceneTestCase {
     }
     writer.commit();
     writer.close();
-    LeafReader open = SlowCompositeReaderWrapper.wrap(DirectoryReader.open(dir));
-    NumericDocValues norms = open.getNormValues(floatTestField);
+    DirectoryReader open = DirectoryReader.open(dir);
+    NumericDocValues norms = MultiDocValues.getNormValues(open, floatTestField);
     assertNotNull(norms);
     for (int i = 0; i < open.maxDoc(); i++) {
       Document document = open.document(i);
@@ -80,11 +80,8 @@ public class TestCustomNorms extends LuceneTestCase {
   }
 
   public class MySimProvider extends PerFieldSimilarityWrapper {
-    Similarity delegate = new DefaultSimilarity();
-
-    @Override
-    public float queryNorm(float sumOfSquaredWeights) {
-      return delegate.queryNorm(sumOfSquaredWeights);
+    public MySimProvider() {
+      super(new ClassicSimilarity());
     }
 
     @Override
@@ -92,13 +89,8 @@ public class TestCustomNorms extends LuceneTestCase {
       if (floatTestField.equals(field)) {
         return new FloatEncodingBoostSimilarity();
       } else {
-        return delegate;
+        return defaultSim;
       }
-    }
-
-    @Override
-    public float coord(int overlap, int maxOverlap) {
-      return delegate.coord(overlap, maxOverlap);
     }
   }
 
@@ -110,7 +102,7 @@ public class TestCustomNorms extends LuceneTestCase {
     }
     
     @Override
-    public SimWeight computeWeight(float queryBoost, CollectionStatistics collectionStats, TermStatistics... termStats) {
+    public SimWeight computeWeight(CollectionStatistics collectionStats, TermStatistics... termStats) {
       throw new UnsupportedOperationException();
     }
 

@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.standard;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,17 +14,19 @@ package org.apache.lucene.analysis.standard;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.standard;
 
-import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.core.LowerCaseFilter;
-import org.apache.lucene.analysis.core.StopAnalyzer;
-import org.apache.lucene.analysis.core.StopFilter;
-import org.apache.lucene.analysis.util.CharArraySet;
-import org.apache.lucene.analysis.util.StopwordAnalyzerBase;
-import org.apache.lucene.analysis.util.WordlistLoader;
 
 import java.io.IOException;
 import java.io.Reader;
+
+import org.apache.lucene.analysis.CharArraySet;
+import org.apache.lucene.analysis.LowerCaseFilter;
+import org.apache.lucene.analysis.StopFilter;
+import org.apache.lucene.analysis.StopwordAnalyzerBase;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.WordlistLoader;
+import org.apache.lucene.analysis.core.StopAnalyzer;
 
 /**
  * Filters {@link ClassicTokenizer} with {@link ClassicFilter}, {@link
@@ -94,10 +94,15 @@ public final class ClassicAnalyzer extends StopwordAnalyzerBase {
     tok = new StopFilter(tok, stopwords);
     return new TokenStreamComponents(src, tok) {
       @Override
-      protected void setReader(final Reader reader) throws IOException {
+      protected void setReader(final Reader reader) {
         src.setMaxTokenLength(ClassicAnalyzer.this.maxTokenLength);
         super.setReader(reader);
       }
     };
+  }
+
+  @Override
+  protected TokenStream normalize(String fieldName, TokenStream in) {
+    return new LowerCaseFilter(in);
   }
 }

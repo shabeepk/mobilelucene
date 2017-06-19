@@ -1,5 +1,3 @@
-package org.apache.lucene.search.postingshighlight;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,9 +14,10 @@ package org.apache.lucene.search.postingshighlight;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.postingshighlight;
 
 import java.io.IOException;
-import org.lukhnos.portmobile.charset.StandardCharsets;
+import java.nio.charset.StandardCharsets;
 import java.text.BreakIterator;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -93,7 +92,9 @@ import org.apache.lucene.util.automaton.CharacterRunAutomaton;
  * <p>
  * This is thread-safe, and can be used across different readers.
  * @lucene.experimental
+ * @deprecated This evolved into the UnifiedHighlighter; use that instead.
  */
+@Deprecated
 public class PostingsHighlighter {
   
   // TODO: maybe allow re-analysis for tiny fields? currently we require offsets,
@@ -466,7 +467,7 @@ public class PostingsHighlighter {
 
     PassageFormatter fieldFormatter = getFormatter(field);
     if (fieldFormatter == null) {
-      throw new NullPointerException("PassageFormatter cannot be null");
+      throw new NullPointerException("PassageFormatter must not be null");
     }
     
     // check if we should do any multiterm processing
@@ -551,7 +552,7 @@ public class PostingsHighlighter {
       TermsEnum termsEnum, PostingsEnum[] postings, int n) throws IOException {
     PassageScorer scorer = getScorer(field);
     if (scorer == null) {
-      throw new NullPointerException("PassageScorer cannot be null");
+      throw new NullPointerException("PassageScorer must not be null");
     }
     PriorityQueue<OffsetsEnum> pq = new PriorityQueue<>();
     float weights[] = new float[terms.length];

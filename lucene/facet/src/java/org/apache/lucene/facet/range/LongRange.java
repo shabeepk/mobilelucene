@@ -1,5 +1,3 @@
-package org.apache.lucene.facet.range;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,19 +14,20 @@ package org.apache.lucene.facet.range;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.facet.range;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.Objects;
 
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
-import org.apache.lucene.queries.function.FunctionValues;
 import org.apache.lucene.queries.function.ValueSource;
 import org.apache.lucene.search.ConstantScoreScorer;
 import org.apache.lucene.search.ConstantScoreWeight;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.LongValues;
+import org.apache.lucene.search.LongValuesSource;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.TwoPhaseIterator;
@@ -38,20 +37,11 @@ import org.apache.lucene.search.Weight;
  *
  * @lucene.experimental */
 public final class LongRange extends Range {
-  final long minIncl;
-  final long maxIncl;
-
-  /** Minimum. */
+  /** Minimum (inclusive). */
   public final long min;
 
-  /** Maximum. */
+  /** Maximum (inclusive). */
   public final long max;
-
-  /** True if the minimum value is inclusive. */
-  public final boolean minInclusive;
-
-  /** True if the maximum value is inclusive. */
-  public final boolean maxInclusive;
 
   // TODO: can we require fewer args? (same for
   // Double/FloatRange too)
@@ -59,10 +49,6 @@ public final class LongRange extends Range {
   /** Create a LongRange. */
   public LongRange(String label, long minIn, boolean minInclusive, long maxIn, boolean maxInclusive) {
     super(label);
-    this.min = minIn;
-    this.max = maxIn;
-    this.minInclusive = minInclusive;
-    this.maxInclusive = maxInclusive;
 
     if (!minInclusive) {
       if (minIn != Long.MAX_VALUE) {
@@ -84,45 +70,46 @@ public final class LongRange extends Range {
       failNoMatch();
     }
 
-    this.minIncl = minIn;
-    this.maxIncl = maxIn;
+    this.min = minIn;
+    this.max = maxIn;
   }
 
   /** True if this range accepts the provided value. */
   public boolean accept(long value) {
-    return value >= minIncl && value <= maxIncl;
+    return value >= min && value <= max;
   }
 
   @Override
   public String toString() {
-    return "LongRange(" + minIncl + " to " + maxIncl + ")";
+    return "LongRange(" + min + " to " + max + ")";
   }
 
   private static class ValueSourceQuery extends Query {
     private final LongRange range;
     private final Query fastMatchQuery;
-    private final ValueSource valueSource;
+    private final LongValuesSource valueSource;
 
-    ValueSourceQuery(LongRange range, Query fastMatchQuery, ValueSource valueSource) {
+    ValueSourceQuery(LongRange range, Query fastMatchQuery, LongValuesSource valueSource) {
       this.range = range;
       this.fastMatchQuery = fastMatchQuery;
       this.valueSource = valueSource;
     }
 
     @Override
-    public boolean equals(Object obj) {
-      if (super.equals(obj) == false) {
-        return false;
-      }
-      ValueSourceQuery other = (ValueSourceQuery) obj;
-      return range.equals(other.range)
-          && Objects.equals(fastMatchQuery, other.fastMatchQuery)
-          && valueSource.equals(other.valueSource);
+    public boolean equals(Object other) {
+      return sameClassAs(other) &&
+             equalsTo(getClass().cast(other));
+    }
+
+    private boolean equalsTo(ValueSourceQuery other) {
+      return range.equals(other.range) && 
+             Objects.equals(fastMatchQuery, other.fastMatchQuery) && 
+             valueSource.equals(other.valueSource);
     }
 
     @Override
     public int hashCode() {
-      return 31 * Objects.hash(range, fastMatchQuery, valueSource) + super.hashCode();
+      return classHash() + 31 * Objects.hash(range, fastMatchQuery, valueSource);
     }
 
     @Override
@@ -135,9 +122,7 @@ public final class LongRange extends Range {
       if (fastMatchQuery != null) {
         final Query fastMatchRewritten = fastMatchQuery.rewrite(reader);
         if (fastMatchRewritten != fastMatchQuery) {
-          Query rewritten = new ValueSourceQuery(range, fastMatchRewritten, valueSource);
-          rewritten.setBoost(getBoost());
-          return rewritten;
+          return new ValueSourceQuery(range, fastMatchRewritten, valueSource);
         }
       }
       return super.rewrite(reader);
@@ -158,17 +143,23 @@ public final class LongRange extends Range {
           if (fastMatchWeight == null) {
             approximation = DocIdSetIterator.all(maxDoc);
           } else {
-            approximation = fastMatchWeight.scorer(context);
-            if (approximation == null) {
+            Scorer s = fastMatchWeight.scorer(context);
+            if (s == null) {
               return null;
             }
+            approximation = s.iterator();
           }
 
-          final FunctionValues values = valueSource.getValues(Collections.emptyMap(), context);
+          final LongValues values = valueSource.getValues(context, null);
           final TwoPhaseIterator twoPhase = new TwoPhaseIterator(approximation) {
             @Override
             public boolean matches() throws IOException {
-              return range.accept(values.longVal(approximation.docID()));
+              return values.advanceExact(approximation.docID()) && range.accept(values.longValue());
+            }
+
+            @Override
+            public float matchCost() {
+              return 100; // TODO: use cost of range.accept()
             }
           };
           return new ConstantScoreScorer(this, score(), twoPhase);
@@ -178,8 +169,28 @@ public final class LongRange extends Range {
 
   }
 
-  @Override
+
+  /**
+   * @deprecated Use {@link #getQuery(Query, LongValuesSource)}
+   */
+  @Deprecated
   public Query getQuery(final Query fastMatchQuery, final ValueSource valueSource) {
+    return new ValueSourceQuery(this, fastMatchQuery, valueSource.asLongValuesSource());
+  }
+
+  /**
+   * Create a Query that matches documents in this range
+   *
+   * The query will check all documents that match the provided match query,
+   * or every document in the index if the match query is null.
+   *
+   * If the value source is static, eg an indexed numeric field, it may be
+   * faster to use {@link org.apache.lucene.search.PointRangeQuery}
+   *
+   * @param fastMatchQuery a query to use as a filter
+   * @param valueSource    the source of values for the range check
+   */
+  public Query getQuery(Query fastMatchQuery, LongValuesSource valueSource) {
     return new ValueSourceQuery(this, fastMatchQuery, valueSource);
   }
 }

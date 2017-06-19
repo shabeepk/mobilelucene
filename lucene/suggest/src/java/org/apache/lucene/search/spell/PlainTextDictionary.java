@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spell;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,14 +14,15 @@ package org.apache.lucene.search.spell;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spell;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
-import org.lukhnos.portmobile.charset.StandardCharsets;
-import org.lukhnos.portmobile.file.Files;
-import org.lukhnos.portmobile.file.Path;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import org.apache.lucene.search.suggest.InputIterator;
 import org.apache.lucene.util.BytesRef;

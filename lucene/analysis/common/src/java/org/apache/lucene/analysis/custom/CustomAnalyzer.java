@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.custom;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,17 +14,21 @@ package org.apache.lucene.analysis.custom;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.custom;
+
+
+import static org.apache.lucene.analysis.util.AnalysisSPILoader.newFactoryClassInstance;
 
 import java.io.IOException;
 import java.io.Reader;
-import org.lukhnos.portmobile.file.Path;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.lukhnos.portmobile.util.Objects;
+import java.util.Objects;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
@@ -35,6 +37,7 @@ import org.apache.lucene.analysis.util.AbstractAnalysisFactory;
 import org.apache.lucene.analysis.util.CharFilterFactory;
 import org.apache.lucene.analysis.util.ClasspathResourceLoader;
 import org.apache.lucene.analysis.util.FilesystemResourceLoader;
+import org.apache.lucene.analysis.util.MultiTermAwareComponent;
 import org.apache.lucene.analysis.util.ResourceLoader;
 import org.apache.lucene.analysis.util.ResourceLoaderAware;
 import org.apache.lucene.analysis.util.TokenFilterFactory;
@@ -49,15 +52,24 @@ import org.apache.lucene.util.Version;
  * <p>You can create an instance of this Analyzer using the builder:
  * <pre class="prettyprint">
  * Analyzer ana = CustomAnalyzer.builder(Paths.get(&quot;/path/to/config/dir&quot;))
+ *   .withTokenizer(StandardTokenizerFactory.class)
+ *   .addTokenFilter(StandardFilterFactory.class)
+ *   .addTokenFilter(LowerCaseFilterFactory.class)
+ *   .addTokenFilter(StopFilterFactory.class, &quot;ignoreCase&quot;, &quot;false&quot;, &quot;words&quot;, &quot;stopwords.txt&quot;, &quot;format&quot;, &quot;wordset&quot;)
+ *   .build();
+ * </pre>
+ * The parameters passed to components are also used by Apache Solr and are documented
+ * on their corresponding factory classes. Refer to documentation of subclasses
+ * of {@link TokenizerFactory}, {@link TokenFilterFactory}, and {@link CharFilterFactory}.
+ * <p>You can also use the SPI names (as defined by {@link java.util.ServiceLoader} interface):
+ * <pre class="prettyprint">
+ * Analyzer ana = CustomAnalyzer.builder(Paths.get(&quot;/path/to/config/dir&quot;))
  *   .withTokenizer(&quot;standard&quot;)
  *   .addTokenFilter(&quot;standard&quot;)
  *   .addTokenFilter(&quot;lowercase&quot;)
  *   .addTokenFilter(&quot;stop&quot;, &quot;ignoreCase&quot;, &quot;false&quot;, &quot;words&quot;, &quot;stopwords.txt&quot;, &quot;format&quot;, &quot;wordset&quot;)
  *   .build();
  * </pre>
- * The parameters passed to components are also used by Apache Solr and are documented
- * on their corresponding factory classes. Refer to documentation of subclasses
- * of {@link TokenizerFactory}, {@link TokenFilterFactory}, and {@link CharFilterFactory}.
  * <p>The list of names to be used for components can be looked up through:
  * {@link TokenizerFactory#availableTokenizers()}, {@link TokenFilterFactory#availableTokenFilters()},
  * and {@link CharFilterFactory#availableCharFilters()}.
@@ -107,15 +119,38 @@ public final class CustomAnalyzer extends Analyzer {
   }
 
   @Override
+  protected Reader initReaderForNormalization(String fieldName, Reader reader) {
+    for (CharFilterFactory charFilter : charFilters) {
+      if (charFilter instanceof MultiTermAwareComponent) {
+        charFilter = (CharFilterFactory) ((MultiTermAwareComponent) charFilter).getMultiTermComponent();
+        reader = charFilter.create(reader);
+      }
+    }
+    return reader;
+  }
+
+  @Override
   protected TokenStreamComponents createComponents(String fieldName) {
-    final Tokenizer tk = tokenizer.create();
+    final Tokenizer tk = tokenizer.create(attributeFactory(fieldName));
     TokenStream ts = tk;
     for (final TokenFilterFactory filter : tokenFilters) {
       ts = filter.create(ts);
     }
     return new TokenStreamComponents(tk, ts);
   }
-  
+
+  @Override
+  protected TokenStream normalize(String fieldName, TokenStream in) {
+    TokenStream result = in;
+    for (TokenFilterFactory filter : tokenFilters) {
+      if (filter instanceof MultiTermAwareComponent) {
+        filter = (TokenFilterFactory) ((MultiTermAwareComponent) filter).getMultiTermComponent();
+        result = filter.create(result);
+      }
+    }
+    return result;
+  }
+
   @Override
   public int getPositionIncrementGap(String fieldName) {
     // use default from Analyzer base class if null
@@ -214,6 +249,26 @@ public final class CustomAnalyzer extends Analyzer {
     }
     
     /** Uses the given tokenizer.
+     * @param factory class that is used to create the tokenizer.
+     * @param params a list of factory string params as key/value pairs.
+     *  The number of parameters must be an even number, as they are pairs.
+     */
+    public Builder withTokenizer(Class<? extends TokenizerFactory> factory, String... params) throws IOException {
+      return withTokenizer(factory, paramsToMap(params));
+    }
+    
+    /** Uses the given tokenizer.
+     * @param factory class that is used to create the tokenizer.
+     * @param params the map of parameters to be passed to factory. The map must be modifiable.
+     */
+    public Builder withTokenizer(Class<? extends TokenizerFactory> factory, Map<String,String> params) throws IOException {
+      Objects.requireNonNull(factory, "Tokenizer factory may not be null");
+      tokenizer.set(applyResourceLoader(newFactoryClassInstance(factory, applyDefaultParams(params))));
+      componentsAdded = true;
+      return this;
+    }
+    
+    /** Uses the given tokenizer.
      * @param name is used to look up the factory with {@link TokenizerFactory#forName(String, Map)}.
      *  The list of possible names can be looked up with {@link TokenizerFactory#availableTokenizers()}.
      * @param params a list of factory string params as key/value pairs.
@@ -236,6 +291,26 @@ public final class CustomAnalyzer extends Analyzer {
     }
     
     /** Adds the given token filter.
+     * @param factory class that is used to create the token filter.
+     * @param params a list of factory string params as key/value pairs.
+     *  The number of parameters must be an even number, as they are pairs.
+     */
+    public Builder addTokenFilter(Class<? extends TokenFilterFactory> factory, String... params) throws IOException {
+      return addTokenFilter(factory, paramsToMap(params));
+    }
+    
+    /** Adds the given token filter.
+     * @param factory class that is used to create the token filter.
+     * @param params the map of parameters to be passed to factory. The map must be modifiable.
+     */
+    public Builder addTokenFilter(Class<? extends TokenFilterFactory> factory, Map<String,String> params) throws IOException {
+      Objects.requireNonNull(factory, "TokenFilter name may not be null");
+      tokenFilters.add(applyResourceLoader(newFactoryClassInstance(factory, applyDefaultParams(params))));
+      componentsAdded = true;
+      return this;
+    }
+    
+    /** Adds the given token filter.
      * @param name is used to look up the factory with {@link TokenFilterFactory#forName(String, Map)}.
      *  The list of possible names can be looked up with {@link TokenFilterFactory#availableTokenFilters()}.
      * @param params a list of factory string params as key/value pairs.
@@ -253,6 +328,26 @@ public final class CustomAnalyzer extends Analyzer {
     public Builder addTokenFilter(String name, Map<String,String> params) throws IOException {
       Objects.requireNonNull(name, "TokenFilter name may not be null");
       tokenFilters.add(applyResourceLoader(TokenFilterFactory.forName(name, applyDefaultParams(params))));
+      componentsAdded = true;
+      return this;
+    }
+    
+    /** Adds the given char filter.
+     * @param factory class that is used to create the char filter.
+     * @param params a list of factory string params as key/value pairs.
+     *  The number of parameters must be an even number, as they are pairs.
+     */
+    public Builder addCharFilter(Class<? extends CharFilterFactory> factory, String... params) throws IOException {
+      return addCharFilter(factory, paramsToMap(params));
+    }
+    
+    /** Adds the given char filter.
+     * @param factory class that is used to create the char filter.
+     * @param params the map of parameters to be passed to factory. The map must be modifiable.
+     */
+    public Builder addCharFilter(Class<? extends CharFilterFactory> factory, Map<String,String> params) throws IOException {
+      Objects.requireNonNull(factory, "CharFilter name may not be null");
+      charFilters.add(applyResourceLoader(newFactoryClassInstance(factory, applyDefaultParams(params))));
       componentsAdded = true;
       return this;
     }

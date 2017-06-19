@@ -1,5 +1,3 @@
-package org.apache.lucene.queries.function;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,9 +14,11 @@ package org.apache.lucene.queries.function;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queries.function;
 
-import org.apache.lucene.search.*;
-import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.search.Explanation;
+import org.apache.lucene.search.Scorer;
 import org.apache.lucene.util.BytesRefBuilder;
 import org.apache.lucene.util.mutable.MutableValue;
 import org.apache.lucene.util.mutable.MutableValueFloat;
@@ -136,15 +136,28 @@ public abstract class FunctionValues {
     return Explanation.match(floatVal(doc), toString(doc));
   }
 
-  public ValueSourceScorer getScorer(IndexReader reader) {
-    return new ValueSourceScorer(reader, this);
+  /**
+   * Yields a {@link Scorer} that matches all documents,
+   * and that which produces scores equal to {@link #floatVal(int)}.
+   */
+  public ValueSourceScorer getScorer(LeafReaderContext readerContext) {
+    return new ValueSourceScorer(readerContext, this) {
+      @Override
+      public boolean matches(int doc) {
+        return true;
+      }
+    };
   }
 
+  /**
+   * Yields a {@link Scorer} that matches documents with values between the specified range,
+   * and that which produces scores equal to {@link #floatVal(int)}.
+   */
   // A RangeValueSource can't easily be a ValueSource that takes another ValueSource
   // because it needs different behavior depending on the type of fields.  There is also
   // a setup cost - parsing and normalizing params, and doing a binary search on the StringIndex.
   // TODO: change "reader" to LeafReaderContext
-  public ValueSourceScorer getRangeScorer(IndexReader reader, String lowerVal, String upperVal, boolean includeLower, boolean includeUpper) {
+  public ValueSourceScorer getRangeScorer(LeafReaderContext readerContext, String lowerVal, String upperVal, boolean includeLower, boolean includeUpper) {
     float lower;
     float upper;
 
@@ -163,36 +176,40 @@ public abstract class FunctionValues {
     final float u = upper;
 
     if (includeLower && includeUpper) {
-      return new ValueSourceScorer(reader, this) {
+      return new ValueSourceScorer(readerContext, this) {
         @Override
-        public boolean matchesValue(int doc) {
+        public boolean matches(int doc) {
+          if (!exists(doc)) return false;
           float docVal = floatVal(doc);
           return docVal >= l && docVal <= u;
         }
       };
     }
     else if (includeLower && !includeUpper) {
-       return new ValueSourceScorer(reader, this) {
+       return new ValueSourceScorer(readerContext, this) {
         @Override
-        public boolean matchesValue(int doc) {
+        public boolean matches(int doc) {
+          if (!exists(doc)) return false;
           float docVal = floatVal(doc);
           return docVal >= l && docVal < u;
         }
       };
     }
     else if (!includeLower && includeUpper) {
-       return new ValueSourceScorer(reader, this) {
+       return new ValueSourceScorer(readerContext, this) {
         @Override
-        public boolean matchesValue(int doc) {
+        public boolean matches(int doc) {
+          if (!exists(doc)) return false;
           float docVal = floatVal(doc);
           return docVal > l && docVal <= u;
         }
       };
     }
     else {
-       return new ValueSourceScorer(reader, this) {
+       return new ValueSourceScorer(readerContext, this) {
         @Override
-        public boolean matchesValue(int doc) {
+        public boolean matches(int doc) {
+          if (!exists(doc)) return false;
           float docVal = floatVal(doc);
           return docVal > l && docVal < u;
         }

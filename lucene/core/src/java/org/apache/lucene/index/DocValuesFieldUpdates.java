@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.util.HashMap;
 import java.util.Map;
@@ -137,7 +137,7 @@ abstract class DocValuesFieldUpdates {
   protected DocValuesFieldUpdates(String field, DocValuesType type) {
     this.field = field;
     if (type == null) {
-      throw new NullPointerException("DocValuesType cannot be null");
+      throw new NullPointerException("DocValuesType must not be null");
     }
     this.type = type;
   }

@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -28,6 +28,7 @@ import java.util.Map;
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.NormsProducer;
+import org.apache.lucene.codecs.PointsReader;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.TermVectorsReader;
 import org.apache.lucene.util.Accountable;
@@ -74,6 +75,12 @@ public abstract class CodecReader extends LeafReader implements Accountable {
    * @lucene.internal
    */
   public abstract FieldsProducer getPostingsReader();
+
+  /**
+   * Expert: retrieve underlying PointsReader
+   * @lucene.internal
+   */
+  public abstract PointsReader getPointsReader();
   
   @Override
   public final void document(int docID, StoredFieldVisitor visitor) throws IOException {
@@ -314,6 +321,11 @@ public abstract class CodecReader extends LeafReader implements Accountable {
     if (getTermVectorsReader() != null) {
       ramBytesUsed += getTermVectorsReader().ramBytesUsed();
     }
+
+    // points
+    if (getPointsReader() != null) {
+      ramBytesUsed += getPointsReader().ramBytesUsed();
+    }
     
     return ramBytesUsed;
   }
@@ -321,7 +333,7 @@ public abstract class CodecReader extends LeafReader implements Accountable {
   @Override
   public Collection<Accountable> getChildResources() {
     ensureOpen();
-    List<Accountable> resources = new ArrayList<>();
+    final List<Accountable> resources = new ArrayList<>(6);
     
     // terms/postings
     resources.add(Accountables.namedAccountable("postings", getPostingsReader()));
@@ -344,6 +356,11 @@ public abstract class CodecReader extends LeafReader implements Accountable {
     // term vectors
     if (getTermVectorsReader() != null) {
       resources.add(Accountables.namedAccountable("term vectors", getTermVectorsReader()));
+    }
+
+    // points
+    if (getPointsReader() != null) {
+      resources.add(Accountables.namedAccountable("points", getPointsReader()));
     }
     
     return Collections.unmodifiableList(resources);
@@ -374,6 +391,11 @@ public abstract class CodecReader extends LeafReader implements Accountable {
     // term vectors
     if (getTermVectorsReader() != null) {
       getTermVectorsReader().checkIntegrity();
+    }
+
+    // points
+    if (getPointsReader() != null) {
+      getPointsReader().checkIntegrity();
     }
   }
 }

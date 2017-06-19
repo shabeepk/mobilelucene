@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,13 +14,14 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import org.lukhnos.portmobile.util.Objects;
+import java.util.Objects;
 
 /** Expert: Describes the score computation for document and query. */
 public final class Explanation {
@@ -121,8 +120,8 @@ public final class Explanation {
     return buffer.toString();
   }
 
-
   /** Render an explanation as HTML. */
+  @Deprecated
   public String toHtml() {
     StringBuilder buffer = new StringBuilder();
     buffer.append("<ul>\n");
@@ -141,4 +140,21 @@ public final class Explanation {
 
     return buffer.toString();
   }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    Explanation that = (Explanation) o;
+    return match == that.match &&
+        Float.compare(that.value, value) == 0 &&
+        Objects.equals(description, that.description) &&
+        Objects.equals(details, that.details);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(match, value, description, details);
+  }
+
 }

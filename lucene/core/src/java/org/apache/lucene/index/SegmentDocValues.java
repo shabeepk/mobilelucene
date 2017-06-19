@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -85,13 +85,14 @@ final class SegmentDocValues {
       try {
         dvp.decRef();
       } catch (Throwable th) {
-        if (t != null) {
+        if (t == null) {
           t = th;
         }
       }
     }
+
     if (t != null) {
-      IOUtils.reThrow(t);
+      throw IOUtils.rethrowAlways(t);
     }
   }
 }

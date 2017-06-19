@@ -1,5 +1,3 @@
-package org.apache.lucene.util.fst;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.util.fst;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util.fst;
+
 
 import java.util.Arrays;
 import java.util.Random;
@@ -31,6 +31,7 @@ import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.util.TimeUnits;
 import org.apache.lucene.util.packed.PackedInts;
 import org.junit.Ignore;
+
 import com.carrotsearch.randomizedtesting.annotations.TimeoutSuite;
 
 @Ignore("Requires tons of heap to run (30 GB hits OOME but 35 GB passes after ~4.5 hours)")
@@ -40,6 +41,8 @@ public class Test2BFST extends LuceneTestCase {
   private static long LIMIT = 3L*1024*1024*1024;
 
   public void test() throws Exception {
+    assumeWorkingMMapOnWindows();
+    
     int[] ints = new int[7];
     IntsRef input = new IntsRef(ints, 0, ints.length);
     long seed = random().nextLong();

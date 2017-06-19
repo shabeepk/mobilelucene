@@ -1,6 +1,4 @@
-package org.apache.lucene.search.suggest.jaspell;
-
-/** 
+/*
  * Copyright (c) 2005 Bruno Martins
  * All rights reserved.
  *
@@ -28,14 +26,13 @@ package org.apache.lucene.search.suggest.jaspell;
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
+package org.apache.lucene.search.suggest.jaspell;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import org.lukhnos.portmobile.charset.StandardCharsets;
-import java.util.Collections;
-import org.lukhnos.portmobile.file.Files;
-import org.lukhnos.portmobile.file.Path;
-import java.util.Collection;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.Vector;
@@ -74,7 +71,7 @@ public class JaspellTernarySearchTrie implements Accountable {
   /**
    * An inner class of Ternary Search Trie that represents a node in the trie.
    */
-  protected final class TSTNode implements Accountable {
+  protected static final class TSTNode implements Accountable {
 
     /** Index values for accessing relatives array. */
     protected final static int PARENT = 0, LOKID = 1, EQKID = 2, HIKID = 3;
@@ -112,11 +109,6 @@ public class JaspellTernarySearchTrie implements Accountable {
         }
       }
       return mem;
-    }
-    
-    @Override
-    public Collection<Accountable> getChildResources() {
-      return Collections.emptyList();
     }
   }
 
@@ -239,51 +231,54 @@ public class JaspellTernarySearchTrie implements Accountable {
       in = new BufferedReader(IOUtils.getDecodingReader(new GZIPInputStream(
               Files.newInputStream(file)), StandardCharsets.UTF_8));
     else in = Files.newBufferedReader(file, StandardCharsets.UTF_8);
-    String word;
-    int pos;
-    Float occur, one = new Float(1);
-    while ((word = in.readLine()) != null) {
-      pos = word.indexOf("\t");
-      occur = one;
-      if (pos != -1) {
-        occur = Float.parseFloat(word.substring(pos + 1).trim());
-        word = word.substring(0, pos);
-      }
-      String key = word.toLowerCase(locale);
-      if (rootNode == null) {
-        rootNode = new TSTNode(key.charAt(0), null);
-      }
-      TSTNode node = null;
-      if (key.length() > 0 && rootNode != null) {
-        TSTNode currentNode = rootNode;
-        int charIndex = 0;
-        while (true) {
-          if (currentNode == null) break;
-          int charComp = compareCharsAlphabetically(key.charAt(charIndex),
-                  currentNode.splitchar);
-          if (charComp == 0) {
-            charIndex++;
-            if (charIndex == key.length()) {
-              node = currentNode;
-              break;
+    try {
+      String word;
+      int pos;
+      Float occur, one = new Float(1);
+      while ((word = in.readLine()) != null) {
+        pos = word.indexOf("\t");
+        occur = one;
+        if (pos != -1) {
+          occur = Float.parseFloat(word.substring(pos + 1).trim());
+          word = word.substring(0, pos);
+        }
+        String key = word.toLowerCase(locale);
+        if (rootNode == null) {
+          rootNode = new TSTNode(key.charAt(0), null);
+        }
+        TSTNode node = null;
+        if (key.length() > 0 && rootNode != null) {
+          TSTNode currentNode = rootNode;
+          int charIndex = 0;
+          while (true) {
+            if (currentNode == null) break;
+            int charComp = compareCharsAlphabetically(key.charAt(charIndex),
+                    currentNode.splitchar);
+            if (charComp == 0) {
+              charIndex++;
+              if (charIndex == key.length()) {
+                node = currentNode;
+                break;
+              }
+              currentNode = currentNode.relatives[TSTNode.EQKID];
+            } else if (charComp < 0) {
+              currentNode = currentNode.relatives[TSTNode.LOKID];
+            } else {
+              currentNode = currentNode.relatives[TSTNode.HIKID];
             }
-            currentNode = currentNode.relatives[TSTNode.EQKID];
-          } else if (charComp < 0) {
-            currentNode = currentNode.relatives[TSTNode.LOKID];
-          } else {
-            currentNode = currentNode.relatives[TSTNode.HIKID];
           }
+          Float occur2 = null;
+          if (node != null) occur2 = ((Float) (node.data));
+          if (occur2 != null) {
+            occur += occur2.floatValue();
+          }
+          currentNode = getOrCreateNode(word.trim().toLowerCase(locale));
+          currentNode.data = occur;
         }
-        Float occur2 = null;
-        if (node != null) occur2 = ((Float) (node.data));
-        if (occur2 != null) {
-          occur += occur2.floatValue();
-        }
-        currentNode = getOrCreateNode(word.trim().toLowerCase(locale));
-        currentNode.data = occur;
       }
+    } finally {
+      IOUtils.close(in);
     }
-    in.close();
   }
 
   /**
@@ -904,10 +899,5 @@ public class JaspellTernarySearchTrie implements Accountable {
       mem += root.ramBytesUsed();
     }
     return mem;
-  }
-  
-  @Override
-  public Collection<Accountable> getChildResources() {
-    return Collections.emptyList();
   }
 }

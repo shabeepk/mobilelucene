@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.simpletext;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.codecs.simpletext;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.simpletext;
+
 
 import java.io.IOException;
 
@@ -36,6 +36,7 @@ class SimpleTextFieldsWriter extends FieldsConsumer {
   private IndexOutput out;
   private final BytesRefBuilder scratch = new BytesRefBuilder();
   private final SegmentWriteState writeState;
+  final String segment;
 
   final static BytesRef END          = new BytesRef("END");
   final static BytesRef FIELD        = new BytesRef("field ");
@@ -49,6 +50,7 @@ class SimpleTextFieldsWriter extends FieldsConsumer {
 
   public SimpleTextFieldsWriter(SegmentWriteState writeState) throws IOException {
     final String fileName = SimpleTextPostingsFormat.getPostingsFileName(writeState.segmentInfo.name, writeState.segmentSuffix);
+    segment = writeState.segmentInfo.name;
     out = writeState.directory.createOutput(fileName, writeState.context);
     this.writeState = writeState;
   }

@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spans;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.spans;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spans;
 
 import java.io.IOException;
 import java.util.Map;
@@ -26,7 +25,7 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.index.TermContext;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.Scorer;
+import org.apache.lucene.search.similarities.Similarity;
 
 /**
  * Wraps a SpanWeight with additional asserts
@@ -59,6 +58,11 @@ public class AssertingSpanWeight extends SpanWeight {
   }
 
   @Override
+  public Similarity.SimScorer getSimScorer(LeafReaderContext context) throws IOException {
+    return in.getSimScorer(context);
+  }
+
+  @Override
   public void extractTerms(Set<Term> terms) {
     in.extractTerms(terms);
   }
@@ -69,12 +73,12 @@ public class AssertingSpanWeight extends SpanWeight {
   }
 
   @Override
-  public void normalize(float queryNorm, float topLevelBoost) {
-    in.normalize(queryNorm, topLevelBoost);
+  public void normalize(float queryNorm, float boost) {
+    in.normalize(queryNorm, boost);
   }
 
   @Override
-  public Scorer scorer(LeafReaderContext context) throws IOException {
+  public SpanScorer scorer(LeafReaderContext context) throws IOException {
     return in.scorer(context);
   }
 

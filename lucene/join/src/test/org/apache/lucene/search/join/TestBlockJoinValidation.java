@@ -1,5 +1,3 @@
-package org.apache.lucene.search.join;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.join;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.join;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -66,7 +65,7 @@ public class TestBlockJoinValidation extends LuceneTestCase {
       indexWriter.addDocuments(segmentDocs);
       indexWriter.commit();
     }
-    indexReader = DirectoryReader.open(indexWriter, random().nextBoolean());
+    indexReader = DirectoryReader.open(indexWriter);
     indexWriter.close();
     indexSearcher = new IndexSearcher(indexReader);
     parentsFilter = new QueryBitSetProducer(new WildcardQuery(new Term("parent", "*")));
@@ -82,33 +81,10 @@ public class TestBlockJoinValidation extends LuceneTestCase {
   public void testNextDocValidationForToParentBjq() throws Exception {
     Query parentQueryWithRandomChild = createChildrenQueryWithOneParent(getRandomChildNumber(0));
     ToParentBlockJoinQuery blockJoinQuery = new ToParentBlockJoinQuery(parentQueryWithRandomChild, parentsFilter, ScoreMode.None);
-    try {
+    IllegalStateException expected = expectThrows(IllegalStateException.class, () -> {
       indexSearcher.search(blockJoinQuery, 1);
-      fail("didn't get expected exception");
-    } catch (IllegalStateException expected) {
-      assertTrue(expected.getMessage() != null && expected.getMessage().contains("child query must only match non-parent docs"));
-    }
-  }
-
-  public void testAdvanceValidationForToParentBjq() throws Exception {
-    int randomChildNumber = getRandomChildNumber(0);
-    // we need to make advance method meet wrong document, so random child number
-    // in BJQ must be greater than child number in Boolean clause
-    int nextRandomChildNumber = getRandomChildNumber(randomChildNumber);
-    Query parentQueryWithRandomChild = createChildrenQueryWithOneParent(nextRandomChildNumber);
-    ToParentBlockJoinQuery blockJoinQuery = new ToParentBlockJoinQuery(parentQueryWithRandomChild, parentsFilter, ScoreMode.None);
-    // advance() method is used by ConjunctionScorer, so we need to create Boolean conjunction query
-    BooleanQuery.Builder conjunctionQuery = new BooleanQuery.Builder();
-    WildcardQuery childQuery = new WildcardQuery(new Term("child", createFieldValue(randomChildNumber)));
-    conjunctionQuery.add(new BooleanClause(childQuery, BooleanClause.Occur.MUST));
-    conjunctionQuery.add(new BooleanClause(blockJoinQuery, BooleanClause.Occur.MUST));
-    
-    try {
-      indexSearcher.search(conjunctionQuery.build(), 1);
-      fail("didn't get expected exception");
-    } catch (IllegalStateException expected) {
-      assertTrue(expected.getMessage() != null && expected.getMessage().contains("child query must only match non-parent docs"));
-    }
+    });
+    assertTrue(expected.getMessage() != null && expected.getMessage().contains("Child query must not match same docs with parent filter"));
   }
 
   public void testNextDocValidationForToChildBjq() throws Exception {
@@ -116,12 +92,10 @@ public class TestBlockJoinValidation extends LuceneTestCase {
 
     ToChildBlockJoinQuery blockJoinQuery = new ToChildBlockJoinQuery(parentQueryWithRandomChild, parentsFilter);
     
-    try {
+    IllegalStateException expected = expectThrows(IllegalStateException.class, () -> {
       indexSearcher.search(blockJoinQuery, 1);
-      fail("didn't get expected exception");
-    } catch (IllegalStateException expected) {
-      assertTrue(expected.getMessage() != null && expected.getMessage().contains(ToChildBlockJoinQuery.INVALID_QUERY_MESSAGE));
-    }
+    });
+    assertTrue(expected.getMessage() != null && expected.getMessage().contains(ToChildBlockJoinQuery.INVALID_QUERY_MESSAGE));
   }
 
   public void testAdvanceValidationForToChildBjq() throws Exception {
@@ -139,12 +113,11 @@ public class TestBlockJoinValidation extends LuceneTestCase {
       target = TestUtil.nextInt(random(), 0, context.reader().maxDoc() - 2);
     } while (parentDocs.get(target + 1));
 
-    try {
-      scorer.advance(target);
-      fail();
-    } catch (IllegalStateException expected) {
-      assertTrue(expected.getMessage() != null && expected.getMessage().contains(ToChildBlockJoinQuery.INVALID_QUERY_MESSAGE));
-    }
+    final int illegalTarget = target;
+    IllegalStateException expected = expectThrows(IllegalStateException.class, () -> {
+      scorer.iterator().advance(illegalTarget);
+    });
+    assertTrue(expected.getMessage() != null && expected.getMessage().contains(ToChildBlockJoinQuery.INVALID_QUERY_MESSAGE));
   }
 
   private static List<Document> createDocsForSegment(int segmentNumber) {

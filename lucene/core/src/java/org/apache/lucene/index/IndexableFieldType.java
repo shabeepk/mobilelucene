@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import org.apache.lucene.analysis.Analyzer; // javadocs
 
@@ -27,7 +27,7 @@ public interface IndexableFieldType {
 
   /** True if the field's value should be stored */
   public boolean stored();
-
+  
   /** 
    * True if this field's value should be analyzed by the
    * {@link Analyzer}.
@@ -95,5 +95,15 @@ public interface IndexableFieldType {
    * DocValues {@link DocValuesType}: how the field's value will be indexed
    * into docValues.
    */
-  public DocValuesType docValuesType();  
+  public DocValuesType docValuesType();
+
+  /**
+   * If this is positive, the field is indexed as a point.
+   */
+  public int pointDimensionCount();
+
+  /**
+   * The number of bytes in each dimension's values.
+   */
+  public int pointNumBytes();
 }

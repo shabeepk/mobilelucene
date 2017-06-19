@@ -1,5 +1,3 @@
-package org.apache.lucene.search.similarities;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search.similarities;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.similarities;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -83,18 +83,18 @@ public abstract class SimilarityBase extends Similarity {
   }
   
   @Override
-  public final SimWeight computeWeight(float queryBoost, CollectionStatistics collectionStats, TermStatistics... termStats) {
+  public final SimWeight computeWeight(CollectionStatistics collectionStats, TermStatistics... termStats) {
     BasicStats stats[] = new BasicStats[termStats.length];
     for (int i = 0; i < termStats.length; i++) {
-      stats[i] = newStats(collectionStats.field(), queryBoost);
+      stats[i] = newStats(collectionStats.field());
       fillBasicStats(stats[i], collectionStats, termStats[i]);
     }
     return stats.length == 1 ? stats[0] : new MultiSimilarity.MultiStats(stats);
   }
   
   /** Factory method to return a custom stats object */
-  protected BasicStats newStats(String field, float queryBoost) {
-    return new BasicStats(field, queryBoost);
+  protected BasicStats newStats(String field) {
+    return new BasicStats(field);
   }
   
   /** Fills all member fields defined in {@code BasicStats} in {@code stats}. 
@@ -102,7 +102,7 @@ public abstract class SimilarityBase extends Similarity {
   protected void fillBasicStats(BasicStats stats, CollectionStatistics collectionStats, TermStatistics termStats) {
     // #positions(field) must be >= #positions(term)
     assert collectionStats.sumTotalTermFreq() == -1 || collectionStats.sumTotalTermFreq() >= termStats.totalTermFreq();
-    long numberOfDocuments = collectionStats.maxDoc();
+    long numberOfDocuments = collectionStats.docCount() == -1 ? collectionStats.maxDoc() : collectionStats.docCount();
     
     long docFreq = termStats.docFreq();
     long totalTermFreq = termStats.totalTermFreq();
@@ -220,10 +220,11 @@ public abstract class SimilarityBase extends Similarity {
   private static final float[] NORM_TABLE = new float[256];
 
   static {
-    for (int i = 0; i < 256; i++) {
+    for (int i = 1; i < 256; i++) {
       float floatNorm = SmallFloat.byte315ToFloat((byte)i);
       NORM_TABLE[i] = 1.0f / (floatNorm * floatNorm);
     }
+    NORM_TABLE[0] = 1.0f / NORM_TABLE[255]; // otherwise inf
   }
 
   /** Encodes the document length in the same way as {@link TFIDFSimilarity}. */

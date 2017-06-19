@@ -1,5 +1,3 @@
-package org.apache.lucene.mockfile;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.mockfile;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.mockfile;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -66,7 +65,7 @@ public class VerboseFS extends FilterFileSystemProvider {
       if (infoStream.isEnabled("FS")) {
         infoStream.message("FS", text + " (FAILED: " + exception + ")");
       }
-      IOUtils.reThrow(exception);
+      throw IOUtils.rethrowAlways(exception);
     }
   }
   
@@ -165,7 +164,9 @@ public class VerboseFS extends FilterFileSystemProvider {
       if (containsDestructive(options)) {
         sop("newFileChannel" + options + ": " + path(path), exception);
       } else {
-        IOUtils.reThrow(exception);
+        if (exception != null) {
+          throw IOUtils.rethrowAlways(exception);
+        }
       }
     }
     throw new AssertionError();
@@ -182,7 +183,9 @@ public class VerboseFS extends FilterFileSystemProvider {
       if (containsDestructive(options)) {
         sop("newAsynchronousFileChannel" + options + ": " + path(path), exception);
       } else {
-        IOUtils.reThrow(exception);
+        if (exception != null) {
+          throw IOUtils.rethrowAlways(exception);
+        }
       }
     }
     throw new AssertionError();
@@ -199,7 +202,9 @@ public class VerboseFS extends FilterFileSystemProvider {
       if (containsDestructive(options)) {
         sop("newByteChannel" + options + ": " + path(path), exception);
       } else {
-        IOUtils.reThrow(exception);
+        if (exception != null) {
+          throw IOUtils.rethrowAlways(exception);
+        }
       }
     }
     throw new AssertionError();

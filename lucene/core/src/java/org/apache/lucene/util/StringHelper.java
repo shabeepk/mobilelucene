@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,11 +14,13 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
+
 
 import java.io.DataInputStream;
 import java.math.BigInteger;
-import org.lukhnos.portmobile.file.Files;
-import org.lukhnos.portmobile.file.Paths;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Properties;
 
@@ -69,14 +69,6 @@ public abstract class StringHelper {
   }
 
   private StringHelper() {
-  }
-
-  public static boolean equals(String s1, String s2) {
-    if (s1 == null) {
-      return s2 == null;
-    } else {
-      return s1.equals(s2);
-    }
   }
 
   /**
@@ -379,5 +371,20 @@ public abstract class StringHelper {
     }
 
     return new BytesRef(bytes);
+  }
+
+  /** Compares a fixed length slice of two byte arrays interpreted as
+   *  big-endian unsigned values.  Returns positive int if a &gt; b,
+   *  negative int if a &lt; b and 0 if a == b */
+  public static int compare(int count, byte[] a, int aOffset, byte[] b, int bOffset) {
+    // TODO: dedup this w/ BytesRef.compareTo?
+    for(int i=0;i<count;i++) {
+      int cmp = (a[aOffset+i]&0xff) - (b[bOffset+i]&0xff);
+      if (cmp != 0) {
+        return cmp;
+      }
+    }
+
+    return 0;
   }
 }

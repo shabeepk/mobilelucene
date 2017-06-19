@@ -1,5 +1,3 @@
-package org.apache.lucene.queryparser.complexPhrase;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,11 +14,13 @@ package org.apache.lucene.queryparser.complexPhrase;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queryparser.complexPhrase;
 
 import java.util.HashSet;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.MockAnalyzer;
+import org.apache.lucene.analysis.MockSynonymAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.index.DirectoryReader;
@@ -40,7 +40,11 @@ public class TestComplexPhraseQuery extends LuceneTestCase {
       new DocData("john smith", "1", "developer"),
       new DocData("johathon smith", "2", "developer"),
       new DocData("john percival smith", "3", "designer"),
-      new DocData("jackson waits tom", "4", "project manager")
+      new DocData("jackson waits tom", "4", "project manager"),
+      new DocData("johny perkins", "5", "orders pizza"),
+      new DocData("hapax neverson", "6", "never matches"),
+      new DocData("dog cigar", "7", "just for synonyms"),
+      new DocData("dogs don't smoke cigarettes", "8", "just for synonyms"),
   };
 
   private IndexSearcher searcher;
@@ -73,7 +77,31 @@ public class TestComplexPhraseQuery extends LuceneTestCase {
     checkBadQuery("\"jo* \"smith\" \""); // phrases inside phrases is bad
   }
 
+  public void testSingleTermPhrase() throws Exception {
+    checkMatches("\"joh*\"","1,2,3,5");
+    checkMatches("\"joh~\"","1,3,5");
+    checkMatches("\"joh*\" \"tom\"", "1,2,3,4,5"); 
+    checkMatches("+\"j*\" +\"tom\"", "4"); 
+    checkMatches("\"jo*\" \"[sma TO smZ]\" ", "1,2,3,5,8");
+    checkMatches("+\"j*hn\" +\"sm*h\"", "1,3"); 
+  }
 
+  public void testSynonyms() throws Exception {
+    checkMatches("\"dogs\"","8");
+    MockSynonymAnalyzer synonym = new MockSynonymAnalyzer();
+    checkMatches("\"dogs\"","7,8",synonym);
+    // synonym is unidirectional 
+    checkMatches("\"dog\"","7",synonym);
+    checkMatches("\"dogs cigar*\"","");
+    checkMatches("\"dog cigar*\"","7");
+    checkMatches("\"dogs cigar*\"","7", synonym);
+    checkMatches("\"dog cigar*\"","7", synonym);
+    checkMatches("\"dogs cigar*\"~2","7,8", synonym);
+    // synonym is unidirectional
+    checkMatches("\"dog cigar*\"~2","7", synonym);
+    
+  }
+  
   public void testUnOrderedProximitySearches() throws Exception {
 
     inOrder = true;
@@ -87,19 +115,19 @@ public class TestComplexPhraseQuery extends LuceneTestCase {
   private void checkBadQuery(String qString) {
     ComplexPhraseQueryParser qp = new ComplexPhraseQueryParser(defaultFieldName, analyzer);
     qp.setInOrder(inOrder);
-    Throwable expected = null;
-    try {
+    expectThrows(Throwable.class, () -> {
       qp.parse(qString);
-    } catch (Throwable e) {
-      expected = e;
-    }
-    assertNotNull("Expected parse error in " + qString, expected);
-
+    });
   }
 
   private void checkMatches(String qString, String expectedVals)
+  throws Exception {
+    checkMatches(qString, expectedVals, analyzer);
+  }
+
+  private void checkMatches(String qString, String expectedVals, Analyzer anAnalyzer)
       throws Exception {
-    ComplexPhraseQueryParser qp = new ComplexPhraseQueryParser(defaultFieldName, analyzer);
+    ComplexPhraseQueryParser qp = new ComplexPhraseQueryParser(defaultFieldName, anAnalyzer);
     qp.setInOrder(inOrder);
     qp.setFuzzyPrefixLength(1); // usually a good idea
 
@@ -136,6 +164,19 @@ public class TestComplexPhraseQuery extends LuceneTestCase {
     checkMatches("role:\"p* manager\" AND name:jack*", "4");
     checkMatches("+role:developer +name:jack*", "");
     checkMatches("name:\"john smith\"~2 AND role:designer AND id:3", "3");
+  }
+
+  public void testToStringContainsSlop() throws Exception {
+    ComplexPhraseQueryParser qp = new ComplexPhraseQueryParser(defaultFieldName, analyzer);
+    int slop = random().nextInt(31) + 1;
+
+    String qString = "name:\"j* smyth~\"~" + slop;
+    Query query = qp.parse(qString);
+    assertTrue("Slop is not shown in toString()", query.toString().endsWith("~" + slop));
+
+    String string = "\"j* smyth~\"";
+    Query q = qp.parse(string);
+    assertEquals("Don't show implicit slop of zero", q.toString(), string);
   }
 
   public void testHashcodeEquals() throws Exception {

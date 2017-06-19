@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.core;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,14 +14,19 @@ package org.apache.lucene.analysis.core;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.core;
+
 
 import org.apache.lucene.analysis.Tokenizer;
 import org.apache.lucene.analysis.util.CharTokenizer;
 import org.apache.lucene.util.AttributeFactory;
 
 /**
- * A WhitespaceTokenizer is a tokenizer that divides text at whitespace.
+ * A tokenizer that divides text at whitespace characters as defined by
+ * {@link Character#isWhitespace(int)}.  Note: That definition explicitly excludes the non-breaking space.
  * Adjacent sequences of non-Whitespace characters form tokens.
+ *
+ * @see UnicodeWhitespaceTokenizer
  */
 public final class WhitespaceTokenizer extends CharTokenizer {
   

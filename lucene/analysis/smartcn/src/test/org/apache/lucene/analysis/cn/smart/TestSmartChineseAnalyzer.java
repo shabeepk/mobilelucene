@@ -14,20 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.lucene.analysis.cn.smart;
-
-import java.io.IOException;
-import java.util.Random;
 
 import org.apache.lucene.analysis.BaseTokenStreamTestCase;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.MockTokenizer;
-import org.apache.lucene.analysis.TokenFilter;
 import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.Tokenizer;
-import org.apache.lucene.analysis.core.KeywordTokenizer;
-import org.apache.lucene.analysis.miscellaneous.ASCIIFoldingFilter;
 import org.apache.lucene.util.IOUtils;
 
 public class TestSmartChineseAnalyzer extends BaseTokenStreamTestCase {
@@ -228,25 +219,6 @@ public class TestSmartChineseAnalyzer extends BaseTokenStreamTestCase {
     }
   }
   
-  // LUCENE-3642
-  public void testInvalidOffset() throws Exception {
-    Analyzer analyzer = new Analyzer() {
-      @Override
-      protected TokenStreamComponents createComponents(String fieldName) {
-        Tokenizer tokenizer = new MockTokenizer(MockTokenizer.WHITESPACE, false);
-        TokenFilter filters = new ASCIIFoldingFilter(tokenizer);
-        filters = new WordTokenFilter(filters);
-        return new TokenStreamComponents(tokenizer, filters);
-      }
-    };
-    
-    assertAnalyzesTo(analyzer, "mosfellsbær", 
-        new String[] { "mosfellsbaer" },
-        new int[]    { 0 },
-        new int[]    { 11 });
-    analyzer.close();
-  }
-  
   /** blast some random strings through the analyzer */
   public void testRandomStrings() throws Exception {
     Analyzer analyzer = new SmartChineseAnalyzer();
@@ -259,18 +231,5 @@ public class TestSmartChineseAnalyzer extends BaseTokenStreamTestCase {
     Analyzer analyzer = new SmartChineseAnalyzer();
     checkRandomData(random(), analyzer, 100*RANDOM_MULTIPLIER, 8192);
     analyzer.close();
-  }
-  
-  public void testEmptyTerm() throws IOException {
-    Random random = random();
-    Analyzer a = new Analyzer() {
-      @Override
-      protected TokenStreamComponents createComponents(String fieldName) {
-        Tokenizer tokenizer = new KeywordTokenizer();
-        return new TokenStreamComponents(tokenizer, new WordTokenFilter(tokenizer));
-      }
-    };
-    checkAnalysisConsistency(random, a, random.nextBoolean(), "");
-    a.close();
   }
 }

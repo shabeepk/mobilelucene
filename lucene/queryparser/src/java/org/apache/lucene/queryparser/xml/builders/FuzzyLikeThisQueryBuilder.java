@@ -1,15 +1,3 @@
-package org.apache.lucene.queryparser.xml.builders;
-
-import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.queryparser.xml.DOMUtils;
-import org.apache.lucene.queryparser.xml.ParserException;
-import org.apache.lucene.queryparser.xml.QueryBuilder;
-import org.apache.lucene.sandbox.queries.FuzzyLikeThisQuery;
-import org.apache.lucene.sandbox.queries.SlowFuzzyQuery;
-import org.apache.lucene.search.Query;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -26,6 +14,18 @@ import org.w3c.dom.NodeList;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queryparser.xml.builders;
+
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.queryparser.xml.DOMUtils;
+import org.apache.lucene.queryparser.xml.ParserException;
+import org.apache.lucene.queryparser.xml.QueryBuilder;
+import org.apache.lucene.sandbox.queries.FuzzyLikeThisQuery;
+import org.apache.lucene.sandbox.queries.SlowFuzzyQuery;
+import org.apache.lucene.search.BoostQuery;
+import org.apache.lucene.search.Query;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
 /**
  * Builder for {@link FuzzyLikeThisQuery}
@@ -50,7 +50,8 @@ public class FuzzyLikeThisQueryBuilder implements QueryBuilder {
     FuzzyLikeThisQuery fbq = new FuzzyLikeThisQuery(maxNumTerms, analyzer);
     fbq.setIgnoreTF(DOMUtils.getAttribute(e, "ignoreTF", DEFAULT_IGNORE_TF));
 
-    for (int i = 0; i < nl.getLength(); i++) {
+    final int nlLen = nl.getLength();
+    for (int i = 0; i < nlLen; i++) {
       Element fieldElem = (Element) nl.item(i);
       float minSimilarity = DOMUtils.getAttribute(fieldElem, "minSimilarity", DEFAULT_MIN_SIMILARITY);
       int prefixLength = DOMUtils.getAttribute(fieldElem, "prefixLength", DEFAULT_PREFIX_LENGTH);
@@ -60,8 +61,12 @@ public class FuzzyLikeThisQueryBuilder implements QueryBuilder {
       fbq.addTerms(value, fieldName, minSimilarity, prefixLength);
     }
 
-    fbq.setBoost(DOMUtils.getAttribute(e, "boost", 1.0f));
-    return fbq;
+    Query q = fbq;
+    float boost = DOMUtils.getAttribute(e, "boost", 1.0f);
+    if (boost != 1f) {
+      q = new BoostQuery(fbq, boost);
+    }
+    return q;
   }
 
 }

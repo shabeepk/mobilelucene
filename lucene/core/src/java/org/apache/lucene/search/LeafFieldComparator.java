@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 
@@ -34,9 +34,6 @@ import java.io.IOException;
  *       value according to your comparator, in cases where
  *       your comparator is not the primary one (ie, is only
  *       used to break ties from the comparators before it).
- *
- *  <li> {@link #compareBottom} Compare a new hit (docID)
- *       against the "weakest" (bottom) entry in the queue.
  *
  *  <li> {@link #compareBottom} Compare a new hit (docID)
  *       against the "weakest" (bottom) entry in the queue.
@@ -95,8 +92,8 @@ public interface LeafFieldComparator {
    *    
    * @param doc that was hit
    * @return any {@code N < 0} if the doc's value is sorted after
-   * the bottom entry (not competitive), any {@code N > 0} if the
-   * doc's value is sorted before the bottom entry and {@code 0} if
+   * the top entry (not competitive), any {@code N > 0} if the
+   * doc's value is sorted before the top entry and {@code 0} if
    * they are equal.
    */
   int compareTop(int doc) throws IOException;
@@ -117,6 +114,6 @@ public interface LeafFieldComparator {
    * 
    * @param scorer Scorer instance that you should use to
    * obtain the current hit's score, if necessary. */
-  void setScorer(Scorer scorer);
+  void setScorer(Scorer scorer) throws IOException;
 
 }

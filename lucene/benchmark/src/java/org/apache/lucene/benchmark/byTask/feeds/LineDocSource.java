@@ -1,5 +1,3 @@
-package org.apache.lucene.benchmark.byTask.feeds;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.benchmark.byTask.feeds;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.benchmark.byTask.feeds;
+
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -250,7 +250,7 @@ public class LineDocSource extends ContentSource {
       try {
         final Class<? extends LineParser> clazz = 
           Class.forName(docDataLineReaderClassName).asSubclass(LineParser.class);
-        Constructor<? extends LineParser> cnstr = clazz.getConstructor(new Class[]{String[].class});
+        Constructor<? extends LineParser> cnstr = clazz.getConstructor(String[].class);
         return cnstr.newInstance((Object)header);
       } catch (Exception e) {
         throw new RuntimeException("Failed to instantiate "+docDataLineReaderClassName, e);

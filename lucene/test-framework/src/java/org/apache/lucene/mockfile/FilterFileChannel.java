@@ -1,5 +1,3 @@
-package org.apache.lucene.mockfile;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,10 +14,9 @@ package org.apache.lucene.mockfile;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.mockfile;
 
-import java.io.IOError;
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -34,7 +31,7 @@ import java.util.Objects;
  * source of data, possibly transforming the data along the 
  * way or providing additional functionality. 
  */
-public class FilterFileChannel extends FileChannel {
+public abstract class FilterFileChannel extends FileChannel {
   
   /** 
    * The underlying {@code FileChannel} instance. 
@@ -136,22 +133,8 @@ public class FilterFileChannel extends FileChannel {
 
   @Override
   protected void implCloseChannel() throws IOException {
-    // our only way to call delegate.implCloseChannel()
-    for (Class<?> clazz = delegate.getClass(); clazz != null; clazz = clazz.getSuperclass()) {
-      final Method method;
-      try {
-        method = clazz.getDeclaredMethod("implCloseChannel");
-      } catch (NoSuchMethodException e) {
-        continue;
-      }
-      try {
-        method.setAccessible(true);
-        method.invoke(delegate);
-        return;
-      } catch (ReflectiveOperationException e) {
-        throw new IOError(e);
-      }
-    }
-    throw new AssertionError();
+    // we can't call implCloseChannel, but calling this instead is "ok":
+    // http://mail.openjdk.java.net/pipermail/nio-dev/2015-September/003322.html
+    delegate.close();
   }
 }

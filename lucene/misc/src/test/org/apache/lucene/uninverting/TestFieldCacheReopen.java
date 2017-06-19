@@ -1,5 +1,3 @@
-package org.apache.lucene.uninverting;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,11 +14,11 @@ package org.apache.lucene.uninverting;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.uninverting;
 
 import org.apache.lucene.analysis.MockAnalyzer;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.IntField;
+import org.apache.lucene.document.IntPoint;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
@@ -43,14 +41,14 @@ public class TestFieldCacheReopen extends LuceneTestCase {
             setMergePolicy(newLogMergePolicy(10))
     );
     Document doc = new Document();
-    doc.add(new IntField("number", 17, Field.Store.NO));
+    doc.add(new IntPoint("number", 17));
     writer.addDocument(doc);
     writer.commit();
   
     // Open reader1
     DirectoryReader r = DirectoryReader.open(dir);
-    LeafReader r1 = getOnlySegmentReader(r);
-    final NumericDocValues ints = FieldCache.DEFAULT.getNumerics(r1, "number", FieldCache.NUMERIC_UTILS_INT_PARSER, false);
+    LeafReader r1 = getOnlyLeafReader(r);
+    final NumericDocValues ints = FieldCache.DEFAULT.getNumerics(r1, "number", FieldCache.INT_POINT_PARSER, false);
     assertEquals(17, ints.get(0));
   
     // Add new segment
@@ -62,7 +60,7 @@ public class TestFieldCacheReopen extends LuceneTestCase {
     assertNotNull(r2);
     r.close();
     LeafReader sub0 = r2.leaves().get(0).reader();
-    final NumericDocValues ints2 = FieldCache.DEFAULT.getNumerics(sub0, "number", FieldCache.NUMERIC_UTILS_INT_PARSER, false);
+    final NumericDocValues ints2 = FieldCache.DEFAULT.getNumerics(sub0, "number", FieldCache.INT_POINT_PARSER, false);
     r2.close();
     assertTrue(ints == ints2);
   

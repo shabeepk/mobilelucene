@@ -1,5 +1,3 @@
-package org.apache.lucene.replicator;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.replicator;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.replicator;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -234,7 +233,8 @@ public class IndexReplicationHandler implements ReplicationHandler {
       // now copy and fsync segmentsFile as pending, then rename (simulating lucene commit)
       indexDir.copyFrom(clientDir, segmentsFile, pendingSegmentsFile, IOContext.READONCE);
       indexDir.sync(Collections.singletonList(pendingSegmentsFile));
-      indexDir.renameFile(pendingSegmentsFile, segmentsFile);
+      indexDir.rename(pendingSegmentsFile, segmentsFile);
+      indexDir.syncMetaData();
       
       success = true;
     } finally {

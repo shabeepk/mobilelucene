@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.codecs;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs;
+
 
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -25,28 +25,23 @@ import java.util.Set;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.util.NamedThreadFactory;
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import com.carrotsearch.randomizedtesting.RandomizedContext;
 import com.carrotsearch.randomizedtesting.RandomizedRunner;
-import com.carrotsearch.randomizedtesting.annotations.ThreadLeakLingering;
-
-import static org.junit.Assert.fail;
-import static org.junit.Assert.assertEquals;
 
 /* WARNING: This test does *not* extend LuceneTestCase to prevent static class
  * initialization when spawned as subprocess (and please let default codecs alive)! */
 
 @RunWith(RandomizedRunner.class)
-@ThreadLeakLingering(linger = 5000) // Linger a bit waiting for threadpool threads to die.
-public class TestCodecLoadingDeadlock {
+public class TestCodecLoadingDeadlock extends Assert {
   
   @Test
   public void testDeadlock() throws Exception {
@@ -73,23 +68,11 @@ public class TestCodecLoadingDeadlock {
       pfName,
       dvfName
     ).inheritIO().start();
-    final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("processKiller"));
-    final ScheduledFuture<?> f = scheduler.schedule(new Runnable() {
-      @Override
-      public void run() {
-        p.destroy();
-      }
-    }, 30, TimeUnit.SECONDS);
-    try {
-      final int exitCode = p.waitFor();
-      if (f.cancel(false)) {
-        assertEquals("Process died abnormally", 0, exitCode);
-      } else {
-        fail("Process did not exit after 30 secs -> classloader deadlock?");
-      }
-    } finally {
-      scheduler.shutdown();
-      while (!scheduler.awaitTermination(1, TimeUnit.MINUTES));
+    if (p.waitFor(30, TimeUnit.SECONDS)) {
+      assertEquals("Process died abnormally", 0, p.waitFor());
+    } else {
+      p.destroyForcibly().waitFor();
+      fail("Process did not exit after 30 secs -> classloader deadlock?");
     }
   }
   
@@ -101,48 +84,42 @@ public class TestCodecLoadingDeadlock {
     final int numThreads = 14; // two times the modulo in switch statement below
     final ExecutorService pool = Executors.newFixedThreadPool(numThreads, new NamedThreadFactory("deadlockchecker"));
     final CyclicBarrier barrier = new CyclicBarrier(numThreads);
-    for (int i = 0; i < numThreads; i++) {
-      final int taskNo = i;
-      pool.execute(new Runnable() {
-        @Override
-        public void run() {
-          try {
-            barrier.await();
-            switch (taskNo % 7) {
-              case 0:
-                Codec.getDefault();
-                break;
-              case 1:
-                Codec.forName(codecName);
-                break;
-              case 2:
-                PostingsFormat.forName(pfName);
-                break;
-              case 3:
-                DocValuesFormat.forName(dvfName);
-                break;
-              case 4:
-                Codec.availableCodecs();
-                break;
-              case 5:
-                PostingsFormat.availablePostingsFormats();
-                break;
-              case 6:
-                DocValuesFormat.availableDocValuesFormats();
-                break;
-              default:
-                throw new AssertionError();
-            }
-          } catch (Throwable t) {
-            synchronized(args) {
-              System.err.println(Thread.currentThread().getName() + " failed to lookup codec service:");
-              t.printStackTrace(System.err);
-            }
-            Runtime.getRuntime().halt(1); // signal failure to caller
-          }
+    IntStream.range(0, numThreads).forEach(taskNo -> pool.execute(() -> {
+      try {
+        barrier.await();
+        switch (taskNo % 7) {
+          case 0:
+            Codec.getDefault();
+            break;
+          case 1:
+            Codec.forName(codecName);
+            break;
+          case 2:
+            PostingsFormat.forName(pfName);
+            break;
+          case 3:
+            DocValuesFormat.forName(dvfName);
+            break;
+          case 4:
+            Codec.availableCodecs();
+            break;
+          case 5:
+            PostingsFormat.availablePostingsFormats();
+            break;
+          case 6:
+            DocValuesFormat.availableDocValuesFormats();
+            break;
+          default:
+            throw new AssertionError();
         }
-      });
-    }
+      } catch (Throwable t) {
+        synchronized(args) {
+          System.err.println(Thread.currentThread().getName() + " failed to lookup codec service:");
+          t.printStackTrace(System.err);
+        }
+        Runtime.getRuntime().halt(1); // signal failure to caller
+      }
+    }));
     pool.shutdown();
     while (!pool.awaitTermination(1, TimeUnit.MINUTES));
   }

@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,22 +14,23 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-import static org.apache.lucene.util.ByteBlockPool.BYTE_BLOCK_SIZE;
+package org.apache.lucene.index;
 
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 import org.apache.lucene.codecs.DocValuesConsumer;
+import org.apache.lucene.search.SortField;
 import org.apache.lucene.util.ByteBlockPool;
 import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.BytesRefHash.DirectBytesStartArray;
 import org.apache.lucene.util.BytesRefHash;
+import org.apache.lucene.util.BytesRefHash.DirectBytesStartArray;
 import org.apache.lucene.util.Counter;
-import org.apache.lucene.util.RamUsageEstimator;
 import org.apache.lucene.util.packed.PackedInts;
 import org.apache.lucene.util.packed.PackedLongValues;
+
+import static org.apache.lucene.util.ByteBlockPool.BYTE_BLOCK_SIZE;
 
 /** Buffers up pending byte[] per doc, deref and sorting via
  *  int ord, then flushes when segment flushes. */
@@ -41,6 +40,10 @@ class SortedDocValuesWriter extends DocValuesWriter {
   private final Counter iwBytesUsed;
   private long bytesUsed; // this currently only tracks differences in 'pending'
   private final FieldInfo fieldInfo;
+
+  PackedLongValues finalOrds;
+  int[] finalSortedValues;
+  int[] finalOrdMap;
 
   private static final int EMPTY_ORD = -1;
 
@@ -82,6 +85,19 @@ class SortedDocValuesWriter extends DocValuesWriter {
       pending.add(EMPTY_ORD);
     }
     updateBytesUsed();
+
+    assert pending.size() == maxDoc;
+    final int valueCount = hash.size();
+    if (finalOrds == null) {
+      finalOrds = pending.build();
+      finalSortedValues = hash.sort();
+      finalOrdMap = new int[valueCount];
+
+      for (int ord = 0; ord < valueCount; ord++) {
+        finalOrdMap[finalSortedValues[ord]] = ord;
+      }
+    }
+
   }
 
   private void addOneValue(BytesRef value) {
@@ -93,7 +109,7 @@ class SortedDocValuesWriter extends DocValuesWriter {
       // 1. when indexing, when hash is 50% full, rehash() suddenly needs 2*size ints.
       //    TODO: can this same OOM happen in THPF?
       // 2. when flushing, we need 1 int per value (slot in the ordMap).
-      iwBytesUsed.addAndGet(2 * RamUsageEstimator.NUM_BYTES_INT);
+      iwBytesUsed.addAndGet(2 * Integer.BYTES);
     }
     
     pending.add(termID);
@@ -107,19 +123,9 @@ class SortedDocValuesWriter extends DocValuesWriter {
   }
 
   @Override
-  public void flush(SegmentWriteState state, DocValuesConsumer dvConsumer) throws IOException {
+  public void flush(SegmentWriteState state, Sorter.DocMap sortMap, DocValuesConsumer dvConsumer) throws IOException {
     final int maxDoc = state.segmentInfo.maxDoc();
-
-    assert pending.size() == maxDoc;
     final int valueCount = hash.size();
-    final PackedLongValues ords = pending.build();
-
-    final int[] sortedValues = hash.sort(BytesRef.getUTF8SortedAsUnicodeComparator());
-    final int[] ordMap = new int[valueCount];
-
-    for(int ord=0;ord<valueCount;ord++) {
-      ordMap[sortedValues[ord]] = ord;
-    }
 
     dvConsumer.addSortedField(fieldInfo,
 
@@ -127,7 +133,7 @@ class SortedDocValuesWriter extends DocValuesWriter {
                               new Iterable<BytesRef>() {
                                 @Override
                                 public Iterator<BytesRef> iterator() {
-                                  return new ValuesIterator(sortedValues, valueCount, hash);
+                                  return new ValuesIterator(finalSortedValues, valueCount, hash);
                                 }
                               },
 
@@ -135,9 +141,44 @@ class SortedDocValuesWriter extends DocValuesWriter {
                               new Iterable<Number>() {
                                 @Override
                                 public Iterator<Number> iterator() {
-                                  return new OrdsIterator(ordMap, maxDoc, ords);
+                                  if (sortMap == null) {
+                                    return new OrdsIterator(finalOrdMap, maxDoc, finalOrds);
+                                  } else {
+                                    return new SortingOrdsIterator(finalOrdMap, maxDoc, finalOrds, sortMap);
+                                  }
                                 }
                               });
+  }
+
+  @Override
+  Sorter.DocComparator getDocComparator(int numDoc, SortField sortField) throws IOException {
+    assert sortField.getType() == SortField.Type.STRING;
+    final int missingOrd;
+    if (sortField.getMissingValue() == SortField.STRING_LAST) {
+      missingOrd = Integer.MAX_VALUE;
+    } else {
+      missingOrd = Integer.MIN_VALUE;
+    }
+    final int reverseMul = sortField.getReverse() ? -1 : 1;
+    return new Sorter.DocComparator() {
+      @Override
+      public int compare(int docID1, int docID2) {
+        int ord1 = (int) finalOrds.get(docID1);
+        if (ord1 == -1) {
+          ord1 = missingOrd;
+        } else {
+          ord1 = finalOrdMap[ord1];
+        }
+
+        int ord2 = (int) finalOrds.get(docID2);
+        if (ord2 == -1) {
+          ord2 = missingOrd;
+        } else {
+          ord2 = finalOrdMap[ord2];
+        }
+        return reverseMul * Integer.compare(ord1, ord2);
+      }
+    };
   }
 
   // iterates over the unique values we have in ram
@@ -174,21 +215,21 @@ class SortedDocValuesWriter extends DocValuesWriter {
       throw new UnsupportedOperationException();
     }
   }
-  
+
   // iterates over the ords for each doc we have in ram
   private static class OrdsIterator implements Iterator<Number> {
     final PackedLongValues.Iterator iter;
     final int ordMap[];
     final int maxDoc;
     int docUpto;
-    
+
     OrdsIterator(int ordMap[], int maxDoc, PackedLongValues ords) {
       this.ordMap = ordMap;
       this.maxDoc = maxDoc;
       assert ords.size() == maxDoc;
       this.iter = ords.iterator();
     }
-    
+
     @Override
     public boolean hasNext() {
       return docUpto < maxDoc;
@@ -200,6 +241,44 @@ class SortedDocValuesWriter extends DocValuesWriter {
         throw new NoSuchElementException();
       }
       int ord = (int) iter.next();
+      docUpto++;
+      return ord == -1 ? ord : ordMap[ord];
+    }
+
+    @Override
+    public void remove() {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  // sort the ords we have in ram according to the provided sort map
+  private static class SortingOrdsIterator implements Iterator<Number> {
+    final PackedLongValues ords;
+    final int ordMap[];
+    final Sorter.DocMap sortMap;
+    final int maxDoc;
+    int docUpto;
+
+    SortingOrdsIterator(int ordMap[], int maxDoc, PackedLongValues ords, Sorter.DocMap sortMap) {
+      this.ordMap = ordMap;
+      this.maxDoc = maxDoc;
+      assert ords.size() == maxDoc;
+      this.ords = ords;
+      this.sortMap = sortMap;
+    }
+
+    @Override
+    public boolean hasNext() {
+      return docUpto < maxDoc;
+    }
+
+    @Override
+    public Number next() {
+      if (!hasNext()) {
+        throw new NoSuchElementException();
+      }
+      int oldUpto = sortMap.newToOld(docUpto);
+      int ord = (int) ords.get(oldUpto);
       docUpto++;
       return ord == -1 ? ord : ordMap[ord];
     }

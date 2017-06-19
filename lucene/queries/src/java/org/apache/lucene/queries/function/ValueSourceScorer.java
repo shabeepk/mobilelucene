@@ -1,5 +1,3 @@
-package org.apache.lucene.queries.function;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,75 +14,79 @@ package org.apache.lucene.queries.function;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queries.function;
 
 import java.io.IOException;
 
-import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.MultiFields;
+import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Scorer;
-import org.apache.lucene.util.Bits;
+import org.apache.lucene.search.TwoPhaseIterator;
 
 /**
  * {@link Scorer} which returns the result of {@link FunctionValues#floatVal(int)} as
- * the score for a document.
+ * the score for a document, and which filters out documents that don't match {@link #matches(int)}.
+ * This Scorer has a {@link TwoPhaseIterator}.  This is similar to {@link FunctionQuery},
+ * but this one has no {@link org.apache.lucene.search.Weight} normalization factors/multipliers
+ * and that one doesn't filter either.
+ * <p>
+ * Note: If the scores are needed, then the underlying value will probably be
+ * fetched/computed twice -- once to filter and next to return the score.  If that's non-trivial then
+ * consider wrapping it in an implementation that will cache the current value.
+ * </p>
+ *
+ * @see FunctionQuery
+ * @lucene.experimental
  */
-public class ValueSourceScorer extends Scorer {
-  protected final IndexReader reader;
-  private int doc = -1;
-  protected final int maxDoc;
+public abstract class ValueSourceScorer extends Scorer {
   protected final FunctionValues values;
-  protected boolean checkDeletes;
-  private final Bits liveDocs;
+  private final TwoPhaseIterator twoPhaseIterator;
+  private final DocIdSetIterator disi;
 
-  protected ValueSourceScorer(IndexReader reader, FunctionValues values) {
-    super(null);
-    this.reader = reader;
-    this.maxDoc = reader.maxDoc();
+  protected ValueSourceScorer(LeafReaderContext readerContext, FunctionValues values) {
+    super(null);//no weight
     this.values = values;
-    setCheckDeletes(true);
-    this.liveDocs = MultiFields.getLiveDocs(reader);
+    final DocIdSetIterator approximation = DocIdSetIterator.all(readerContext.reader().maxDoc()); // no approximation!
+    this.twoPhaseIterator = new TwoPhaseIterator(approximation) {
+      @Override
+      public boolean matches() throws IOException {
+        return ValueSourceScorer.this.matches(approximation.docID());
+      }
+
+      @Override
+      public float matchCost() {
+        return 100; // TODO: use cost of ValueSourceScorer.this.matches()
+      }
+    };
+    this.disi = TwoPhaseIterator.asDocIdSetIterator(twoPhaseIterator);
   }
 
-  public IndexReader getReader() {
-    return reader;
+  /** Override to decide if this document matches. It's called by {@link TwoPhaseIterator#matches()}. */
+  public abstract boolean matches(int doc);
+
+  @Override
+  public DocIdSetIterator iterator() {
+    return disi;
   }
 
-  public void setCheckDeletes(boolean checkDeletes) {
-    this.checkDeletes = checkDeletes && reader.hasDeletions();
-  }
-
-  public boolean matches(int doc) {
-    return (!checkDeletes || liveDocs.get(doc)) && matchesValue(doc);
-  }
-
-  public boolean matchesValue(int doc) {
-    return true;
+  @Override
+  public TwoPhaseIterator twoPhaseIterator() {
+    return twoPhaseIterator;
   }
 
   @Override
   public int docID() {
-    return doc;
-  }
-
-  @Override
-  public int nextDoc() throws IOException {
-    for (; ;) {
-      doc++;
-      if (doc >= maxDoc) return doc = NO_MORE_DOCS;
-      if (matches(doc)) return doc;
-    }
-  }
-
-  @Override
-  public int advance(int target) throws IOException {
-    // also works fine when target==NO_MORE_DOCS
-    doc = target - 1;
-    return nextDoc();
+    return disi.docID();
   }
 
   @Override
   public float score() throws IOException {
-    return values.floatVal(doc);
+    // (same as FunctionQuery, but no qWeight)  TODO consider adding configurable qWeight
+    float score = values.floatVal(disi.docID());
+    // Current Lucene priority queues can't handle NaN and -Infinity, so
+    // map to -Float.MAX_VALUE. This conditional handles both -infinity
+    // and NaN since comparisons with NaN are always false.
+    return score > Float.NEGATIVE_INFINITY ? score : -Float.MAX_VALUE;
   }
 
   @Override
@@ -92,8 +94,4 @@ public class ValueSourceScorer extends Scorer {
     return 1;
   }
 
-  @Override
-  public long cost() {
-    return maxDoc;
-  }
 }

@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.br;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,19 +14,19 @@ package org.apache.lucene.analysis.br;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.br;
+
 
 import java.io.IOException;
-import java.io.Reader;
 import java.io.StringReader;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.BaseTokenStreamTestCase;
+import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.Tokenizer;
 import org.apache.lucene.analysis.core.KeywordTokenizer;
 import org.apache.lucene.analysis.core.LowerCaseTokenizer;
 import org.apache.lucene.analysis.miscellaneous.SetKeywordMarkerFilter;
-import org.apache.lucene.analysis.util.CharArraySet;
-import org.apache.lucene.util.Version;
 
 /**
  * Test the Brazilian Stem Filter, which only modifies the term text.
@@ -183,12 +181,5 @@ public class TestBrazilianAnalyzer extends BaseTokenStreamTestCase {
     };
     checkOneTerm(a, "", "");
     a.close();
-  }
-
-  public void testBackcompat40() throws IOException {
-    BrazilianAnalyzer a = new BrazilianAnalyzer();
-    a.setVersion(Version.LUCENE_4_6_1);
-    // this is just a test to see the correct unicode version is being used, not actually testing hebrew
-    assertAnalyzesTo(a, "א\"א", new String[] {"א", "א"});
   }
 }

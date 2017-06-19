@@ -1,5 +1,3 @@
-package org.apache.lucene.search.similarities;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search.similarities;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.similarities;
+
 
 /**
  * Normalization model that assumes a uniform distribution of the term frequency.
@@ -48,7 +48,7 @@ public class NormalizationH1 extends Normalization {
   
   @Override
   public final float tfn(BasicStats stats, float tf, float len) {
-    return tf * stats.getAvgFieldLength() / len;
+    return tf * c * stats.getAvgFieldLength() / len;
   }
 
   @Override

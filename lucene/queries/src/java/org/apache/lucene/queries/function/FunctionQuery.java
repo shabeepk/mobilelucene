@@ -1,5 +1,3 @@
-package org.apache.lucene.queries.function;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.queries.function;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queries.function;
 
 import java.io.IOException;
 import java.util.Map;
@@ -24,21 +23,20 @@ import java.util.Set;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Weight;
-import org.apache.lucene.util.Bits;
 
 
 /**
  * Returns a score for each document based on a ValueSource,
  * often some function of the value of a field.
  *
- * <b>Note: This API is experimental and may change in non backward-compatible ways in the future</b>
- *
- *
+ * @see ValueSourceScorer
+ * @lucene.experimental
  */
 public class FunctionQuery extends Query {
   final ValueSource func;
@@ -55,15 +53,9 @@ public class FunctionQuery extends Query {
     return func;
   }
 
-  @Override
-  public Query rewrite(IndexReader reader) throws IOException {
-    return this;
-  }
-
   protected class FunctionWeight extends Weight {
     protected final IndexSearcher searcher;
-    protected float queryNorm;
-    protected float queryWeight;
+    protected float queryNorm, boost, queryWeight;
     protected final Map context;
 
     public FunctionWeight(IndexSearcher searcher) throws IOException {
@@ -71,6 +63,7 @@ public class FunctionQuery extends Query {
       this.searcher = searcher;
       this.context = ValueSource.newContext(searcher);
       func.createWeight(context, searcher);
+      normalize(1f, 1f);;
     }
 
     @Override
@@ -78,14 +71,14 @@ public class FunctionQuery extends Query {
 
     @Override
     public float getValueForNormalization() throws IOException {
-      queryWeight = getBoost();
       return queryWeight * queryWeight;
     }
 
     @Override
-    public void normalize(float norm, float topLevelBoost) {
-      this.queryNorm = norm * topLevelBoost;
-      queryWeight *= this.queryNorm;
+    public void normalize(float norm, float boost) {
+      this.queryNorm = norm;
+      this.boost = boost;
+      this.queryWeight = norm * boost;
     }
 
     @Override
@@ -104,7 +97,7 @@ public class FunctionQuery extends Query {
     final FunctionWeight weight;
     final int maxDoc;
     final float qWeight;
-    int doc=-1;
+    final DocIdSetIterator iterator;
     final FunctionValues vals;
 
     public AllScorer(LeafReaderContext context, FunctionWeight w, float qWeight) throws IOException {
@@ -113,45 +106,28 @@ public class FunctionQuery extends Query {
       this.qWeight = qWeight;
       this.reader = context.reader();
       this.maxDoc = reader.maxDoc();
+      iterator = DocIdSetIterator.all(context.reader().maxDoc());
       vals = func.getValues(weight.context, context);
     }
 
     @Override
+    public DocIdSetIterator iterator() {
+      return iterator;
+    }
+
+    @Override
     public int docID() {
-      return doc;
-    }
-
-    // instead of matching all docs, we could also embed a query.
-    // the score could either ignore the subscore, or boost it.
-    // Containment:  floatline(foo:myTerm, "myFloatField", 1.0, 0.0f)
-    // Boost:        foo:myTerm^floatline("myFloatField",1.0,0.0f)
-    @Override
-    public int nextDoc() throws IOException {
-      ++doc;
-      if (doc>=maxDoc) {
-        return doc=NO_MORE_DOCS;
-      }
-      return doc;
-    }
-
-    @Override
-    public int advance(int target) throws IOException {
-      return slowAdvance(target);
+      return iterator.docID();
     }
 
     @Override
     public float score() throws IOException {
-      float score = qWeight * vals.floatVal(doc);
+      float score = qWeight * vals.floatVal(docID());
 
       // Current Lucene priority queues can't handle NaN and -Infinity, so
       // map to -Float.MAX_VALUE. This conditional handles both -infinity
       // and NaN since comparisons with NaN are always false.
       return score>Float.NEGATIVE_INFINITY ? score : -Float.MAX_VALUE;
-    }
-
-    @Override
-    public long cost() {
-      return maxDoc;
     }
 
     @Override
@@ -164,7 +140,7 @@ public class FunctionQuery extends Query {
 
       return Explanation.match(sc, "FunctionQuery(" + func + "), product of:",
           vals.explain(doc),
-          Explanation.match(getBoost(), "boost"),
+          Explanation.match(weight.boost, "boost"),
           Explanation.match(weight.queryNorm, "queryNorm"));
     }
 
@@ -181,23 +157,19 @@ public class FunctionQuery extends Query {
   @Override
   public String toString(String field)
   {
-    float boost = getBoost();
-    return (boost!=1.0?"(":"") + func.toString()
-            + (boost==1.0 ? "" : ")^"+boost);
+    return func.toString();
   }
 
 
   /** Returns true if <code>o</code> is equal to this. */
   @Override
-  public boolean equals(Object o) {
-    if (!FunctionQuery.class.isInstance(o)) return false;
-    FunctionQuery other = (FunctionQuery)o;
-    return super.equals(o)
-            && this.func.equals(other.func);
+  public boolean equals(Object other) {
+    return sameClassAs(other) &&
+           func.equals(((FunctionQuery) other).func);
   }
 
   @Override
   public int hashCode() {
-    return super.hashCode() ^ func.hashCode();
+    return classHash() ^ func.hashCode();
   }
 }

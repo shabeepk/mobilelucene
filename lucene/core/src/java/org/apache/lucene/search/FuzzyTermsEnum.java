@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,10 +14,11 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 import org.apache.lucene.index.PostingsEnum;
@@ -59,9 +58,6 @@ public class FuzzyTermsEnum extends TermsEnum {
   
   private float bottom;
   private BytesRef bottomTerm;
-
-  // TODO: chicken-and-egg
-  private final Comparator<BytesRef> termComparator = BytesRef.getUTF8SortedAsUnicodeComparator();
   
   protected final float minSimilarity;
   protected final float scale_factor;
@@ -193,7 +189,7 @@ public class FuzzyTermsEnum extends TermsEnum {
     int oldMaxEdits = maxEdits;
     
     // true if the last term encountered is lexicographically equal or after the bottom term in the PQ
-    boolean termAfter = bottomTerm == null || (lastTerm != null && termComparator.compare(lastTerm, bottomTerm) >= 0);
+    boolean termAfter = bottomTerm == null || (lastTerm != null && lastTerm.compareTo(bottomTerm) >= 0);
 
     // as long as the max non-competitive boost is >= the max boost
     // for some edit distance, keep dropping the max edit distance.
@@ -333,7 +329,7 @@ public class FuzzyTermsEnum extends TermsEnum {
       //System.out.println("AFTE.accept term=" + term);
       int ed = matchers.length - 1;
       
-      // we are wrapping either an intersect() TermsEnum or an AutomatonTermsENum,
+      // we are wrapping either an intersect() TermsEnum or an AutomatonTermsEnum,
       // so we know the outer DFA always matches.
       // now compute exact edit distance
       while (ed > 0) {
@@ -354,7 +350,7 @@ public class FuzzyTermsEnum extends TermsEnum {
         final int codePointCount = UnicodeUtil.codePointCount(term);
         final float similarity = 1.0f - ((float) ed / (float) 
             (Math.min(codePointCount, termLength)));
-        if (similarity > minSimilarity) {
+        if (minSimilarity == 0 || similarity > minSimilarity) {
           boostAtt.setBoost((similarity - minSimilarity) * scale_factor);
           //System.out.println("  yes");
           return AcceptStatus.YES;

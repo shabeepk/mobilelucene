@@ -1,32 +1,3 @@
-package org.apache.lucene.expressions;
-
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.NumericDocValuesField;
-import org.apache.lucene.expressions.js.JavascriptCompiler;
-import org.apache.lucene.expressions.js.VariableContext;
-import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.RandomIndexWriter;
-import org.apache.lucene.index.Term;
-import org.apache.lucene.queries.function.ValueSource;
-import org.apache.lucene.queries.function.valuesource.DoubleConstValueSource;
-import org.apache.lucene.queries.function.valuesource.IntFieldSource;
-import org.apache.lucene.search.CheckHits;
-import org.apache.lucene.search.FieldDoc;
-import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.MatchAllDocsQuery;
-import org.apache.lucene.search.Query;
-import org.apache.lucene.search.Sort;
-import org.apache.lucene.search.SortField;
-import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.search.TopFieldDocs;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.util.LuceneTestCase;
-
-import static org.apache.lucene.expressions.js.VariableContext.Type.MEMBER;
-import static org.apache.lucene.expressions.js.VariableContext.Type.STR_INDEX;
-import static org.apache.lucene.expressions.js.VariableContext.Type.INT_INDEX;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -43,6 +14,37 @@ import static org.apache.lucene.expressions.js.VariableContext.Type.INT_INDEX;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.expressions;
+
+import java.io.IOException;
+
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Field;
+import org.apache.lucene.document.NumericDocValuesField;
+import org.apache.lucene.expressions.js.JavascriptCompiler;
+import org.apache.lucene.expressions.js.VariableContext;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.RandomIndexWriter;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.CheckHits;
+import org.apache.lucene.search.DoubleValues;
+import org.apache.lucene.search.DoubleValuesSource;
+import org.apache.lucene.search.FieldDoc;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.MatchAllDocsQuery;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
+import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.TopFieldDocs;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.util.LuceneTestCase;
+
+import static org.apache.lucene.expressions.js.VariableContext.Type.INT_INDEX;
+import static org.apache.lucene.expressions.js.VariableContext.Type.MEMBER;
+import static org.apache.lucene.expressions.js.VariableContext.Type.STR_INDEX;
+
 
 /** simple demo of using expressions */
 public class  TestDemoExpressions extends LuceneTestCase {
@@ -224,19 +226,19 @@ public class  TestDemoExpressions extends LuceneTestCase {
     TopFieldDocs td = searcher.search(new MatchAllDocsQuery(), 3, sort);
     
     FieldDoc d = (FieldDoc) td.scoreDocs[0];
-    assertEquals(0.4619D, (Double)d.fields[0], 1E-4);
+    assertEquals(0.4621D, (Double)d.fields[0], 1E-4);
     
     d = (FieldDoc) td.scoreDocs[1];
-    assertEquals(1.0546D, (Double)d.fields[0], 1E-4);
+    assertEquals(1.055D, (Double)d.fields[0], 1E-4);
     
     d = (FieldDoc) td.scoreDocs[2];
-    assertEquals(5.2842D, (Double)d.fields[0], 1E-4);
+    assertEquals(5.2859D, (Double)d.fields[0], 1E-4);
   }
 
   public void testStaticExtendedVariableExample() throws Exception {
     Expression popularity = JavascriptCompiler.compile("doc[\"popularity\"].value");
     SimpleBindings bindings = new SimpleBindings();
-    bindings.add("doc['popularity'].value", new IntFieldSource("popularity"));
+    bindings.add("doc['popularity'].value", DoubleValuesSource.fromIntField("popularity"));
     Sort sort = new Sort(popularity.getSortField(bindings, true));
     TopFieldDocs td = searcher.search(new MatchAllDocsQuery(), 3, sort);
 
@@ -250,6 +252,30 @@ public class  TestDemoExpressions extends LuceneTestCase {
     assertEquals(2D, (Double)d.fields[0], 1E-4);
   }
 
+  private static DoubleValuesSource constant(double value) {
+    return new DoubleValuesSource() {
+      @Override
+      public DoubleValues getValues(LeafReaderContext ctx, DoubleValues scores) throws IOException {
+        return new DoubleValues() {
+          @Override
+          public double doubleValue() throws IOException {
+            return value;
+          }
+
+          @Override
+          public boolean advanceExact(int doc) throws IOException {
+            return true;
+          }
+        };
+      }
+
+      @Override
+      public boolean needsScores() {
+        return false;
+      }
+    };
+  }
+
   public void testDynamicExtendedVariableExample() throws Exception {
     Expression popularity = JavascriptCompiler.compile("doc['popularity'].value + magicarray[0] + fourtytwo");
 
@@ -258,7 +284,7 @@ public class  TestDemoExpressions extends LuceneTestCase {
     // filled in with proper error messages for a real use case.
     Bindings bindings = new Bindings() {
       @Override
-      public ValueSource getValueSource(String name) {
+      public DoubleValuesSource getDoubleValuesSource(String name) {
         VariableContext[] var = VariableContext.parse(name);
         assert var[0].type == MEMBER;
         String base = var[0].text;
@@ -266,7 +292,7 @@ public class  TestDemoExpressions extends LuceneTestCase {
           if (var.length > 1 && var[1].type == STR_INDEX) {
             String field = var[1].text;
             if (var.length > 2 && var[2].type == MEMBER && var[2].text.equals("value")) {
-              return new IntFieldSource(field);
+              return DoubleValuesSource.fromIntField(field);
             } else {
               fail("member: " + var[2].text);// error case, non/missing "value" member access
             }
@@ -275,12 +301,12 @@ public class  TestDemoExpressions extends LuceneTestCase {
           }
         } else if (base.equals("magicarray")) {
           if (var.length > 1 && var[1].type == INT_INDEX) {
-            return new DoubleConstValueSource(2048);
+            return constant(2048);
           } else {
             fail();// error case, magic array isn't an array
           }
         } else if (base.equals("fourtytwo")) {
-          return new DoubleConstValueSource(42);
+          return constant(42);
         } else {
           fail();// error case (variable doesn't exist)
         }

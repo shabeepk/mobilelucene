@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,17 +14,24 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BooleanSupplier;
+import java.util.stream.Collectors;
 
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.MergeInfo;
-import org.apache.lucene.store.RateLimiter;
-import org.apache.lucene.util.FixedBitSet;
 
 /**
  * <p>Expert: a MergePolicy determines the sequence of
@@ -57,29 +62,123 @@ import org.apache.lucene.util.FixedBitSet;
  * @lucene.experimental
  */
 public abstract class MergePolicy {
+  /**
+   * Progress and state for an executing merge. This class
+   * encapsulates the logic to pause and resume the merge thread
+   * or to abort the merge entirely.
+   * 
+   * @lucene.experimental */
+  public static class OneMergeProgress {
+    /** Reason for pausing the merge thread. */
+    public static enum PauseReason {
+      /** Stopped (because of throughput rate set to 0, typically). */
+      STOPPED,
+      /** Temporarily paused because of exceeded throughput rate. */
+      PAUSED,
+      /** Other reason. */
+      OTHER
+    };
 
-  /** A map of doc IDs. */
-  public static abstract class DocMap {
-    /** Sole constructor, typically invoked from sub-classes constructors. */
-    protected DocMap() {}
+    private final ReentrantLock pauseLock = new ReentrantLock();
+    private final Condition pausing = pauseLock.newCondition();
 
-    /** Return the new doc ID according to its old value. */
-    public abstract int map(int old);
+    /**
+     * Pause times (in nanoseconds) for each {@link PauseReason}.
+     */
+    private final EnumMap<PauseReason, AtomicLong> pauseTimesNS;
+    
+    private volatile boolean aborted;
 
-    /** Useful from an assert. */
-    boolean isConsistent(int maxDoc) {
-      final FixedBitSet targets = new FixedBitSet(maxDoc);
-      for (int i = 0; i < maxDoc; ++i) {
-        final int target = map(i);
-        if (target < 0 || target >= maxDoc) {
-          assert false : "out of range: " + target + " not in [0-" + maxDoc + "[";
-          return false;
-        } else if (targets.get(target)) {
-          assert false : target + " is already taken (" + i + ")";
-          return false;
-        }
+    /**
+     * This field is for sanity-check purposes only. Only the same thread that invoked
+     * {@link OneMerge#mergeInit()} is permitted to be calling 
+     * {@link #pauseNanos}. This is always verified at runtime. 
+     */
+    private Thread owner;
+
+    /** Creates a new merge progress info. */
+    public OneMergeProgress() {
+      // Place all the pause reasons in there immediately so that we can simply update values.
+      pauseTimesNS = new EnumMap<PauseReason,AtomicLong>(PauseReason.class);
+      for (PauseReason p : PauseReason.values()) {
+        pauseTimesNS.put(p, new AtomicLong());
       }
-      return true;
+    }
+
+    /**
+     * Abort the merge this progress tracks at the next 
+     * possible moment.
+     */
+    public void abort() {
+      aborted = true;
+      wakeup(); // wakeup any paused merge thread.
+    }
+
+    /**
+     * Return the aborted state of this merge.
+     */
+    public boolean isAborted() {
+      return aborted;
+    }
+
+    /**
+     * Pauses the calling thread for at least <code>pauseNanos</code> nanoseconds
+     * unless the merge is aborted or the external condition returns <code>false</code>,
+     * in which case control returns immediately.
+     * 
+     * The external condition is required so that other threads can terminate the pausing immediately,
+     * before <code>pauseNanos</code> expires. We can't rely on just {@link Condition#awaitNanos(long)} alone
+     * because it can return due to spurious wakeups too.  
+     * 
+     * @param condition The pause condition that should return false if immediate return from this
+     *      method is needed. Other threads can wake up any sleeping thread by calling 
+     *      {@link #wakeup}, but it'd fall to sleep for the remainder of the requested time if this
+     *      condition 
+     */
+    public void pauseNanos(long pauseNanos, PauseReason reason, BooleanSupplier condition) throws InterruptedException {
+      if (Thread.currentThread() != owner) {
+        throw new RuntimeException("Only the merge owner thread can call pauseNanos(). This thread: "
+            + Thread.currentThread().getName() + ", owner thread: "
+            + owner);
+      }
+
+      long start = System.nanoTime();
+      AtomicLong timeUpdate = pauseTimesNS.get(reason);
+      pauseLock.lock();
+      try {
+        while (pauseNanos > 0 && !aborted && condition.getAsBoolean()) {
+          pauseNanos = pausing.awaitNanos(pauseNanos);
+        }
+      } finally {
+        pauseLock.unlock();
+        timeUpdate.addAndGet(System.nanoTime() - start);
+      }
+    }
+
+    /**
+     * Request a wakeup for any threads stalled in {@link #pauseNanos}.
+     */
+    public void wakeup() {
+      pauseLock.lock();
+      try {
+        pausing.signalAll();
+      } finally {
+        pauseLock.unlock();
+      }
+    }
+
+    /** Returns pause reasons and associated times in nanoseconds. */
+    public Map<PauseReason,Long> getPauseTimes() {
+      Set<Entry<PauseReason,AtomicLong>> entries = pauseTimesNS.entrySet();
+      return entries.stream()
+          .collect(Collectors.toMap(
+              (e) -> e.getKey(),
+              (e) -> e.getValue().get()));
+    }
+
+    final void setMergeThread(Thread owner) {
+      assert this.owner == null;
+      this.owner = owner;
     }
   }
 
@@ -91,7 +190,6 @@ public abstract class MergePolicy {
    *
    * @lucene.experimental */
   public static class OneMerge {
-
     SegmentCommitInfo info;         // used by IndexWriter
     boolean registerDone;           // used by IndexWriter
     long mergeGen;                  // used by IndexWriter
@@ -109,8 +207,10 @@ public abstract class MergePolicy {
     /** Segments to be merged. */
     public final List<SegmentCommitInfo> segments;
 
-    /** A private {@link RateLimiter} for this merge, used to rate limit writes and abort. */
-    public final MergeRateLimiter rateLimiter;
+    /**
+     * Control used to pause/stop/resume the merge thread. 
+     */
+    private final OneMergeProgress mergeProgress;
 
     volatile long mergeStartNS = -1;
 
@@ -133,32 +233,26 @@ public abstract class MergePolicy {
       }
       totalMaxDoc = count;
 
-      rateLimiter = new MergeRateLimiter(this);
+      mergeProgress = new OneMergeProgress();
     }
 
+    /** 
+     * Called by {@link IndexWriter} after the merge started and from the
+     * thread that will be executing the merge.
+     */
+    public void mergeInit() throws IOException {
+      mergeProgress.setMergeThread(Thread.currentThread());
+    }
+    
     /** Called by {@link IndexWriter} after the merge is done and all readers have been closed. */
     public void mergeFinished() throws IOException {
     }
 
-    /** Expert: Get the list of readers to merge. Note that this list does not
-     *  necessarily match the list of segments to merge and should only be used
-     *  to feed SegmentMerger to initialize a merge. When a {@link OneMerge}
-     *  reorders doc IDs, it must override {@link #getDocMap} too so that
-     *  deletes that happened during the merge can be applied to the newly
-     *  merged segment. */
-    public List<CodecReader> getMergeReaders() throws IOException {
-      if (readers == null) {
-        throw new IllegalStateException("IndexWriter has not initialized readers from the segment infos yet");
-      }
-      final List<CodecReader> readers = new ArrayList<>(this.readers.size());
-      for (SegmentReader reader : this.readers) {
-        if (reader.numDocs() > 0) {
-          readers.add(reader);
-        }
-      }
-      return Collections.unmodifiableList(readers);
+    /** Wrap the reader in order to add/remove information to the merged segment. */
+    public CodecReader wrapForMerge(CodecReader reader) throws IOException {
+      return reader;
     }
-    
+
     /**
      * Expert: Sets the {@link SegmentCommitInfo} of the merged segment.
      * Allows sub-classes to e.g. set diagnostics properties.
@@ -173,20 +267,6 @@ public abstract class MergePolicy {
      */
     public SegmentCommitInfo getMergeInfo() {
       return info;
-    }
-
-    /** Expert: If {@link #getMergeReaders()} reorders document IDs, this method
-     *  must be overridden to return a mapping from the <i>natural</i> doc ID
-     *  (the doc ID that would result from a natural merge) to the actual doc
-     *  ID. This mapping is used to apply deletions that happened during the
-     *  merge to the new segment. */
-    public DocMap getDocMap(MergeState mergeState) {
-      return new DocMap() {
-        @Override
-        public int map(int docID) {
-          return docID;
-        }
-      };
     }
 
     /** Record that an exception occurred while executing
@@ -218,7 +298,7 @@ public abstract class MergePolicy {
       if (maxNumSegments != -1) {
         b.append(" [maxNumSegments=" + maxNumSegments + "]");
       }
-      if (rateLimiter.getAbort()) {
+      if (isAborted()) {
         b.append(" [ABORTED]");
       }
       return b.toString();
@@ -249,7 +329,32 @@ public abstract class MergePolicy {
     /** Return {@link MergeInfo} describing this merge. */
     public MergeInfo getStoreMergeInfo() {
       return new MergeInfo(totalMaxDoc, estimatedMergeBytes, isExternal, maxNumSegments);
-    }    
+    }
+
+    /** Returns true if this merge was or should be aborted. */
+    public boolean isAborted() {
+      return mergeProgress.isAborted();
+    }
+
+    /** Marks this merge as aborted. The merge thread should terminate at the soonest possible moment. */
+    public void setAborted() {
+      this.mergeProgress.abort();
+    }
+
+    /** Checks if merge has been aborted and throws a merge exception if so. */
+    public void checkAborted() throws MergeAbortedException {
+      if (isAborted()) {
+        throw new MergePolicy.MergeAbortedException("merge is aborted: " + segString());
+      }
+    }
+
+    /**
+     * Returns a {@link OneMergeProgress} instance for this merge, which provides
+     * statistics of the merge threads (run time vs. sleep time) if merging is throttled.
+     */
+    public OneMergeProgress getMergeProgress() {
+      return mergeProgress;
+    }
   }
 
   /**
@@ -277,8 +382,7 @@ public abstract class MergePolicy {
       merges.add(merge);
     }
 
-    /** Returns a description of the merges in this
-    *  specification. */
+    /** Returns a description of the merges in this specification. */
     public String segString(Directory dir) {
       StringBuilder b = new StringBuilder();
       b.append("MergeSpec:\n");
@@ -290,8 +394,7 @@ public abstract class MergePolicy {
     }
   }
 
-  /** Exception thrown if there are any problems while
-   *  executing a merge. */
+  /** Exception thrown if there are any problems while executing a merge. */
   public static class MergeException extends RuntimeException {
     private Directory dir;
 
@@ -314,9 +417,9 @@ public abstract class MergePolicy {
     }
   }
 
-  /** Thrown when a merge was explicity aborted because
+  /** Thrown when a merge was explicitly aborted because
    *  {@link IndexWriter#abortMerges} was called.  Normally
-   *  this exception is privately caught and suppresed by
+   *  this exception is privately caught and suppressed by
    *  {@link IndexWriter}. */
   public static class MergeAbortedException extends IOException {
     /** Create a {@link MergeAbortedException}. */
@@ -468,7 +571,7 @@ public abstract class MergePolicy {
   /** Returns current {@code noCFSRatio}.
    *
    *  @see #setNoCFSRatio */
-  public final double getNoCFSRatio() {
+  public double getNoCFSRatio() {
     return noCFSRatio;
   }
 
@@ -477,7 +580,7 @@ public abstract class MergePolicy {
    *  non-compound file even if compound file is enabled.
    *  Set to 1.0 to always use CFS regardless of merge
    *  size. */
-  public final void setNoCFSRatio(double noCFSRatio) {
+  public void setNoCFSRatio(double noCFSRatio) {
     if (noCFSRatio < 0.0 || noCFSRatio > 1.0) {
       throw new IllegalArgumentException("noCFSRatio must be 0.0 to 1.0 inclusive; got " + noCFSRatio);
     }
@@ -494,7 +597,7 @@ public abstract class MergePolicy {
    *  non-compound file even if compound file is enabled.
    *  Set this to Double.POSITIVE_INFINITY (default) and noCFSRatio to 1.0
    *  to always use CFS regardless of merge size. */
-  public final void setMaxCFSSegmentSizeMB(double v) {
+  public void setMaxCFSSegmentSizeMB(double v) {
     if (v < 0.0) {
       throw new IllegalArgumentException("maxCFSSegmentSizeMB must be >=0 (got " + v + ")");
     }

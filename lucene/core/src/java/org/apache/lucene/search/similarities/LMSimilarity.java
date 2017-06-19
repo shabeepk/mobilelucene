@@ -1,5 +1,3 @@
-package org.apache.lucene.search.similarities;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search.similarities;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.similarities;
+
 
 import java.util.List;
 import java.util.Locale;
@@ -54,8 +54,8 @@ public abstract class LMSimilarity extends SimilarityBase {
   }
   
   @Override
-  protected BasicStats newStats(String field, float queryBoost) {
-    return new LMStats(field, queryBoost);
+  protected BasicStats newStats(String field) {
+    return new LMStats(field);
   }
 
   /**
@@ -108,8 +108,8 @@ public abstract class LMSimilarity extends SimilarityBase {
     /**
      * Creates LMStats for the provided field and query-time boost
      */
-    public LMStats(String field, float queryBoost) {
-      super(field, queryBoost);
+    public LMStats(String field) {
+      super(field);
     }
     
     /**

@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.blocktree;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.codecs.blocktree;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.blocktree;
+
 
 import java.io.IOException;
 
@@ -26,9 +26,6 @@ import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.automaton.Transition;
 import org.apache.lucene.util.fst.FST;
-
-// Extra imports by portmobile.
-import org.lukhnos.portmobile.j2objc.annotations.Weak;
 
 // TODO: can we share this with the frame in STE?
 final class IntersectTermsEnumFrame {
@@ -111,7 +108,6 @@ final class IntersectTermsEnumFrame {
   // True if the term we are currently on is an auto-prefix term:
   boolean isAutoPrefixTerm;
 
-  @Weak
   private final IntersectTermsEnum ite;
 
   public IntersectTermsEnumFrame(IntersectTermsEnum ite, int ord) throws IOException {

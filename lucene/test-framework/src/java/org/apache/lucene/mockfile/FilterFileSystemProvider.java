@@ -1,5 +1,3 @@
-package org.apache.lucene.mockfile;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.mockfile;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.mockfile;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -49,7 +48,7 @@ import java.util.concurrent.ExecutorService;
  * source of data, possibly transforming the data along the 
  * way or providing additional functionality. 
  */
-public class FilterFileSystemProvider extends FileSystemProvider {
+public abstract class FilterFileSystemProvider extends FileSystemProvider {
   
   /** 
    * The underlying {@code FileSystemProvider}. 

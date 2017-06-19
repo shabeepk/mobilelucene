@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,10 +14,11 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Random;
 
@@ -233,15 +232,17 @@ public class TestPerSegmentDeletes extends LuceneTestCase {
   }
 
   public static int[] toArray(PostingsEnum postingsEnum) throws IOException {
-    List<Integer> docs = new ArrayList<>();
+    int[] docs = new int[0];
+    int numDocs = 0;
     while (postingsEnum.nextDoc() != DocIdSetIterator.NO_MORE_DOCS) {
       int docID = postingsEnum.docID();
-      docs.add(docID);
+      docs = ArrayUtil.grow(docs, numDocs + 1);
+      docs[numDocs + 1] = docID;
     }
-    return ArrayUtil.toIntArray(docs);
+    return Arrays.copyOf(docs, numDocs);
   }
 
-  public class RangeMergePolicy extends MergePolicy {
+  public static class RangeMergePolicy extends MergePolicy {
     boolean doMerge = false;
     int start;
     int length;

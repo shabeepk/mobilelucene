@@ -1,8 +1,3 @@
-package org.apache.lucene.search;
-
-import org.apache.lucene.index.Term;
-import org.apache.lucene.search.BooleanClause.Occur;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -19,6 +14,13 @@ import org.apache.lucene.search.BooleanClause.Occur;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
+import java.util.Arrays;
+
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.BooleanClause.Occur;
+
 
 /**
  * Basic equivalence tests for core queries
@@ -82,9 +84,11 @@ public class TestSimpleSearchEquivalence extends SearchEquivalenceTestBase {
     BooleanQuery.Builder q1 = new BooleanQuery.Builder();
     q1.add(new TermQuery(t1), Occur.SHOULD);
     q1.add(new TermQuery(t2), Occur.SHOULD);
-    DisjunctionMaxQuery q2 = new DisjunctionMaxQuery(0.5f);
-    q2.add(new TermQuery(t1));
-    q2.add(new TermQuery(t2));
+    DisjunctionMaxQuery q2 = new DisjunctionMaxQuery(
+        Arrays.asList(
+            new TermQuery(t1),
+            new TermQuery(t2)),
+        0.5f);
     assertSameSet(q1.build(), q2);
   }
   
@@ -141,10 +145,10 @@ public class TestSimpleSearchEquivalence extends SearchEquivalenceTestBase {
     Term t2 = randomTerm();
     PhraseQuery q1 = new PhraseQuery(t1.field(), t1.bytes(), t2.bytes());
     Term t3 = randomTerm();
-    MultiPhraseQuery q2 = new MultiPhraseQuery();
-    q2.add(t1);
-    q2.add(new Term[] { t2, t3 });
-    assertSubsetOf(q1, q2);
+    MultiPhraseQuery.Builder q2b = new MultiPhraseQuery.Builder();
+    q2b.add(t1);
+    q2b.add(new Term[] { t2, t3 });
+    assertSubsetOf(q1, q2b.build());
   }
   
   /** same as above, with posincs */
@@ -156,10 +160,10 @@ public class TestSimpleSearchEquivalence extends SearchEquivalenceTestBase {
     builder.add(t2, 2);
     PhraseQuery q1 = builder.build();
     Term t3 = randomTerm();
-    MultiPhraseQuery q2 = new MultiPhraseQuery();
-    q2.add(t1);
-    q2.add(new Term[] { t2, t3 }, 2);
-    assertSubsetOf(q1, q2);
+    MultiPhraseQuery.Builder q2b = new MultiPhraseQuery.Builder();
+    q2b.add(t1);
+    q2b.add(new Term[] { t2, t3 }, 2);
+    assertSubsetOf(q1, q2b.build());
   }
   
   /** "A B"~∞ = +A +B if A != B */
@@ -201,5 +205,44 @@ public class TestSimpleSearchEquivalence extends SearchEquivalenceTestBase {
     builder.setSlop(2);
     PhraseQuery q2 = builder.build();
     assertSameScores(q1, q2);
+  }
+
+  public void testBoostQuerySimplification() throws Exception {
+    float b1 = random().nextFloat() * 10;
+    float b2 = random().nextFloat() * 10;
+    Term term = randomTerm();
+
+    Query q1 = new BoostQuery(new BoostQuery(new TermQuery(term), b2), b1);
+    // Use AssertingQuery to prevent BoostQuery from merging inner and outer boosts
+    Query q2 = new BoostQuery(new AssertingQuery(random(), new BoostQuery(new TermQuery(term), b2)), b1);
+
+    assertSameScores(q1, q2);
+  }
+
+  public void testBooleanBoostPropagation() throws Exception {
+    float boost1 = random().nextFloat();
+    Query tq = new BoostQuery(new TermQuery(randomTerm()), boost1);
+
+    float boost2 = random().nextFloat();
+    // Applying boost2 over the term or boolean query should have the same effect
+    Query q1 = new BoostQuery(tq, boost2);
+    Query q2 = new BooleanQuery.Builder()
+      .add(tq, Occur.MUST)
+      .add(tq, Occur.FILTER)
+      .build();
+    q2 = new BoostQuery(q2, boost2);
+
+    assertSameScores(q1, q2);
+  }
+  
+  public void testBooleanOrVsSynonym() throws Exception {
+    Term t1 = randomTerm();
+    Term t2 = randomTerm();
+    assertEquals(t1.field(), t2.field());
+    SynonymQuery q1 = new SynonymQuery(t1, t2);
+    BooleanQuery.Builder q2 = new BooleanQuery.Builder();
+    q2.add(new TermQuery(t1), Occur.SHOULD);
+    q2.add(new TermQuery(t2), Occur.SHOULD);
+    assertSameSet(q1, q2.build());
   }
 }

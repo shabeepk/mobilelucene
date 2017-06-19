@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,11 +14,13 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 import java.io.StringReader;
-import java.nio.charset.StandardCharsets;
-import java.util.Collection;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.MockPayloadAnalyzer;
@@ -36,16 +36,13 @@ import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.MultiFields;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.RandomIndexWriter;
-import org.apache.lucene.index.SlowCompositeReaderWrapper;
 import org.apache.lucene.index.Term;
-import org.apache.lucene.search.payloads.PayloadSpanCollector;
-import org.apache.lucene.search.payloads.PayloadSpanUtil;
-import org.apache.lucene.search.spans.MultiSpansWrapper;
+import org.apache.lucene.search.spans.SpanCollector;
 import org.apache.lucene.search.spans.SpanNearQuery;
 import org.apache.lucene.search.spans.SpanQuery;
+import org.apache.lucene.search.spans.Spans;
 import org.apache.lucene.search.spans.SpanTermQuery;
 import org.apache.lucene.search.spans.SpanWeight;
-import org.apache.lucene.search.spans.Spans;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.LuceneTestCase;
@@ -176,9 +173,9 @@ public class TestPositionIncrement extends LuceneTestCase {
 
     // multi-phrase query should succed for non existing searched term
     // because there exist another searched terms in the same searched position. 
-    MultiPhraseQuery mq = new MultiPhraseQuery();
-    mq.add(new Term[]{new Term("field", "3"),new Term("field", "9")},0);
-    hits = searcher.search(mq, 1000).scoreDocs;
+    MultiPhraseQuery.Builder mqb = new MultiPhraseQuery.Builder();
+    mqb.add(new Term[]{new Term("field", "3"),new Term("field", "9")},0);
+    hits = searcher.search(mqb.build(), 1000).scoreDocs;
     assertEquals(1, hits.length);
 
     q = new PhraseQuery("field", "2", "4");
@@ -201,6 +198,22 @@ public class TestPositionIncrement extends LuceneTestCase {
     store.close();
   }
 
+  static class PayloadSpanCollector implements SpanCollector {
+
+    List<BytesRef> payloads = new ArrayList<>();
+
+    @Override
+    public void collectLeaf(PostingsEnum postings, int position, Term term) throws IOException {
+      if (postings.getPayload() != null)
+        payloads.add(BytesRef.deepCopyOf(postings.getPayload()));
+    }
+
+    @Override
+    public void reset() {
+      payloads.clear();
+    }
+  }
+
   public void testPayloadsPos0() throws Exception {
     Directory dir = newDirectory();
     RandomIndexWriter writer = new RandomIndexWriter(random(), dir, new MockPayloadAnalyzer());
@@ -210,7 +223,7 @@ public class TestPositionIncrement extends LuceneTestCase {
     writer.addDocument(doc);
 
     final IndexReader readerFromWriter = writer.getReader();
-    LeafReader r = SlowCompositeReaderWrapper.wrap(readerFromWriter);
+    LeafReader r = getOnlyLeafReader(readerFromWriter);
 
     PostingsEnum tp = r.postings(new Term("content", "a"), PostingsEnum.ALL);
     
@@ -226,7 +239,7 @@ public class TestPositionIncrement extends LuceneTestCase {
     // only one doc has "a"
     assertEquals(DocIdSetIterator.NO_MORE_DOCS, tp.nextDoc());
 
-    IndexSearcher is = newSearcher(readerFromWriter);
+    IndexSearcher is = newSearcher(getOnlyLeafReader(readerFromWriter));
   
     SpanTermQuery stq1 = new SpanTermQuery(new Term("content", "a"));
     SpanTermQuery stq2 = new SpanTermQuery(new Term("content", "k"));
@@ -239,7 +252,7 @@ public class TestPositionIncrement extends LuceneTestCase {
       System.out.println("\ngetPayloadSpans test");
     }
     PayloadSpanCollector collector = new PayloadSpanCollector();
-    Spans pspans = MultiSpansWrapper.wrap(is.getIndexReader(), snq, SpanWeight.Postings.PAYLOADS);
+    Spans pspans = snq.createWeight(is, false).getSpans(is.getIndexReader().leaves().get(0), SpanWeight.Postings.PAYLOADS);
     while (pspans.nextDoc() != Spans.NO_MORE_DOCS) {
       while (pspans.nextStartPosition() != Spans.NO_MORE_POSITIONS) {
         if (VERBOSE) {
@@ -248,12 +261,11 @@ public class TestPositionIncrement extends LuceneTestCase {
         }
         collector.reset();
         pspans.collect(collector);
-        Collection<byte[]> payloads = collector.getPayloads();
         sawZero |= pspans.startPosition() == 0;
-        for (byte[] bytes : payloads) {
+        for (BytesRef payload : collector.payloads) {
           count++;
           if (VERBOSE) {
-            System.out.println("  payload: " + new String(bytes, StandardCharsets.UTF_8));
+            System.out.println("  payload: " + Term.toString(payload));
           }
         }
       }
@@ -262,7 +274,7 @@ public class TestPositionIncrement extends LuceneTestCase {
     assertEquals(8, count);
 
     // System.out.println("\ngetSpans test");
-    Spans spans = MultiSpansWrapper.wrap(is.getIndexReader(), snq);
+    Spans spans = snq.createWeight(is, false).getSpans(is.getIndexReader().leaves().get(0), SpanWeight.Postings.POSITIONS);
     count = 0;
     sawZero = false;
     while (spans.nextDoc() != Spans.NO_MORE_DOCS) {
@@ -276,17 +288,6 @@ public class TestPositionIncrement extends LuceneTestCase {
     assertEquals(4, count);
     assertTrue(sawZero);
 
-    sawZero = false;
-    PayloadSpanUtil psu = new PayloadSpanUtil(is.getTopReaderContext());
-    Collection<byte[]> pls = psu.getPayloadsForQuery(snq);
-    count = pls.size();
-    for (byte[] bytes : pls) {
-      String s = new String(bytes, StandardCharsets.UTF_8);
-      //System.out.println(s);
-      sawZero |= s.equals("pos: 0");
-    }
-    assertEquals(8, count);
-    assertTrue(sawZero);
     writer.close();
     is.getIndexReader().close();
     dir.close();

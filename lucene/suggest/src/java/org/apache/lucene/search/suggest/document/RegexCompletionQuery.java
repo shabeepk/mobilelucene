@@ -1,5 +1,3 @@
-package org.apache.lucene.search.suggest.document;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.suggest.document;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.suggest.document;
 
 import java.io.IOException;
 
@@ -60,7 +59,7 @@ public class RegexCompletionQuery extends CompletionQuery {
   /**
    * Calls {@link RegexCompletionQuery#RegexCompletionQuery(Term, int, int, BitsProducer)}
    * enabling all optional regex syntax and <code>maxDeterminizedStates</code> of
-   * {@value org.apache.lucene.util.automaton.Operations#DEFAULT_MAX_DETERMINIZED_STATES}
+   * {@value Operations#DEFAULT_MAX_DETERMINIZED_STATES}
    */
   public RegexCompletionQuery(Term term, BitsProducer filter) {
     this(term, RegExp.ALL, Operations.DEFAULT_MAX_DETERMINIZED_STATES, filter);
@@ -91,5 +90,29 @@ public class RegexCompletionQuery extends CompletionQuery {
   @Override
   public Weight createWeight(IndexSearcher searcher, boolean needsScores) throws IOException {
     return new CompletionWeight(this, new RegExp(getTerm().text(), flags).toAutomaton(maxDeterminizedStates));
+  }
+
+  /**
+   * Get the regex flags
+   */
+  public int getFlags() {
+    return flags;
+  }
+
+  /**
+   * Get the maximum number of states permitted in the determinized automaton
+   */
+  public int getMaxDeterminizedStates() {
+    return maxDeterminizedStates;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public int hashCode() {
+    throw new UnsupportedOperationException();
   }
 }

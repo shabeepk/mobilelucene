@@ -1,5 +1,3 @@
-package org.apache.lucene.expressions;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.expressions;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.expressions;
+
 
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
@@ -31,6 +31,7 @@ import org.apache.lucene.search.Rescorer;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.similarities.ClassicSimilarity;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.LuceneTestCase;
 
@@ -65,6 +66,8 @@ public class TestExpressionRescorer extends LuceneTestCase {
     
     reader = iw.getReader();
     searcher = new IndexSearcher(reader);
+    // TODO: fix this test to not be so flaky and use newSearcher
+    searcher.setSimilarity(new ClassicSimilarity());
     iw.close();
   }
   

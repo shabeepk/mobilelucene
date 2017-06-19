@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,9 +14,11 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
-import org.lukhnos.portmobile.util.Objects;
+import java.util.Objects;
 
 import org.apache.lucene.index.FilteredTermsEnum; // javadocs
 import org.apache.lucene.index.IndexReader;
@@ -94,16 +94,9 @@ public abstract class MultiTermQuery extends Query {
   public static final RewriteMethod CONSTANT_SCORE_REWRITE = new RewriteMethod() {
     @Override
     public Query rewrite(IndexReader reader, MultiTermQuery query) {
-      Query result = new MultiTermQueryConstantScoreWrapper<>(query);
-      result.setBoost(query.getBoost());
-      return result;
+      return new MultiTermQueryConstantScoreWrapper<>(query);
     }
   };
-
-  /** Old name of {@link #CONSTANT_SCORE_REWRITE}
-   *  @deprecated old name of {@link #CONSTANT_SCORE_REWRITE} */
-  @Deprecated
-  public static final RewriteMethod CONSTANT_SCORE_FILTER_REWRITE = CONSTANT_SCORE_REWRITE;
 
   /** A rewrite method that first translates each term into
    *  {@link BooleanClause.Occur#SHOULD} clause in a
@@ -119,12 +112,7 @@ public abstract class MultiTermQuery extends Query {
    *
    *  @see #setRewriteMethod */
   public final static RewriteMethod SCORING_BOOLEAN_REWRITE = ScoringRewrite.SCORING_BOOLEAN_REWRITE;
-  
-  /** Old name of {@link #SCORING_BOOLEAN_REWRITE}
-   *  @deprecated old name of {@link #SCORING_BOOLEAN_REWRITE} */
-  @Deprecated
-  public final static RewriteMethod SCORING_BOOLEAN_QUERY_REWRITE = SCORING_BOOLEAN_REWRITE;
-  
+
   /** Like {@link #SCORING_BOOLEAN_REWRITE} except
    *  scores are not computed.  Instead, each matching
    *  document receives a constant score equal to the
@@ -136,11 +124,6 @@ public abstract class MultiTermQuery extends Query {
    *
    *  @see #setRewriteMethod */
   public final static RewriteMethod CONSTANT_SCORE_BOOLEAN_REWRITE = ScoringRewrite.CONSTANT_SCORE_BOOLEAN_REWRITE;
-
-  /** Old name of {@link #CONSTANT_SCORE_BOOLEAN_REWRITE}
-   *  @deprecated old name of {@link #CONSTANT_SCORE_BOOLEAN_REWRITE} */
-  @Deprecated
-  public final static RewriteMethod CONSTANT_SCORE_BOOLEAN_QUERY_REWRITE = CONSTANT_SCORE_BOOLEAN_REWRITE;
 
   /**
    * A rewrite method that first translates each term into
@@ -178,17 +161,16 @@ public abstract class MultiTermQuery extends Query {
       builder.setDisableCoord(true);
       return builder;
     }
-
+    
     @Override
-    protected Query build(BooleanQuery.Builder builder) {
+    protected Query build(Builder builder) {
       return builder.build();
     }
     
     @Override
     protected void addClause(BooleanQuery.Builder topLevel, Term term, int docCount, float boost, TermContext states) {
       final TermQuery tq = new TermQuery(term, states);
-      tq.setBoost(boost);
-      topLevel.add(tq, BooleanClause.Occur.SHOULD);
+      topLevel.add(new BoostQuery(tq, boost), BooleanClause.Occur.SHOULD);
     }
   }
   
@@ -286,8 +268,7 @@ public abstract class MultiTermQuery extends Query {
     @Override
     protected void addClause(BooleanQuery.Builder topLevel, Term term, int docFreq, float boost, TermContext states) {
       final Query q = new ConstantScoreQuery(new TermQuery(term, states));
-      q.setBoost(boost);
-      topLevel.add(q, BooleanClause.Occur.SHOULD);
+      topLevel.add(new BoostQuery(q, boost), BooleanClause.Occur.SHOULD);
     }
   }
 
@@ -351,28 +332,20 @@ public abstract class MultiTermQuery extends Query {
   @Override
   public int hashCode() {
     final int prime = 31;
-    int result = 1;
-    result = prime * result + Float.floatToIntBits(getBoost());
+    int result = classHash();
     result = prime * result + rewriteMethod.hashCode();
-    if (field != null) result = prime * result + field.hashCode();
+    result = prime * result + field.hashCode();
     return result;
   }
 
   @Override
-  public boolean equals(Object obj) {
-    if (this == obj)
-      return true;
-    if (obj == null)
-      return false;
-    if (getClass() != obj.getClass())
-      return false;
-    MultiTermQuery other = (MultiTermQuery) obj;
-    if (!super.equals(obj))
-      return false;
-    if (!rewriteMethod.equals(other.rewriteMethod)) {
-      return false;
-    }
-    return (other.field == null ? field == null : other.field.equals(field));
+  public boolean equals(Object other) {
+    return sameClassAs(other) &&
+           equalsTo(getClass().cast(other));
   }
- 
+
+  private boolean equalsTo(MultiTermQuery other) {
+    return rewriteMethod.equals(other.rewriteMethod) && 
+           field.equals(other.field);
+  }
 }

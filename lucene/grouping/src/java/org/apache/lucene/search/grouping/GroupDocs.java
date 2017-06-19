@@ -1,5 +1,3 @@
-package org.apache.lucene.search.grouping;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,16 +14,17 @@ package org.apache.lucene.search.grouping;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.grouping;
 
 import org.apache.lucene.search.ScoreDoc;
 
 /** Represents one group in the results.
  * 
  * @lucene.experimental */
-public class GroupDocs<GROUP_VALUE_TYPE> {
+public class GroupDocs<T> {
   /** The groupField value for all docs in this group; this
    *  may be null if hits did not have the groupField. */
-  public final GROUP_VALUE_TYPE groupValue;
+  public final T groupValue;
 
   /** Max score in this group */
   public final float maxScore;
@@ -43,14 +42,14 @@ public class GroupDocs<GROUP_VALUE_TYPE> {
   public final int totalHits;
 
   /** Matches the groupSort passed to {@link
-   *  AbstractFirstPassGroupingCollector}. */
+   *  FirstPassGroupingCollector}. */
   public final Object[] groupSortValues;
 
   public GroupDocs(float score,
                    float maxScore,
                    int totalHits,
                    ScoreDoc[] scoreDocs,
-                   GROUP_VALUE_TYPE groupValue,
+                   T groupValue,
                    Object[] groupSortValues) {
     this.score = score;
     this.maxScore = maxScore;

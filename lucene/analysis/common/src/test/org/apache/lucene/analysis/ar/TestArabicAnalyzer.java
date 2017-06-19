@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.ar;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,11 +14,13 @@ package org.apache.lucene.analysis.ar;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.ar;
+
 
 import java.io.IOException;
 
 import org.apache.lucene.analysis.BaseTokenStreamTestCase;
-import org.apache.lucene.analysis.util.CharArraySet;
+import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.util.Version;
 
 /**
@@ -101,17 +101,31 @@ public class TestArabicAnalyzer extends BaseTokenStreamTestCase {
     a.close();
   }
   
+  /**
+   * test we fold digits to latin-1
+   */
+  public void testDigits() throws Exception {
+    ArabicAnalyzer a = new ArabicAnalyzer();
+    checkOneTerm(a, "١٢٣٤", "1234");
+    a.close();
+  }
+  
+  /**
+   * test that we don't fold digits for back compat behavior
+   * @deprecated remove this test in lucene 7
+   */
+  @Deprecated
+  public void testDigitsBackCompat() throws Exception {
+    ArabicAnalyzer a = new ArabicAnalyzer();
+    a.setVersion(Version.LUCENE_5_3_0);
+    checkOneTerm(a, "١٢٣٤", "١٢٣٤");
+    a.close();
+  }
+  
   /** blast some random strings through the analyzer */
   public void testRandomStrings() throws Exception {
     ArabicAnalyzer a = new ArabicAnalyzer();
     checkRandomData(random(), a, 1000*RANDOM_MULTIPLIER);
     a.close();
-  }
-
-  public void testBackcompat40() throws IOException {
-    ArabicAnalyzer a = new ArabicAnalyzer();
-    a.setVersion(Version.LUCENE_4_6_1);
-    // this is just a test to see the correct unicode version is being used, not actually testing hebrew
-    assertAnalyzesTo(a, "א\"א", new String[] {"א", "א"});
   }
 }

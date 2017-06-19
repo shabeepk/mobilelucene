@@ -22,6 +22,8 @@
 
   <property name="build.dir" location="../build/core"/>
 
+  <!-- lucene core can use the minimal JDK profile -->
+  <property name="javac.profile.args" value="-profile compact1"/>
   <import file="../common-build.xml"/>
 
   <property name="moman.commit-hash" value="5c5c2a1e4dea" />
@@ -63,20 +65,20 @@
   <target name="-dist-maven" depends="-dist-maven-src-java"/>
 
   <macrodef name="createLevAutomaton">
-  	<attribute name="n"/>
-  	<sequential>
+      <attribute name="n"/>
+      <sequential>
       <exec dir="src/java/org/apache/lucene/util/automaton"
             executable="${python.exe}" failonerror="true">
-	 <!-- Tell Python not to write any bytecode cache into the filesystem: -->
-	 <arg value="-B"/>
+        <!-- Tell Python not to write any bytecode cache into the filesystem: -->
+        <arg value="-B"/>
         <arg value="createLevAutomata.py"/>
         <arg value="@{n}"/>
         <arg value="True"/>
       </exec>
       <exec dir="src/java/org/apache/lucene/util/automaton"
             executable="${python.exe}" failonerror="true">
-	 <!-- Tell Python not to write any bytecode cache into the filesystem: -->
-	 <arg value="-B"/>
+        <!-- Tell Python not to write any bytecode cache into the filesystem: -->
+        <arg value="-B"/>
         <arg value="createLevAutomata.py"/>
         <arg value="@{n}"/>
         <arg value="False"/>
@@ -131,7 +133,7 @@
     <delete file="${build.dir}/moman.zip"/>
   </target>
 
-  <target name="regenerate" depends="createLevAutomata,createPackedIntSources"/>
+  <target name="regenerate" depends="createLevAutomata,createPackedIntSources,jflex"/>
   
   <macrodef name="startLockStressTestClient">
     <attribute name="clientId"/>
@@ -220,5 +222,21 @@
   </target>
   
   <target name="test" depends="common.test, test-lock-factory"/>
+
+  <target name="clean-jflex">
+    <delete>
+      <fileset dir="src/java/org/apache/lucene/analysis/standard" includes="**/*.java">
+        <containsregexp expression="generated.*by.*JFlex"/>
+      </fileset>
+    </delete>
+  </target>
+
+  <target name="jflex" depends="-install-jflex,clean-jflex,-jflex-StandardAnalyzer"/>
+  
+  <target name="-jflex-StandardAnalyzer" depends="init,-install-jflex">
+    <run-jflex-and-disable-buffer-expansion 
+        dir="src/java/org/apache/lucene/analysis/standard" name="StandardTokenizerImpl"/>
+  </target>
+
 
 </project>

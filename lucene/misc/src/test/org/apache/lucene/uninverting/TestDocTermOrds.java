@@ -1,5 +1,3 @@
-package org.apache.lucene.uninverting;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.uninverting;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.uninverting;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -29,8 +28,8 @@ import org.apache.lucene.analysis.MockAnalyzer;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
-import org.apache.lucene.document.IntField;
-import org.apache.lucene.document.LongField;
+import org.apache.lucene.document.LegacyIntField;
+import org.apache.lucene.document.LegacyLongField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
@@ -51,7 +50,7 @@ import org.apache.lucene.index.TermsEnum.SeekStatus;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.LuceneTestCase;
-import org.apache.lucene.util.NumericUtils;
+import org.apache.lucene.util.LegacyNumericUtils;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.TestUtil;
 
@@ -171,7 +170,7 @@ public class TestDocTermOrds extends LuceneTestCase {
     for(int id=0;id<NUM_DOCS;id++) {
       Document doc = new Document();
 
-      doc.add(new IntField("id", id, Field.Store.YES));
+      doc.add(new LegacyIntField("id", id, Field.Store.YES));
       
       final int termCount = TestUtil.nextInt(random(), 0, 20 * RANDOM_MULTIPLIER);
       while(ordsForDocSet.size() < termCount) {
@@ -269,7 +268,7 @@ public class TestDocTermOrds extends LuceneTestCase {
     for(int id=0;id<NUM_DOCS;id++) {
       Document doc = new Document();
 
-      doc.add(new IntField("id", id, Field.Store.YES));
+      doc.add(new LegacyIntField("id", id, Field.Store.YES));
       
       final int termCount = TestUtil.nextInt(random(), 0, 20 * RANDOM_MULTIPLIER);
       while(ordsForDocSet.size() < termCount) {
@@ -354,7 +353,7 @@ public class TestDocTermOrds extends LuceneTestCase {
                                             TestUtil.nextInt(random(), 2, 10));
                                             
 
-    final NumericDocValues docIDToID = FieldCache.DEFAULT.getNumerics(r, "id", FieldCache.NUMERIC_UTILS_INT_PARSER, false);
+    final NumericDocValues docIDToID = FieldCache.DEFAULT.getNumerics(r, "id", FieldCache.LEGACY_INT_PARSER, false);
     /*
       for(int docID=0;docID<subR.maxDoc();docID++) {
       System.out.println("  docID=" + docID + " id=" + docIDToID[docID]);
@@ -439,14 +438,14 @@ public class TestDocTermOrds extends LuceneTestCase {
     doc.add(newStringField("foo", "car", Field.Store.NO));
     iw.addDocument(doc);
     
-    DirectoryReader r1 = DirectoryReader.open(iw, true);
+    DirectoryReader r1 = DirectoryReader.open(iw);
     
     iw.deleteDocuments(new Term("foo", "baz"));
-    DirectoryReader r2 = DirectoryReader.open(iw, true);
+    DirectoryReader r2 = DirectoryReader.open(iw);
     
-    FieldCache.DEFAULT.getDocTermOrds(getOnlySegmentReader(r2), "foo", null);
+    FieldCache.DEFAULT.getDocTermOrds(getOnlyLeafReader(r2), "foo", null);
     
-    SortedSetDocValues v = FieldCache.DEFAULT.getDocTermOrds(getOnlySegmentReader(r1), "foo", null);
+    SortedSetDocValues v = FieldCache.DEFAULT.getDocTermOrds(getOnlyLeafReader(r1), "foo", null);
     assertEquals(3, v.getValueCount());
     v.setDocument(1);
     assertEquals(1, v.nextOrd());
@@ -462,19 +461,19 @@ public class TestDocTermOrds extends LuceneTestCase {
     IndexWriter iw = new IndexWriter(dir, newIndexWriterConfig(null));
     
     Document doc = new Document();
-    doc.add(new IntField("foo", 5, Field.Store.NO));
+    doc.add(new LegacyIntField("foo", 5, Field.Store.NO));
     iw.addDocument(doc);
     
     doc = new Document();
-    doc.add(new IntField("foo", 5, Field.Store.NO));
-    doc.add(new IntField("foo", -3, Field.Store.NO));
+    doc.add(new LegacyIntField("foo", 5, Field.Store.NO));
+    doc.add(new LegacyIntField("foo", -3, Field.Store.NO));
     iw.addDocument(doc);
     
     iw.forceMerge(1);
     iw.close();
     
     DirectoryReader ir = DirectoryReader.open(dir);
-    LeafReader ar = getOnlySegmentReader(ir);
+    LeafReader ar = getOnlyLeafReader(ir);
     
     SortedSetDocValues v = FieldCache.DEFAULT.getDocTermOrds(ar, "foo", FieldCache.INT32_TERM_PREFIX);
     assertEquals(2, v.getValueCount());
@@ -489,10 +488,10 @@ public class TestDocTermOrds extends LuceneTestCase {
     assertEquals(SortedSetDocValues.NO_MORE_ORDS, v.nextOrd());
     
     BytesRef value = v.lookupOrd(0);
-    assertEquals(-3, NumericUtils.prefixCodedToInt(value));
+    assertEquals(-3, LegacyNumericUtils.prefixCodedToInt(value));
     
     value = v.lookupOrd(1);
-    assertEquals(5, NumericUtils.prefixCodedToInt(value));
+    assertEquals(5, LegacyNumericUtils.prefixCodedToInt(value));
     
     ir.close();
     dir.close();
@@ -503,19 +502,19 @@ public class TestDocTermOrds extends LuceneTestCase {
     IndexWriter iw = new IndexWriter(dir, newIndexWriterConfig(null));
     
     Document doc = new Document();
-    doc.add(new LongField("foo", 5, Field.Store.NO));
+    doc.add(new LegacyLongField("foo", 5, Field.Store.NO));
     iw.addDocument(doc);
     
     doc = new Document();
-    doc.add(new LongField("foo", 5, Field.Store.NO));
-    doc.add(new LongField("foo", -3, Field.Store.NO));
+    doc.add(new LegacyLongField("foo", 5, Field.Store.NO));
+    doc.add(new LegacyLongField("foo", -3, Field.Store.NO));
     iw.addDocument(doc);
     
     iw.forceMerge(1);
     iw.close();
     
     DirectoryReader ir = DirectoryReader.open(dir);
-    LeafReader ar = getOnlySegmentReader(ir);
+    LeafReader ar = getOnlyLeafReader(ir);
     
     SortedSetDocValues v = FieldCache.DEFAULT.getDocTermOrds(ar, "foo", FieldCache.INT64_TERM_PREFIX);
     assertEquals(2, v.getValueCount());
@@ -530,10 +529,10 @@ public class TestDocTermOrds extends LuceneTestCase {
     assertEquals(SortedSetDocValues.NO_MORE_ORDS, v.nextOrd());
     
     BytesRef value = v.lookupOrd(0);
-    assertEquals(-3, NumericUtils.prefixCodedToLong(value));
+    assertEquals(-3, LegacyNumericUtils.prefixCodedToLong(value));
     
     value = v.lookupOrd(1);
-    assertEquals(5, NumericUtils.prefixCodedToLong(value));
+    assertEquals(5, LegacyNumericUtils.prefixCodedToLong(value));
     
     ir.close();
     dir.close();
@@ -564,7 +563,7 @@ public class TestDocTermOrds extends LuceneTestCase {
     DirectoryReader ireader = iwriter.getReader();
     iwriter.close();
 
-    LeafReader ar = getOnlySegmentReader(ireader);
+    LeafReader ar = getOnlyLeafReader(ireader);
     SortedSetDocValues dv = FieldCache.DEFAULT.getDocTermOrds(ar, "field", null);
     assertEquals(3, dv.getValueCount());
     
@@ -649,7 +648,7 @@ public class TestDocTermOrds extends LuceneTestCase {
     iw.close();
     
     DirectoryReader ir = DirectoryReader.open(dir);
-    LeafReader ar = getOnlySegmentReader(ir);
+    LeafReader ar = getOnlyLeafReader(ir);
     
     SortedSetDocValues v = FieldCache.DEFAULT.getDocTermOrds(ar, "foo", null);
     assertNotNull(DocValues.unwrapSingleton(v)); // actually a single-valued field

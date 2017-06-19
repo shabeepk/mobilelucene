@@ -1,5 +1,3 @@
-package org.apache.lucene.search.join;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.join;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.join;
 
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.LeafReaderContext;
@@ -243,9 +242,9 @@ abstract class GlobalOrdinalsWithScoreCollector implements Collector {
 
     @Override
     public LeafCollector getLeafCollector(LeafReaderContext context) throws IOException {
-      final SortedDocValues docTermOrds = DocValues.getSorted(context.reader(), field);
+      SortedDocValues docTermOrds = DocValues.getSorted(context.reader(), field);
       if (ordinalMap != null) {
-        final LongValues segmentOrdToGlobalOrdLookup = ordinalMap.getGlobalOrds(context.ord);
+        LongValues segmentOrdToGlobalOrdLookup = ordinalMap.getGlobalOrds(context.ord);
         return new LeafCollector() {
 
           @Override

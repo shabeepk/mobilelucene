@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -24,7 +23,6 @@ import java.util.List;
 
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.util.ArrayUtil;
-import org.apache.lucene.util.RamUsageEstimator;
 
 /**
  * Caches all docs, and optionally also scores, coming from
@@ -62,22 +60,20 @@ public abstract class CachingCollector extends FilterCollector {
     private CachedScorer() { super(null); }
 
     @Override
+    public DocIdSetIterator iterator() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public final float score() { return score; }
 
     @Override
-    public final int advance(int target) { throw new UnsupportedOperationException(); }
-
-    @Override
-    public final int docID() { return doc; }
+    public int docID() {
+      return doc;
+    }
 
     @Override
     public final int freq() { throw new UnsupportedOperationException(); }
-
-    @Override
-    public final int nextDoc() { throw new UnsupportedOperationException(); }
-
-    @Override
-    public long cost() { return 1; }
 
   }
 
@@ -98,6 +94,9 @@ public abstract class CachingCollector extends FilterCollector {
     protected NoScoreCachingLeafCollector wrap(LeafCollector in, int maxDocsToCache) {
       return new NoScoreCachingLeafCollector(in, maxDocsToCache);
     }
+
+    // note: do *not* override needScore to say false. Just because we aren't caching the score doesn't mean the
+    //   wrapped collector doesn't need it to do its job.
 
     public LeafCollector getLeafCollector(LeafReaderContext context) throws IOException {
       postCollection();
@@ -177,6 +176,13 @@ public abstract class CachingCollector extends FilterCollector {
       scores.add(coll.cachedScores());
     }
 
+    /** Ensure the scores are collected so they can be replayed, even if the wrapped collector doesn't need them. */
+    @Override
+    public boolean needsScores() {
+      return true;
+    }
+
+    @Override
     protected void collect(LeafCollector collector, int i) throws IOException {
       final int[] docs = this.docs.get(i);
       final float[] scores = this.scores.get(i);
@@ -189,7 +195,6 @@ public abstract class CachingCollector extends FilterCollector {
         collector.collect(scorer.doc);
       }
     }
-
   }
 
   private class NoScoreCachingLeafCollector extends FilterLeafCollector {
@@ -226,7 +231,7 @@ public abstract class CachingCollector extends FilterCollector {
           if (docCount >= maxDocsToCache) {
             invalidate();
           } else {
-            final int newLen = Math.min(ArrayUtil.oversize(docCount + 1, RamUsageEstimator.NUM_BYTES_INT), maxDocsToCache);
+            final int newLen = Math.min(ArrayUtil.oversize(docCount + 1, Integer.BYTES), maxDocsToCache);
             grow(newLen);
           }
         }
@@ -322,9 +327,9 @@ public abstract class CachingCollector extends FilterCollector {
    *          scores are cached.
    */
   public static CachingCollector create(Collector other, boolean cacheScores, double maxRAMMB) {
-    int bytesPerDoc = RamUsageEstimator.NUM_BYTES_INT;
+    int bytesPerDoc = Integer.BYTES;
     if (cacheScores) {
-      bytesPerDoc += RamUsageEstimator.NUM_BYTES_FLOAT;
+      bytesPerDoc += Float.BYTES;
     }
     final int maxDocsToCache = (int) ((maxRAMMB * 1024 * 1024) / bytesPerDoc);
     return create(other, cacheScores, maxDocsToCache);

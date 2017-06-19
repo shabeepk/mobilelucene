@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spell;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.spell;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spell;
 
 import java.io.IOException;
 import java.util.Comparator;
@@ -25,7 +24,6 @@ import java.util.Queue;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.spell.SuggestMode;
-import org.apache.lucene.util.BytesRef;
 
 /**
  * <p>
@@ -443,7 +441,7 @@ public class WordBreakSpellChecker {
     this.maxEvaluations = maxEvaluations;
   }
   
-  private class LengthThenMaxFreqComparator implements
+  private static class LengthThenMaxFreqComparator implements
       Comparator<SuggestWordArrayWrapper> {
     @Override
     public int compare(SuggestWordArrayWrapper o1, SuggestWordArrayWrapper o2) {
@@ -457,7 +455,7 @@ public class WordBreakSpellChecker {
     }
   }
   
-  private class LengthThenSumFreqComparator implements
+  private static class LengthThenSumFreqComparator implements
       Comparator<SuggestWordArrayWrapper> {
     @Override
     public int compare(SuggestWordArrayWrapper o1, SuggestWordArrayWrapper o2) {
@@ -471,7 +469,7 @@ public class WordBreakSpellChecker {
     }
   }
   
-  private class CombinationsThenFreqComparator implements
+  private static class CombinationsThenFreqComparator implements
       Comparator<CombineSuggestionWrapper> {
     @Override
     public int compare(CombineSuggestionWrapper o1, CombineSuggestionWrapper o2) {
@@ -486,7 +484,7 @@ public class WordBreakSpellChecker {
     }
   }
   
-  private class SuggestWordArrayWrapper {
+  private static class SuggestWordArrayWrapper {
     final SuggestWord[] suggestWords;
     final int freqMax;
     final int freqSum;
@@ -504,7 +502,7 @@ public class WordBreakSpellChecker {
     }
   }
   
-  private class CombineSuggestionWrapper {
+  private static class CombineSuggestionWrapper {
     final CombineSuggestion combineSuggestion;
     final int numCombinations;
     

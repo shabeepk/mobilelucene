@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,18 +14,19 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.MockDirectoryWrapper;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.LuceneTestCase;
-
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
 public class TestIndexWriterFromReader extends LuceneTestCase {
 
@@ -38,7 +37,7 @@ public class TestIndexWriterFromReader extends LuceneTestCase {
     w.addDocument(new Document());
     w.commit();
 
-    DirectoryReader r = DirectoryReader.open(w, true);
+    DirectoryReader r = DirectoryReader.open(w);
     assertEquals(1, r.maxDoc());
     w.close();
 
@@ -91,18 +90,16 @@ public class TestIndexWriterFromReader extends LuceneTestCase {
     Directory dir = newDirectory();
     IndexWriter w = new IndexWriter(dir, newIndexWriterConfig());
     w.addDocument(new Document());
-    DirectoryReader r = DirectoryReader.open(w, true);
+    DirectoryReader r = DirectoryReader.open(w);
     w.rollback();
 
     IndexWriterConfig iwc = newIndexWriterConfig();
     iwc.setIndexCommit(r.getIndexCommit());
-    try {
+
+    IllegalArgumentException expected = expectThrows(IllegalArgumentException.class, () -> {
       new IndexWriter(dir, iwc);
-      fail("did not hit expected exception");
-    } catch (IllegalArgumentException iae) {
-      // expected
-      assertEquals("cannot use IndexWriterConfig.setIndexCommit() when index has no commit", iae.getMessage());
-    }
+    });
+    assertEquals("cannot use IndexWriterConfig.setIndexCommit() when index has no commit", expected.getMessage());
       
     r.close();
     dir.close();
@@ -111,28 +108,23 @@ public class TestIndexWriterFromReader extends LuceneTestCase {
   // Pull NRT reader after writer has committed and then indexed another doc:
   public void testAfterCommitThenIndex() throws Exception {
     Directory dir = newDirectory();
-    if (dir instanceof MockDirectoryWrapper) {
-      // We only hit exc if stale segments file was deleted:
-      ((MockDirectoryWrapper) dir).setEnableVirusScanner(false);
-    }
     IndexWriter w = new IndexWriter(dir, newIndexWriterConfig());
     w.addDocument(new Document());
     w.commit();
     w.addDocument(new Document());
 
-    DirectoryReader r = DirectoryReader.open(w, true);
+    DirectoryReader r = DirectoryReader.open(w);
     assertEquals(2, r.maxDoc());
     w.close();
 
     IndexWriterConfig iwc = newIndexWriterConfig();
     iwc.setIndexCommit(r.getIndexCommit());
-    try {
+
+    IllegalArgumentException expected = expectThrows(IllegalArgumentException.class, () -> {
       new IndexWriter(dir, iwc);
-      fail("did not hit expected exception");
-    } catch (IllegalArgumentException iae) {
-      // expected
-      assertTrue(iae.getMessage().contains("the provided reader is stale: its prior commit file"));
-    }
+    });
+    assertTrue(expected.getMessage().contains("the provided reader is stale: its prior commit file"));
+
     r.close();
     dir.close();
   }
@@ -140,15 +132,11 @@ public class TestIndexWriterFromReader extends LuceneTestCase {
   // NRT rollback: pull NRT reader after writer has committed and then before indexing another doc
   public void testNRTRollback() throws Exception {
     Directory dir = newDirectory();
-    if (dir instanceof MockDirectoryWrapper) {
-      // We only hit exc if stale segments file was deleted:
-      ((MockDirectoryWrapper) dir).setEnableVirusScanner(false);
-    }
     IndexWriter w = new IndexWriter(dir, newIndexWriterConfig());
     w.addDocument(new Document());
     w.commit();
 
-    DirectoryReader r = DirectoryReader.open(w, true);
+    DirectoryReader r = DirectoryReader.open(w);
     assertEquals(1, r.maxDoc());
 
     // Add another doc
@@ -158,23 +146,17 @@ public class TestIndexWriterFromReader extends LuceneTestCase {
 
     IndexWriterConfig iwc = newIndexWriterConfig();
     iwc.setIndexCommit(r.getIndexCommit());
-    try {
+    IllegalArgumentException expected = expectThrows(IllegalArgumentException.class, () -> {
       new IndexWriter(dir, iwc);
-      fail("did not hit expected exception");
-    } catch (IllegalArgumentException iae) {
-      // expected
-      assertTrue(iae.getMessage().contains("the provided reader is stale: its prior commit file"));      
-    }
+    });
+    assertTrue(expected.getMessage().contains("the provided reader is stale: its prior commit file"));      
+
     r.close();
     dir.close();
   }
 
   public void testRandom() throws Exception {
     Directory dir = newDirectory();
-    if (dir instanceof MockDirectoryWrapper) {
-      // Since we rollback writer we can easily try to write to the same filenames:
-      ((MockDirectoryWrapper) dir).setPreventDoubleWrite(false);
-    }
 
     int numOps = atLeast(100);
 
@@ -184,7 +166,7 @@ public class TestIndexWriterFromReader extends LuceneTestCase {
     // an NRT reader, the commit before that NRT reader must exist
     w.commit();
 
-    DirectoryReader r = DirectoryReader.open(w, true);
+    DirectoryReader r = DirectoryReader.open(w);
     int nrtReaderNumDocs = 0;
     int writerNumDocs = 0;
 
@@ -287,7 +269,7 @@ public class TestIndexWriterFromReader extends LuceneTestCase {
           writerNumDocs = nrtReaderNumDocs;
           liveIDs = new HashSet<>(nrtLiveIDs);
           r.close();
-          r = DirectoryReader.open(w, true);
+          r = DirectoryReader.open(w);
         }
         break;
 
@@ -306,10 +288,6 @@ public class TestIndexWriterFromReader extends LuceneTestCase {
 
   public void testConsistentFieldNumbers() throws Exception {
     Directory dir = newDirectory();
-    if (dir instanceof MockDirectoryWrapper) {
-      // Since we use IW.rollback and then open another, the 2nd IW can easily write to the same segment name:
-      ((MockDirectoryWrapper) dir).setPreventDoubleWrite(false);
-    }
     IndexWriter w = new IndexWriter(dir, newIndexWriterConfig());
     // Empty first commit:
     w.commit();
@@ -318,7 +296,7 @@ public class TestIndexWriterFromReader extends LuceneTestCase {
     doc.add(newStringField("f0", "foo", Field.Store.NO));
     w.addDocument(doc);
 
-    DirectoryReader r = DirectoryReader.open(w, true);
+    DirectoryReader r = DirectoryReader.open(w);
     assertEquals(1, r.maxDoc());
 
     doc = new Document();
@@ -351,20 +329,18 @@ public class TestIndexWriterFromReader extends LuceneTestCase {
     w.addDocument(new Document());
     w.commit();
 
-    DirectoryReader r = DirectoryReader.open(w, true);
+    DirectoryReader r = DirectoryReader.open(w);
     assertEquals(1, r.maxDoc());
     w.close();
 
     IndexWriterConfig iwc = newIndexWriterConfig();
     iwc.setOpenMode(IndexWriterConfig.OpenMode.CREATE);
     iwc.setIndexCommit(r.getIndexCommit());
-    try {
+    IllegalArgumentException expected = expectThrows(IllegalArgumentException.class, () -> {
       new IndexWriter(dir, iwc);
-      fail("did not hit exception");
-    } catch (IllegalArgumentException iae) {
-      // expected
-      assertEquals("cannot use IndexWriterConfig.setIndexCommit() with OpenMode.CREATE", iae.getMessage());
-    }
+    });
+    assertEquals("cannot use IndexWriterConfig.setIndexCommit() with OpenMode.CREATE", expected.getMessage());
+
     IOUtils.close(r, dir);
   }
 
@@ -374,7 +350,7 @@ public class TestIndexWriterFromReader extends LuceneTestCase {
     w.addDocument(new Document());
     w.commit();
 
-    DirectoryReader r = DirectoryReader.open(w, true);
+    DirectoryReader r = DirectoryReader.open(w);
     assertEquals(1, r.maxDoc());
     IndexCommit commit = r.getIndexCommit();
     r.close();
@@ -382,12 +358,10 @@ public class TestIndexWriterFromReader extends LuceneTestCase {
 
     IndexWriterConfig iwc = newIndexWriterConfig();
     iwc.setIndexCommit(commit);
-    try {
+    expectThrows(AlreadyClosedException.class, () -> {
       new IndexWriter(dir, iwc);
-      fail("did not hit exception");
-    } catch (AlreadyClosedException ace) {
-      // expected
-    }
+    });
+
     IOUtils.close(r, dir);
   }
 
@@ -397,7 +371,7 @@ public class TestIndexWriterFromReader extends LuceneTestCase {
     w.addDocument(new Document());
     w.commit();
 
-    DirectoryReader r = DirectoryReader.open(w, true);
+    DirectoryReader r = DirectoryReader.open(w);
     assertEquals(1, r.maxDoc());
     w.addDocument(new Document());
 
@@ -412,7 +386,7 @@ public class TestIndexWriterFromReader extends LuceneTestCase {
     assertEquals(1, w.numDocs());
 
     r.close();
-    DirectoryReader r3 = DirectoryReader.open(w, true);
+    DirectoryReader r3 = DirectoryReader.open(w);
     assertEquals(1, r3.numDocs());
     
     w.addDocument(new Document());
@@ -432,7 +406,7 @@ public class TestIndexWriterFromReader extends LuceneTestCase {
     w.commit();
     w.addDocument(new Document());
 
-    DirectoryReader r = DirectoryReader.open(w, true);
+    DirectoryReader r = DirectoryReader.open(w);
     assertEquals(2, r.maxDoc());
     w.rollback();
 
@@ -470,11 +444,11 @@ public class TestIndexWriterFromReader extends LuceneTestCase {
     w.commit();
     w.addDocument(new Document());
 
-    DirectoryReader r = DirectoryReader.open(w, true);
+    DirectoryReader r = DirectoryReader.open(w);
     assertEquals(2, r.maxDoc());
     w.addDocument(new Document());
 
-    DirectoryReader r2 = DirectoryReader.open(w, true);
+    DirectoryReader r2 = DirectoryReader.open(w);
     assertEquals(3, r2.maxDoc());
     IOUtils.close(r2, w);
 

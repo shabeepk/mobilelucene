@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -57,7 +57,7 @@ public final class MultiPostingsEnum extends PostingsEnum {
     return this.parent == parent;
   }
 
-  /** Rre-use and reset this instance on the provided slices. */
+  /** Re-use and reset this instance on the provided slices. */
   public MultiPostingsEnum reset(final EnumWithSlice[] subs, final int numSubs) {
     this.numSubs = numSubs;
     for(int i=0;i<numSubs;i++) {
@@ -165,15 +165,15 @@ public final class MultiPostingsEnum extends PostingsEnum {
   /** Holds a {@link PostingsEnum} along with the
    *  corresponding {@link ReaderSlice}. */
   public final static class EnumWithSlice {
-    EnumWithSlice() {
-    }
-
     /** {@link PostingsEnum} for this sub-reader. */
     public PostingsEnum postingsEnum;
 
     /** {@link ReaderSlice} describing how this sub-reader
      *  fits into the composite reader. */
     public ReaderSlice slice;
+
+    EnumWithSlice() {
+    }
     
     @Override
     public String toString() {

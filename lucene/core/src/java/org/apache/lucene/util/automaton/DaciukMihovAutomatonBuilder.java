@@ -1,5 +1,3 @@
-package org.apache.lucene.util.automaton;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,13 +14,14 @@ package org.apache.lucene.util.automaton;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util.automaton;
+
 
 import java.util.*;
 
 import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.CharsRef;
-import org.apache.lucene.util.RamUsageEstimator;
 import org.apache.lucene.util.UnicodeUtil;
 
 /**
@@ -33,7 +32,15 @@ import org.apache.lucene.util.UnicodeUtil;
  * @see #build(Collection)
  * @see Automata#makeStringUnion(Collection)
  */
-final class DaciukMihovAutomatonBuilder {
+public final class DaciukMihovAutomatonBuilder {
+  
+  /**
+   * The default constructor is private.  Use static methods directly.
+   */
+  private DaciukMihovAutomatonBuilder() {
+    super();
+  }
+
   /**
    * DFSA state with <code>char</code> labels on transitions.
    */

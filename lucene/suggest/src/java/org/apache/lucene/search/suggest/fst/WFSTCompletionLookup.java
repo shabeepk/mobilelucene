@@ -1,5 +1,3 @@
-package org.apache.lucene.search.suggest.fst;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.suggest.fst;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.suggest.fst;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -32,6 +31,7 @@ import org.apache.lucene.store.ByteArrayDataInput;
 import org.apache.lucene.store.ByteArrayDataOutput;
 import org.apache.lucene.store.DataInput;
 import org.apache.lucene.store.DataOutput;
+import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.Accountables;
 import org.apache.lucene.util.ArrayUtil;
@@ -60,7 +60,8 @@ import org.apache.lucene.util.fst.Util.TopResults;
  * 
  * @lucene.experimental
  */
-public class WFSTCompletionLookup extends Lookup {
+// redundant 'implements Accountable' to workaround javadocs bugs
+public class WFSTCompletionLookup extends Lookup implements Accountable {
   
   /**
    * FST<Long>, weights are encoded as costs: (Integer.MAX_VALUE-weight)
@@ -77,11 +78,14 @@ public class WFSTCompletionLookup extends Lookup {
   /** Number of entries the lookup was built with */
   private long count = 0;
 
+  private final Directory tempDir;
+  private final String tempFileNamePrefix;
+
   /**
-   * Calls {@link #WFSTCompletionLookup(boolean) WFSTCompletionLookup(true)}
+   * Calls {@link #WFSTCompletionLookup(Directory,String,boolean) WFSTCompletionLookup(null,null,true)}
    */
-  public WFSTCompletionLookup() {
-    this(true);
+  public WFSTCompletionLookup(Directory tempDir, String tempFileNamePrefix) {
+    this(tempDir, tempFileNamePrefix, true);
   }
   
   /**
@@ -92,8 +96,10 @@ public class WFSTCompletionLookup extends Lookup {
    *        of score. This has no performance impact, but could result
    *        in low-quality suggestions.
    */
-  public WFSTCompletionLookup(boolean exactFirst) {
+  public WFSTCompletionLookup(Directory tempDir, String tempFileNamePrefix, boolean exactFirst) {
     this.exactFirst = exactFirst;
+    this.tempDir = tempDir;
+    this.tempFileNamePrefix = tempFileNamePrefix;
   }
   
   @Override
@@ -106,7 +112,7 @@ public class WFSTCompletionLookup extends Lookup {
     }
     count = 0;
     BytesRef scratch = new BytesRef();
-    InputIterator iter = new WFSTInputIterator(iterator);
+    InputIterator iter = new WFSTInputIterator(tempDir, tempFileNamePrefix, iterator);
     IntsRefBuilder scratchInts = new IntsRefBuilder();
     BytesRefBuilder previous = null;
     PositiveIntOutputs outputs = PositiveIntOutputs.getSingleton();
@@ -261,10 +267,10 @@ public class WFSTCompletionLookup extends Lookup {
     return Integer.MAX_VALUE - (int)value;
   }
   
-  private final class WFSTInputIterator extends SortedInputIterator {
+  private static final class WFSTInputIterator extends SortedInputIterator {
 
-    WFSTInputIterator(InputIterator source) throws IOException {
-      super(source);
+    WFSTInputIterator(Directory tempDir, String tempFileNamePrefix, InputIterator source) throws IOException {
+      super(tempDir, tempFileNamePrefix, source);
       assert source.hasPayloads() == false;
     }
 

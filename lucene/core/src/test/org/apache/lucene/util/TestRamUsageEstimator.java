@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
+
 
 import static org.apache.lucene.util.RamUsageEstimator.*;
 import static org.apache.lucene.util.RamUsageTester.sizeOf;
@@ -24,7 +24,7 @@ import java.util.Random;
 
 public class TestRamUsageEstimator extends LuceneTestCase {
   public void testSanity() {
-    assertTrue(sizeOf(new String("test string")) > shallowSizeOfInstance(String.class));
+    assertTrue(sizeOf("test string") > shallowSizeOfInstance(String.class));
 
     Holder holder = new Holder();
     holder.holder = new Holder("string2", 5000L);
@@ -37,9 +37,9 @@ public class TestRamUsageEstimator extends LuceneTestCase {
         shallowSizeOfInstance(Holder.class)         == shallowSizeOfInstance(HolderSubclass2.class));
 
     String[] strings = new String[] {
-        new String("test string"),
-        new String("hollow"), 
-        new String("catchmaster")
+        "test string",
+        "hollow",
+        "catchmaster"
     };
     assertTrue(sizeOf(strings) > shallowSizeOf(strings));
   }

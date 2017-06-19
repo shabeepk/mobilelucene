@@ -1,5 +1,3 @@
-package org.apache.lucene.mockfile;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.mockfile;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.mockfile;
 
 import java.io.IOException;
 import java.nio.file.FileStore;
@@ -98,54 +97,48 @@ public class FilterFileSystem extends FileSystem {
   @Override
   public Iterable<Path> getRootDirectories() {
     final Iterable<Path> roots = delegate.getRootDirectories();
-    return new Iterable<Path>() {
-      @Override
-      public Iterator<Path> iterator() {
-        final Iterator<Path> iterator = roots.iterator();
-        return new Iterator<Path>() {
-          @Override
-          public boolean hasNext() {
-            return iterator.hasNext();
-          }
-          
-          @Override
-          public Path next() {
-            return new FilterPath(iterator.next(), FilterFileSystem.this);
-          }
+    return () -> {
+      final Iterator<Path> iterator = roots.iterator();
+      return new Iterator<Path>() {
+        @Override
+        public boolean hasNext() {
+          return iterator.hasNext();
+        }
 
-          @Override
-          public void remove() {
-            iterator.remove();
-          }
-        };
-      }
+        @Override
+        public Path next() {
+          return new FilterPath(iterator.next(), FilterFileSystem.this);
+        }
+        
+        @Override
+        public void remove() {
+          iterator.remove();
+        }
+      };
     };
   }
 
   @Override
   public Iterable<FileStore> getFileStores() {
     final Iterable<FileStore> fileStores = delegate.getFileStores();
-    return new Iterable<FileStore>() {
-      @Override
-      public Iterator<FileStore> iterator() {
-        final Iterator<FileStore> iterator = fileStores.iterator();
-        return new Iterator<FileStore>() {
-          @Override
-          public boolean hasNext() {
-            return iterator.hasNext();
-          }
-          
-          @Override
-          public FileStore next() {
-            return new FilterFileStore(iterator.next(), parent.getScheme());
-          }
+    return () -> {
+      final Iterator<FileStore> iterator = fileStores.iterator();
+      return new Iterator<FileStore>() {
+        @Override
+        public boolean hasNext() {
+          return iterator.hasNext();
+        }
 
-          @Override
-          public void remove() {
-            iterator.remove();
-          }
-        };
-      }
+        @Override
+        public FileStore next() {
+          return new FilterFileStore(iterator.next(), parent.getScheme()) {};
+        }
+        
+        @Override
+        public void remove() {
+          iterator.remove();
+        }
+      };
     };
   }
 
@@ -162,14 +155,11 @@ public class FilterFileSystem extends FileSystem {
   @Override
   public PathMatcher getPathMatcher(String syntaxAndPattern) {
     final PathMatcher matcher = delegate.getPathMatcher(syntaxAndPattern);
-    return new PathMatcher() {
-      @Override
-      public boolean matches(Path path) {
-        if (path instanceof FilterPath) {
-          return matcher.matches(((FilterPath)path).delegate);
-        }
-        return false;
+    return path -> {
+      if (path instanceof FilterPath) {
+        return matcher.matches(((FilterPath)path).delegate);
       }
+      return false;
     };
   }
 

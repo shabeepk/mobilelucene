@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.ngram;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,12 +14,13 @@ package org.apache.lucene.analysis.ngram;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.ngram;
+
 
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.Tokenizer;
 import org.apache.lucene.analysis.util.TokenizerFactory;
 import org.apache.lucene.util.AttributeFactory;
-import org.apache.lucene.util.Version;
 
 import java.io.Reader;
 import java.util.Map;
@@ -52,10 +51,6 @@ public class NGramTokenizerFactory extends TokenizerFactory {
   /** Creates the {@link TokenStream} of n-grams from the given {@link Reader} and {@link AttributeFactory}. */
   @Override
   public Tokenizer create(AttributeFactory factory) {
-    if (luceneMatchVersion.onOrAfter(Version.LUCENE_4_4_0)) {
-      return new NGramTokenizer(factory, minGramSize, maxGramSize);
-    } else {
-      return new Lucene43NGramTokenizer(factory, minGramSize, maxGramSize);
-    }
+    return new NGramTokenizer(factory, minGramSize, maxGramSize);
   }
 }

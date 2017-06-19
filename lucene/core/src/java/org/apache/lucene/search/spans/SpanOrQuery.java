@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spans;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search.spans;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spans;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -34,12 +34,11 @@ import org.apache.lucene.search.DisjunctionDISIApproximation;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TwoPhaseIterator;
-import org.apache.lucene.util.ToStringUtils;
 
 
 /** Matches the union of its clauses.
  */
-public class SpanOrQuery extends SpanQuery implements Cloneable {
+public final class SpanOrQuery extends SpanQuery {
   private List<SpanQuery> clauses;
   private String field;
 
@@ -54,7 +53,7 @@ public class SpanOrQuery extends SpanQuery implements Cloneable {
   }
 
   /** Adds a clause to this query */
-  public final void addClause(SpanQuery clause) {
+  private final void addClause(SpanQuery clause) {
     if (field == null) {
       field = clause.getField();
     } else if (clause.getField() != null && !clause.getField().equals(field)) {
@@ -72,35 +71,19 @@ public class SpanOrQuery extends SpanQuery implements Cloneable {
   public String getField() { return field; }
 
   @Override
-  public SpanOrQuery clone() {
-    int sz = clauses.size();
-    SpanQuery[] newClauses = new SpanQuery[sz];
-
-    for (int i = 0; i < sz; i++) {
-      newClauses[i] = (SpanQuery) clauses.get(i).clone();
-    }
-    SpanOrQuery soq = new SpanOrQuery(newClauses);
-    soq.setBoost(getBoost());
-    return soq;
-  }
-
-  @Override
   public Query rewrite(IndexReader reader) throws IOException {
-    SpanOrQuery clone = null;
+    SpanOrQuery rewritten = new SpanOrQuery();
+    boolean actuallyRewritten = false;
     for (int i = 0 ; i < clauses.size(); i++) {
       SpanQuery c = clauses.get(i);
       SpanQuery query = (SpanQuery) c.rewrite(reader);
-      if (query != c) {                     // clause rewrote: must clone
-        if (clone == null)
-          clone = this.clone();
-        clone.clauses.set(i,query);
-      }
+      actuallyRewritten |= query != c;
+      rewritten.addClause(query);
     }
-    if (clone != null) {
-      return clone;                        // some clauses rewrote
-    } else {
-      return this;                         // no clauses rewrote
+    if (actuallyRewritten) {
+      return rewritten;
     }
+    return super.rewrite(reader);
   }
 
   @Override
@@ -116,24 +99,18 @@ public class SpanOrQuery extends SpanQuery implements Cloneable {
       }
     }
     buffer.append("])");
-    buffer.append(ToStringUtils.boost(getBoost()));
     return buffer.toString();
   }
 
   @Override
-  public boolean equals(Object o) {
-    if (! super.equals(o)) {
-      return false;
-    }
-    final SpanOrQuery that = (SpanOrQuery) o;
-    return clauses.equals(that.clauses);
+  public boolean equals(Object other) {
+    return sameClassAs(other) &&
+           clauses.equals(((SpanOrQuery) other).clauses);
   }
 
   @Override
   public int hashCode() {
-    int h = super.hashCode();
-    h = (h * 7) ^ clauses.hashCode();
-    return h;
+    return classHash() ^ clauses.hashCode();
   }
 
   @Override
@@ -146,6 +123,7 @@ public class SpanOrQuery extends SpanQuery implements Cloneable {
   }
 
   public class SpanOrWeight extends SpanWeight {
+
     final List<SpanWeight> subWeights;
 
     public SpanOrWeight(IndexSearcher searcher, Map<Term, TermContext> terms, List<SpanWeight> subWeights) throws IOException {
@@ -171,7 +149,7 @@ public class SpanOrQuery extends SpanQuery implements Cloneable {
     public Spans getSpans(final LeafReaderContext context, Postings requiredPostings)
         throws IOException {
 
-      final ArrayList<Spans> subSpans = new ArrayList<>(clauses.size());
+      ArrayList<Spans> subSpans = new ArrayList<>(clauses.size());
 
       for (SpanWeight w : subWeights) {
         Spans spans = w.getSpans(context, requiredPostings);
@@ -186,12 +164,12 @@ public class SpanOrQuery extends SpanQuery implements Cloneable {
         return subSpans.get(0);
       }
 
-      final DisiPriorityQueue<Spans> byDocQueue = new DisiPriorityQueue<>(subSpans.size());
+      DisiPriorityQueue byDocQueue = new DisiPriorityQueue(subSpans.size());
       for (Spans spans : subSpans) {
-        byDocQueue.add(new DisiWrapper<>(spans));
+        byDocQueue.add(new DisiWrapper(spans));
       }
 
-      final SpanPositionQueue byPositionQueue = new SpanPositionQueue(subSpans.size()); // when empty use -1
+      SpanPositionQueue byPositionQueue = new SpanPositionQueue(subSpans.size()); // when empty use -1
 
       return new Spans() {
         Spans topPositionSpans = null;
@@ -199,7 +177,7 @@ public class SpanOrQuery extends SpanQuery implements Cloneable {
         @Override
         public int nextDoc() throws IOException {
           topPositionSpans = null;
-          DisiWrapper<Spans> topDocSpans = byDocQueue.top();
+          DisiWrapper topDocSpans = byDocQueue.top();
           int currentDoc = topDocSpans.doc;
           do {
             topDocSpans.doc = topDocSpans.iterator.nextDoc();
@@ -211,7 +189,7 @@ public class SpanOrQuery extends SpanQuery implements Cloneable {
         @Override
         public int advance(int target) throws IOException {
           topPositionSpans = null;
-          DisiWrapper<Spans> topDocSpans = byDocQueue.top();
+          DisiWrapper topDocSpans = byDocQueue.top();
           do {
             topDocSpans.doc = topDocSpans.iterator.advance(target);
             topDocSpans = byDocQueue.updateTop();
@@ -221,36 +199,68 @@ public class SpanOrQuery extends SpanQuery implements Cloneable {
 
         @Override
         public int docID() {
-          DisiWrapper<Spans> topDocSpans = byDocQueue.top();
+          DisiWrapper topDocSpans = byDocQueue.top();
           return topDocSpans.doc;
         }
 
         @Override
         public TwoPhaseIterator asTwoPhaseIterator() {
-          boolean hasApproximation = false;
-          for (DisiWrapper<Spans> w : byDocQueue) {
+          float sumMatchCost = 0; // See also DisjunctionScorer.asTwoPhaseIterator()
+          long sumApproxCost = 0;
+
+          for (DisiWrapper w : byDocQueue) {
             if (w.twoPhaseView != null) {
-              hasApproximation = true;
-              break;
+              long costWeight = (w.cost <= 1) ? 1 : w.cost;
+              sumMatchCost += w.twoPhaseView.matchCost() * costWeight;
+              sumApproxCost += costWeight;
             }
           }
 
-          if (!hasApproximation) { // none of the sub spans supports approximations
+          if (sumApproxCost == 0) { // no sub spans supports approximations
+            computePositionsCost();
             return null;
           }
 
-          return new TwoPhaseIterator(new DisjunctionDISIApproximation<Spans>(byDocQueue)) {
+          final float matchCost = sumMatchCost / sumApproxCost;
+
+          return new TwoPhaseIterator(new DisjunctionDISIApproximation(byDocQueue)) {
             @Override
             public boolean matches() throws IOException {
               return twoPhaseCurrentDocMatches();
             }
+
+            @Override
+            public float matchCost() {
+              return matchCost;
+            }
           };
+        }
+
+        float positionsCost = -1;
+
+        void computePositionsCost() {
+          float sumPositionsCost = 0;
+          long sumCost = 0;
+          for (DisiWrapper w : byDocQueue) {
+            long costWeight = (w.cost <= 1) ? 1 : w.cost;
+            sumPositionsCost += w.spans.positionsCost() * costWeight;
+            sumCost += costWeight;
+          }
+          positionsCost = sumPositionsCost / sumCost;
+        }
+
+        @Override
+        public float positionsCost() {
+          // This may be called when asTwoPhaseIterator returned null,
+          // which happens when none of the sub spans supports approximations.
+          assert positionsCost > 0;
+          return positionsCost;
         }
 
         int lastDocTwoPhaseMatched = -1;
 
         boolean twoPhaseCurrentDocMatches() throws IOException {
-          DisiWrapper<Spans> listAtCurrentDoc = byDocQueue.topList();
+          DisiWrapper listAtCurrentDoc = byDocQueue.topList();
           // remove the head of the list as long as it does not match
           final int currentDoc = listAtCurrentDoc.doc;
           while (listAtCurrentDoc.twoPhaseView != null) {
@@ -274,9 +284,9 @@ public class SpanOrQuery extends SpanQuery implements Cloneable {
         void fillPositionQueue() throws IOException { // called at first nextStartPosition
           assert byPositionQueue.size() == 0;
           // add all matching Spans at current doc to byPositionQueue
-          DisiWrapper<Spans> listAtCurrentDoc = byDocQueue.topList();
+          DisiWrapper listAtCurrentDoc = byDocQueue.topList();
           while (listAtCurrentDoc != null) {
-            Spans spansAtDoc = listAtCurrentDoc.iterator;
+            Spans spansAtDoc = listAtCurrentDoc.spans;
             if (lastDocTwoPhaseMatched == listAtCurrentDoc.doc) { // matched by DisjunctionDisiApproximation
               if (listAtCurrentDoc.twoPhaseView != null) { // matched by approximation
                 if (listAtCurrentDoc.lastApproxNonMatchDoc == listAtCurrentDoc.doc) { // matches() returned false
@@ -333,12 +343,13 @@ public class SpanOrQuery extends SpanQuery implements Cloneable {
 
         @Override
         public void collect(SpanCollector collector) throws IOException {
-          topPositionSpans.collect(collector);
+          if (topPositionSpans != null)
+            topPositionSpans.collect(collector);
         }
 
         @Override
         public String toString() {
-          return "spanOr("+SpanOrQuery.this+")@"+docID()+": "+startPosition()+" - "+endPosition();
+          return "spanOr(" + SpanOrQuery.this + ")@" + docID() + ": " + startPosition() + " - " + endPosition();
         }
 
         long cost = -1;

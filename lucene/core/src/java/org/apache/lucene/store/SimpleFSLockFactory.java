@@ -1,5 +1,3 @@
-package org.apache.lucene.store;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,14 +14,16 @@ package org.apache.lucene.store;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.store;
+
 
 import java.io.IOException;
-import org.lukhnos.portmobile.file.AccessDeniedException;
-import org.lukhnos.portmobile.file.FileAlreadyExistsException;
-import org.lukhnos.portmobile.file.Files;
-import org.lukhnos.portmobile.file.Path;
-import org.lukhnos.portmobile.file.attribute.BasicFileAttributes;
-import org.lukhnos.portmobile.file.attribute.FileTime;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
 
 /**
  * <p>Implements {@link LockFactory} using {@link
@@ -111,7 +111,7 @@ public final class SimpleFSLockFactory extends FSLockFactory {
       // if it differs, someone deleted our lock file (and we are ineffective)
       FileTime ctime = Files.readAttributes(path, BasicFileAttributes.class).creationTime(); 
       if (!creationTime.equals(ctime)) {
-        throw new AlreadyClosedException("Underlying file changed by an external force at " + creationTime + ", (lock=" + this + ")");
+        throw new AlreadyClosedException("Underlying file changed by an external force at " + ctime + ", (lock=" + this + ")");
       }
     }
 
@@ -144,7 +144,7 @@ public final class SimpleFSLockFactory extends FSLockFactory {
 
     @Override
     public String toString() {
-      return "SimpleFSLock(path=" + path + ",ctime=" + creationTime + ")";
+      return "SimpleFSLock(path=" + path + ",creationTime=" + creationTime + ")";
     }
   }
 }

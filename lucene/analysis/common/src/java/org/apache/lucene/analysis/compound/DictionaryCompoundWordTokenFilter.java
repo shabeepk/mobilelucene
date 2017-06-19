@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.compound;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,10 +14,12 @@ package org.apache.lucene.analysis.compound;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.compound;
+
 
 
 import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.util.CharArraySet;
+import org.apache.lucene.analysis.CharArraySet;
 
 /**
  * A {@link org.apache.lucene.analysis.TokenFilter} that decomposes compound words found in many Germanic languages.
@@ -41,7 +41,7 @@ public class DictionaryCompoundWordTokenFilter extends CompoundWordTokenFilterBa
   public DictionaryCompoundWordTokenFilter(TokenStream input, CharArraySet dictionary) {
     super(input, dictionary);
     if (dictionary == null) {
-      throw new IllegalArgumentException("dictionary cannot be null");
+      throw new IllegalArgumentException("dictionary must not be null");
     }
   }
 
@@ -65,7 +65,7 @@ public class DictionaryCompoundWordTokenFilter extends CompoundWordTokenFilterBa
                                            int minWordSize, int minSubwordSize, int maxSubwordSize, boolean onlyLongestMatch) {
     super(input, dictionary, minWordSize, minSubwordSize, maxSubwordSize, onlyLongestMatch);
     if (dictionary == null) {
-      throw new IllegalArgumentException("dictionary cannot be null");
+      throw new IllegalArgumentException("dictionary must not be null");
     }
   }
 

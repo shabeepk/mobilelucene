@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spans;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search.spans;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spans;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -23,7 +23,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import org.lukhnos.portmobile.util.Objects;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.lucene.index.IndexReader;
@@ -33,7 +33,6 @@ import org.apache.lucene.index.TermContext;
 import org.apache.lucene.index.Terms;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.util.ToStringUtils;
 
 /** Matches spans which are near one another.  One can specify <i>slop</i>, the
  * maximum number of intervening unmatched positions, as well as whether
@@ -124,19 +123,11 @@ public class SpanNearQuery extends SpanQuery implements Cloneable {
    * must be in the same order as in <code>clauses</code> and must be non-overlapping.
    * <br>When <code>inOrder</code> is false, the spans from each clause
    * need not be ordered and may overlap.
-   * @param clauses the clauses to find near each other, in the same field, at least 2.
+   * @param clausesIn the clauses to find near each other, in the same field, at least 2.
    * @param slop The slop value
    * @param inOrder true if order is important
    */
-  public SpanNearQuery(SpanQuery[] clauses, int slop, boolean inOrder) {
-    this(clauses, slop, inOrder, true);
-  }
-
-  /**
-   * @deprecated Use {@link #SpanNearQuery(SpanQuery[], int, boolean)}
-   */
-  @Deprecated
-  public SpanNearQuery(SpanQuery[] clausesIn, int slop, boolean inOrder, boolean collectPayloads) {
+  public SpanNearQuery(SpanQuery[] clausesIn, int slop, boolean inOrder) {
     this.clauses = new ArrayList<>(clausesIn.length);
     for (SpanQuery clause : clausesIn) {
       if (this.field == null) {                               // check field
@@ -181,7 +172,6 @@ public class SpanNearQuery extends SpanQuery implements Cloneable {
     buffer.append(", ");
     buffer.append(inOrder);
     buffer.append(")");
-    buffer.append(ToStringUtils.boost(getBoost()));
     return buffer.toString();
   }
 
@@ -229,8 +219,8 @@ public class SpanNearQuery extends SpanQuery implements Cloneable {
       }
 
       // all NearSpans require at least two subSpans
-      return (!inOrder) ? new NearSpansUnordered(SpanNearQuery.this, subSpans)
-          : new NearSpansOrdered(SpanNearQuery.this, subSpans);
+      return (!inOrder) ? new NearSpansUnordered(slop, subSpans)
+          : new NearSpansOrdered(slop, subSpans);
     }
 
     @Override
@@ -243,52 +233,41 @@ public class SpanNearQuery extends SpanQuery implements Cloneable {
 
   @Override
   public Query rewrite(IndexReader reader) throws IOException {
-    SpanNearQuery clone = null;
+    boolean actuallyRewritten = false;
+    List<SpanQuery> rewrittenClauses = new ArrayList<>();
     for (int i = 0 ; i < clauses.size(); i++) {
       SpanQuery c = clauses.get(i);
       SpanQuery query = (SpanQuery) c.rewrite(reader);
-      if (query != c) {                     // clause rewrote: must clone
-        if (clone == null)
-          clone = this.clone();
-        clone.clauses.set(i,query);
+      actuallyRewritten |= query != c;
+      rewrittenClauses.add(query);
+    }
+    if (actuallyRewritten) {
+      try {
+        SpanNearQuery rewritten = (SpanNearQuery) clone();
+        rewritten.clauses = rewrittenClauses;
+        return rewritten;
+      } catch (CloneNotSupportedException e) {
+        throw new AssertionError(e);
       }
     }
-    if (clone != null) {
-      return clone; // some clauses rewrote
-    } else {
-      return this; // no clauses rewrote
-    }
+    return super.rewrite(reader);
   }
 
   @Override
-  public SpanNearQuery clone() {
-    int sz = clauses.size();
-    SpanQuery[] newClauses = new SpanQuery[sz];
-
-    for (int i = 0; i < sz; i++) {
-      newClauses[i] = (SpanQuery) clauses.get(i).clone();
-    }
-    SpanNearQuery spanNearQuery = new SpanNearQuery(newClauses, slop, inOrder);
-    spanNearQuery.setBoost(getBoost());
-    return spanNearQuery;
+  public boolean equals(Object other) {
+    return sameClassAs(other) &&
+           equalsTo(getClass().cast(other));
   }
-
-  /** Returns true iff <code>o</code> is equal to this. */
-  @Override
-  public boolean equals(Object o) {
-    if (! super.equals(o)) {
-      return false;
-    }
-    final SpanNearQuery spanNearQuery = (SpanNearQuery) o;
-
-    return (inOrder == spanNearQuery.inOrder)
-        && (slop == spanNearQuery.slop)
-        && clauses.equals(spanNearQuery.clauses);
+  
+  private boolean equalsTo(SpanNearQuery other) {
+    return inOrder == other.inOrder && 
+           slop == other.slop &&
+           clauses.equals(other.clauses);
   }
 
   @Override
   public int hashCode() {
-    int result = super.hashCode();
+    int result = classHash();
     result ^= clauses.hashCode();
     result += slop;
     int fac = 1 + (inOrder ? 8 : 4);
@@ -341,6 +320,25 @@ public class SpanNearQuery extends SpanQuery implements Cloneable {
 
       }
     }
+
+    @Override
+    public boolean equals(Object other) {
+      return sameClassAs(other) &&
+             equalsTo(getClass().cast(other));
+    }
+    
+    private boolean equalsTo(SpanGapQuery other) {
+      return width == other.width &&
+             field.equals(other.field);
+    }
+
+    @Override
+    public int hashCode() {
+      int result = classHash();
+      result -= 7 * width;
+      return result * 15 - field.hashCode();
+    }
+
   }
 
   static class GapSpans extends Spans {
@@ -401,6 +399,11 @@ public class SpanNearQuery extends SpanQuery implements Cloneable {
 
     @Override
     public long cost() {
+      return 0;
+    }
+
+    @Override
+    public float positionsCost() {
       return 0;
     }
   }

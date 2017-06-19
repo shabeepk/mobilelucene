@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spans;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,9 +14,11 @@ package org.apache.lucene.search.spans;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spans;
+
 
 import java.io.IOException;
-import org.lukhnos.portmobile.util.Objects;
+import java.util.Objects;
 
 import org.apache.lucene.search.TwoPhaseIterator;
 
@@ -132,13 +132,23 @@ public abstract class FilterSpans extends Spans {
   
   @Override
   public final TwoPhaseIterator asTwoPhaseIterator() {
-    final TwoPhaseIterator inner = in.asTwoPhaseIterator();
+    TwoPhaseIterator inner = in.asTwoPhaseIterator();
     if (inner != null) {
       // wrapped instance has an approximation
       return new TwoPhaseIterator(inner.approximation()) {
         @Override
         public boolean matches() throws IOException {
           return inner.matches() && twoPhaseCurrentDocMatches();
+        }
+
+        @Override
+        public float matchCost() {
+          return inner.matchCost(); // underestimate
+        }
+
+        @Override
+        public String toString() {
+          return "FilterSpans@asTwoPhaseIterator(inner=" + inner + ", in=" + in + ")";
         }
       };
     } else {
@@ -149,10 +159,25 @@ public abstract class FilterSpans extends Spans {
         public boolean matches() throws IOException {
           return twoPhaseCurrentDocMatches();
         }
+
+        @Override
+        public float matchCost() {
+          return in.positionsCost(); // overestimate
+        }
+
+        @Override
+        public String toString() {
+          return "FilterSpans@asTwoPhaseIterator(in=" + in + ")";
+        }
       };
     }
   }
   
+  @Override
+  public float positionsCost() {
+    throw new UnsupportedOperationException(); // asTwoPhaseIterator never returns null
+  }
+
   /**
    * Returns true if the current document matches.
    * <p>
@@ -181,7 +206,7 @@ public abstract class FilterSpans extends Spans {
       }
     }
   }
-  
+
   /**
    * Status returned from {@link FilterSpans#accept(Spans)} that indicates
    * whether a candidate match should be accepted, rejected, or rejected

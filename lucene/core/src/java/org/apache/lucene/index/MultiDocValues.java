@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,12 +14,13 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 
 import org.apache.lucene.index.MultiTermsEnum.TermsEnumIndex;
@@ -144,7 +143,7 @@ public class MultiDocValues {
       };
     }
   }
-  
+
   /** Returns a Bits for a reader's docsWithField (potentially merging on-the-fly) 
    * <p>
    * This is a slow way to access this bitset. Instead, access them per-segment
@@ -331,6 +330,33 @@ public class MultiDocValues {
       return new MultiSortedDocValues(values, starts, mapping);
     }
   }
+
+  /** Expert: returns a SortedDocValues from an array of leaf reader's sorted doc values (potentially doing extremely slow things).
+   * <p>
+   * This is an extremely slow way to access sorted values. Instead, access them per-segment
+   * with {@link LeafReader#getSortedDocValues(String)}
+   * </p>
+   */
+  public static SortedDocValues getSortedValues(IndexReader r, final SortedDocValues[] leafValues, final int[] docStarts) throws IOException {
+    final List<LeafReaderContext> leaves = r.leaves();
+    final int size = leaves.size();
+
+    if (leafValues.length != size) {
+      throw new IllegalArgumentException("leafValues must match the number of leaves; got leafValues.length=" + leafValues.length + " vs leaves.size()=" + leaves.size());
+    }
+    if (docStarts.length != size+1) {
+      throw new IllegalArgumentException("docStarts must match the number of leaves, plus one; got docStarts.length=" + docStarts.length + " vs leaves.size()=" + leaves.size());
+    }
+    
+    if (leafValues.length == 0) {
+      return null;
+    } else if (leafValues.length == 1) {
+      return leafValues[0];
+    }
+
+    OrdinalMap mapping = OrdinalMap.build(r.getCoreCacheKey(), leafValues, PackedInts.DEFAULT);
+    return new MultiSortedDocValues(leafValues, docStarts, mapping);
+  }
   
   /** Returns a SortedSetDocValues for a reader's docvalues (potentially doing extremely slow things).
    * <p>
@@ -432,11 +458,6 @@ public class MultiDocValues {
       public long ramBytesUsed() {
         return BASE_RAM_BYTES_USED + RamUsageEstimator.sizeOf(newToOld) + RamUsageEstimator.sizeOf(oldToNew);
       }
-
-      @Override
-      public Collection<Accountable> getChildResources() {
-        return Collections.emptyList();
-      }
     }
 
     /**
@@ -492,8 +513,8 @@ public class MultiDocValues {
 
     private static final long BASE_RAM_BYTES_USED = RamUsageEstimator.shallowSizeOfInstance(OrdinalMap.class);
 
-    // cache key of whoever asked for this awful thing
-    final Object owner;
+    /** Cache key of whoever asked for this awful thing */
+    public final Object owner;
     // globalOrd -> (globalOrd - segmentOrd) where segmentOrd is the the ordinal in the first segment that contains this term
     final PackedLongValues globalOrdDeltas;
     // globalOrd -> first segment container
@@ -667,7 +688,7 @@ public class MultiDocValues {
     public final OrdinalMap mapping;
   
     /** Creates a new MultiSortedDocValues over <code>values</code> */
-    MultiSortedDocValues(SortedDocValues values[], int docStarts[], OrdinalMap mapping) throws IOException {
+    public MultiSortedDocValues(SortedDocValues values[], int docStarts[], OrdinalMap mapping) throws IOException {
       assert docStarts.length == values.length + 1;
       this.values = values;
       this.docStarts = docStarts;
@@ -709,7 +730,7 @@ public class MultiDocValues {
     LongValues currentGlobalOrds;
     
     /** Creates a new MultiSortedSetDocValues over <code>values</code> */
-    MultiSortedSetDocValues(SortedSetDocValues values[], int docStarts[], OrdinalMap mapping) throws IOException {
+    public MultiSortedSetDocValues(SortedSetDocValues values[], int docStarts[], OrdinalMap mapping) throws IOException {
       assert docStarts.length == values.length + 1;
       this.values = values;
       this.docStarts = docStarts;

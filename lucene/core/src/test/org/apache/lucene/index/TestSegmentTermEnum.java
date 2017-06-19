@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 
@@ -79,7 +79,7 @@ public class TestSegmentTermEnum extends LuceneTestCase {
                                 .setCodec(TestUtil.alwaysPostingsFormat(TestUtil.getDefaultPostingsFormat())));
     addDoc(writer, "aaa bbb");
     writer.close();
-    SegmentReader reader = getOnlySegmentReader(DirectoryReader.open(dir));
+    LeafReader reader = getOnlyLeafReader(DirectoryReader.open(dir));
     TermsEnum terms = reader.fields().terms("content").iterator();
     assertNotNull(terms.next());
     assertEquals("aaa", terms.term().utf8ToString());

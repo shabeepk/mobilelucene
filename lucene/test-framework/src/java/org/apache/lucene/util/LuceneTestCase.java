@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
 
 import java.io.Closeable;
 import java.io.FileNotFoundException;
@@ -29,8 +28,9 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.URI;
+import java.nio.file.FileSystem;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -42,6 +42,7 @@ import java.security.Permissions;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
 import java.security.ProtectionDomain;
+import java.security.SecurityPermission;
 import java.text.Collator;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -76,6 +77,8 @@ import org.apache.lucene.index.*;
 import org.apache.lucene.index.IndexReader.ReaderClosedListener;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.TermsEnum.SeekStatus;
+import org.apache.lucene.mockfile.FilterPath;
+import org.apache.lucene.mockfile.VirusCheckingFS;
 import org.apache.lucene.search.AssertingIndexSearcher;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
@@ -91,6 +94,7 @@ import org.apache.lucene.store.FSLockFactory;
 import org.apache.lucene.store.FlushInfo;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.LockFactory;
+import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.store.MergeInfo;
 import org.apache.lucene.store.MockDirectoryWrapper.Throttling;
 import org.apache.lucene.store.MockDirectoryWrapper;
@@ -136,6 +140,8 @@ import com.carrotsearch.randomizedtesting.generators.RandomPicks;
 import com.carrotsearch.randomizedtesting.rules.NoClassHooksShadowingRule;
 import com.carrotsearch.randomizedtesting.rules.NoInstanceHooksOverridesRule;
 import com.carrotsearch.randomizedtesting.rules.StaticFieldsInvariantRule;
+
+import junit.framework.AssertionFailedError;
 
 import static com.carrotsearch.randomizedtesting.RandomizedTest.systemPropertyAsBoolean;
 import static com.carrotsearch.randomizedtesting.RandomizedTest.systemPropertyAsInt;
@@ -450,11 +456,24 @@ public abstract class LuceneTestCase extends Assert {
     LEAVE_TEMPORARY = defaultValue;
   }
 
+  /** Returns true, if MMapDirectory supports unmapping on this platform (required for Windows), or if we are not on Windows. */
+  public static boolean hasWorkingMMapOnWindows() {
+    return !Constants.WINDOWS || MMapDirectory.UNMAP_SUPPORTED;
+  }
+  
+  /** Assumes that the current MMapDirectory implementation supports unmapping, so the test will not fail on Windows.
+   * @see #hasWorkingMMapOnWindows()
+   * */
+  public static void assumeWorkingMMapOnWindows() {
+    assumeTrue(MMapDirectory.UNMAP_NOT_SUPPORTED_REASON, hasWorkingMMapOnWindows());
+  }
+
   /** Filesystem-based {@link Directory} implementations. */
   private static final List<String> FS_DIRECTORIES = Arrays.asList(
     "SimpleFSDirectory",
     "NIOFSDirectory",
-    "MMapDirectory"
+    // SimpleFSDirectory as replacement for MMapDirectory if unmapping is not supported on Windows (to make randomization stable):
+    hasWorkingMMapOnWindows() ? "MMapDirectory" : "SimpleFSDirectory"
   );
 
   /** All {@link Directory} implementations. */
@@ -463,7 +482,7 @@ public abstract class LuceneTestCase extends Assert {
     CORE_DIRECTORIES = new ArrayList<>(FS_DIRECTORIES);
     CORE_DIRECTORIES.add("RAMDirectory");
   }
-
+  
   /** A {@link org.apache.lucene.search.QueryCachingPolicy} that randomly caches. */
   public static final QueryCachingPolicy MAYBE_CACHE_POLICY = new QueryCachingPolicy() {
 
@@ -471,7 +490,7 @@ public abstract class LuceneTestCase extends Assert {
     public void onUse(Query query) {}
 
     @Override
-    public boolean shouldCache(Query query, LeafReaderContext context) throws IOException {
+    public boolean shouldCache(Query query) throws IOException {
       return random().nextBoolean();
     }
 
@@ -563,11 +582,14 @@ public abstract class LuceneTestCase extends Assert {
   private final static long STATIC_LEAK_THRESHOLD = 10 * 1024 * 1024;
 
   /** By-name list of ignored types like loggers etc. */
-  private final static Set<String> STATIC_LEAK_IGNORED_TYPES = 
-      Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+  private final static Set<String> STATIC_LEAK_IGNORED_TYPES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
       "org.slf4j.Logger",
       "org.apache.solr.SolrLogFormatter",
-      EnumSet.class.getName())));
+      "java.io.File", // Solr sometimes refers to this in a static way, but it has a "java.nio.fs.Path" inside 
+      Path.class.getName(), // causes problems because interface is implemented by hidden classes
+      Class.class.getName(),
+      EnumSet.class.getName()
+  )));
 
   /**
    * This controls how suite-level rules are nested. It is important that _all_ rules declared
@@ -575,51 +597,55 @@ public abstract class LuceneTestCase extends Assert {
    * other.
    */
   @ClassRule
-  public static TestRule classRules = RuleChain
-    .outerRule(new TestRuleIgnoreTestSuites())
-    .around(ignoreAfterMaxFailures)
-    .around(suiteFailureMarker = new TestRuleMarkFailure())
-    .around(new TestRuleAssertionsRequired())
-    .around(new TestRuleLimitSysouts(suiteFailureMarker))
-    .around(tempFilesCleanupRule = new TestRuleTemporaryFilesCleanup(suiteFailureMarker))
-    .around(new StaticFieldsInvariantRule(STATIC_LEAK_THRESHOLD, true) {
-      @Override
-      protected boolean accept(java.lang.reflect.Field field) {
-        // Don't count known classes that consume memory once.
-        if (STATIC_LEAK_IGNORED_TYPES.contains(field.getType().getName())) {
-          return false;
+  public static TestRule classRules;
+  static {
+    RuleChain r = RuleChain.outerRule(new TestRuleIgnoreTestSuites())
+      .around(ignoreAfterMaxFailures)
+      .around(suiteFailureMarker = new TestRuleMarkFailure())
+      .around(new TestRuleAssertionsRequired())
+      .around(new TestRuleLimitSysouts(suiteFailureMarker))
+      .around(tempFilesCleanupRule = new TestRuleTemporaryFilesCleanup(suiteFailureMarker));
+    // TODO LUCENE-7595: Java 9 does not allow to look into runtime classes, so we have to fix the RAM usage checker!
+    if (!Constants.JRE_IS_MINIMUM_JAVA9) {
+      r = r.around(new StaticFieldsInvariantRule(STATIC_LEAK_THRESHOLD, true) {
+        @Override
+        protected boolean accept(java.lang.reflect.Field field) {
+          // Don't count known classes that consume memory once.
+          if (STATIC_LEAK_IGNORED_TYPES.contains(field.getType().getName())) {
+            return false;
+          }
+          // Don't count references from ourselves, we're top-level.
+          if (field.getDeclaringClass() == LuceneTestCase.class) {
+            return false;
+          }
+          return super.accept(field);
         }
-        // Don't count references from ourselves, we're top-level.
-        if (field.getDeclaringClass() == LuceneTestCase.class) {
-          return false;
+      });
+    }
+    classRules = r.around(new NoClassHooksShadowingRule())
+      .around(new NoInstanceHooksOverridesRule() {
+        @Override
+        protected boolean verify(Method key) {
+          String name = key.getName();
+          return !(name.equals("setUp") || name.equals("tearDown"));
         }
-        return super.accept(field);
-      }
-    })
-    .around(new NoClassHooksShadowingRule())
-    .around(new NoInstanceHooksOverridesRule() {
-      @Override
-      protected boolean verify(Method key) {
-        String name = key.getName();
-        return !(name.equals("setUp") || name.equals("tearDown"));
-      }
-    })
-    .around(classNameRule = new TestRuleStoreClassName())
-    .around(new TestRuleRestoreSystemProperties(
-        // Enlist all properties to which we have write access (security manager);
-        // these should be restored to previous state, no matter what the outcome of the test.
-
-        // We reset the default locale and timezone; these properties change as a side-effect
-        "user.language",
-        "user.timezone",
-        
-        // TODO: these should, ideally, be moved to Solr's base class.
-        "solr.directoryFactory",
-        "solr.solr.home",
-        "solr.data.dir"
-        ))
-    .around(classEnvRule = new TestRuleSetupAndRestoreClassEnv());
-
+      })
+      .around(classNameRule = new TestRuleStoreClassName())
+      .around(new TestRuleRestoreSystemProperties(
+          // Enlist all properties to which we have write access (security manager);
+          // these should be restored to previous state, no matter what the outcome of the test.
+  
+          // We reset the default locale and timezone; these properties change as a side-effect
+          "user.language",
+          "user.timezone",
+          
+          // TODO: these should, ideally, be moved to Solr's base class.
+          "solr.directoryFactory",
+          "solr.solr.home",
+          "solr.data.dir"
+          ))
+      .around(classEnvRule = new TestRuleSetupAndRestoreClassEnv());
+  }
 
   // -----------------------------------------------------------------
   // Test level rules.
@@ -685,23 +711,12 @@ public abstract class LuceneTestCase extends Assert {
   /** Tells {@link IndexWriter} to enforce the specified limit as the maximum number of documents in one index; call
    *  {@link #restoreIndexWriterMaxDocs} once your test is done. */
   public void setIndexWriterMaxDocs(int limit) {
-    Method m;
-    try {
-      m = IndexWriter.class.getDeclaredMethod("setMaxDocs", int.class);
-    } catch (NoSuchMethodException nsme) {
-      throw new RuntimeException(nsme);
-    }
-    m.setAccessible(true);
-    try {
-      m.invoke(IndexWriter.class, limit);
-    } catch (IllegalAccessException | InvocationTargetException iae) {
-      throw new RuntimeException(iae);
-    }
+    IndexWriterMaxDocsChanger.setMaxDocs(limit);
   }
 
-  /** Returns the default {@link IndexWriter#MAX_DOCS} limit. */
+  /** Returns to the default {@link IndexWriter#MAX_DOCS} limit. */
   public void restoreIndexWriterMaxDocs() {
-    setIndexWriterMaxDocs(IndexWriter.MAX_DOCS);
+    IndexWriterMaxDocsChanger.restoreMaxDocs();
   }
 
   // -----------------------------------------------------------------
@@ -770,14 +785,28 @@ public abstract class LuceneTestCase extends Assert {
    * Some tests expect the directory to contain a single segment, and want to 
    * do tests on that segment's reader. This is an utility method to help them.
    */
+    /*
   public static SegmentReader getOnlySegmentReader(DirectoryReader reader) {
     List<LeafReaderContext> subReaders = reader.leaves();
     if (subReaders.size() != 1) {
       throw new IllegalArgumentException(reader + " has " + subReaders.size() + " segments instead of exactly one");
     }
     final LeafReader r = subReaders.get(0).reader();
-    assertTrue(r instanceof SegmentReader);
+    assertTrue("expected a SegmentReader but got " + r, r instanceof SegmentReader);
     return (SegmentReader) r;
+  }
+    */
+
+  /**
+   * Some tests expect the directory to contain a single segment, and want to 
+   * do tests on that segment's reader. This is an utility method to help them.
+   */
+  public static LeafReader getOnlyLeafReader(IndexReader reader) {
+    List<LeafReaderContext> subReaders = reader.leaves();
+    if (subReaders.size() != 1) {
+      throw new IllegalArgumentException(reader + " has " + subReaders.size() + " segments instead of exactly one");
+    }
+    return subReaders.get(0).reader();
   }
 
   /**
@@ -841,7 +870,7 @@ public abstract class LuceneTestCase extends Assert {
   public static void assumeNoException(String msg, Exception e) {
     RandomizedTest.assumeNoException(msg, e);
   }
-
+  
   /**
    * Return <code>args</code> as a {@link Set} instance. The order of elements is not
    * preserved in iterators.
@@ -1166,11 +1195,14 @@ public abstract class LuceneTestCase extends Assert {
     }
     
     if (rarely(r)) {
-      // change warmer parameters
-      if (r.nextBoolean()) {
-        c.setMergedSegmentWarmer(new SimpleMergedSegmentWarmer(c.getInfoStream()));
-      } else {
-        c.setMergedSegmentWarmer(null);
+      IndexWriter.IndexReaderWarmer curWarmer = c.getMergedSegmentWarmer();
+      if (curWarmer == null || curWarmer instanceof SimpleMergedSegmentWarmer) {
+        // change warmer parameters
+        if (r.nextBoolean()) {
+          c.setMergedSegmentWarmer(new SimpleMergedSegmentWarmer(c.getInfoStream()));
+        } else {
+          c.setMergedSegmentWarmer(null);
+        }
       }
       didChange = true;
     }
@@ -1276,6 +1308,16 @@ public abstract class LuceneTestCase extends Assert {
   public static BaseDirectoryWrapper newDirectory() {
     return newDirectory(random());
   }
+
+  /** Like {@link #newDirectory} except randomly the {@link VirusCheckingFS} may be installed */
+  public static BaseDirectoryWrapper newMaybeVirusCheckingDirectory() {
+    if (random().nextInt(5) == 4) {
+      Path path = addVirusChecker(createTempDir());
+      return newFSDirectory(path);
+    } else {
+      return newDirectory(random());
+    }
+  }
   
   /**
    * Returns a new Directory instance, using the specified random.
@@ -1313,6 +1355,15 @@ public abstract class LuceneTestCase extends Assert {
     return (MockDirectoryWrapper) newFSDirectory(f, lf, false);
   }
 
+  public static Path addVirusChecker(Path path) {
+    if (TestUtil.hasVirusChecker(path) == false) {
+      VirusCheckingFS fs = new VirusCheckingFS(path.getFileSystem(), random().nextLong());
+      FileSystem filesystem = fs.getFileSystem(URI.create("file:///"));
+      path = new FilterPath(path, filesystem);
+    }
+    return path;
+  }
+
   /**
    * Returns a new Directory instance, with contents copied from the
    * provided directory. See {@link #newDirectory()} for more
@@ -1324,6 +1375,14 @@ public abstract class LuceneTestCase extends Assert {
 
   /** Returns a new FSDirectory instance over the given file, which must be a folder. */
   public static BaseDirectoryWrapper newFSDirectory(Path f) {
+    return newFSDirectory(f, FSLockFactory.getDefault());
+  }
+
+  /** Like {@link #newFSDirectory(Path)}, but randomly insert {@link VirusCheckingFS} */
+  public static BaseDirectoryWrapper newMaybeVirusCheckingFSDirectory(Path f) {
+    if (random().nextInt(5) == 4) {
+      f = addVirusChecker(f);
+    }
     return newFSDirectory(f, FSLockFactory.getDefault());
   }
 
@@ -1512,14 +1571,19 @@ public abstract class LuceneTestCase extends Assert {
       throw new IllegalArgumentException("value must be String or BytesRef");
     }
   }
+  
+  private static final String[] availableLanguageTags = Arrays.stream(Locale.getAvailableLocales())
+      .map(Locale::toLanguageTag)
+      .sorted()
+      .distinct()
+      .toArray(String[]::new);
 
   /** 
    * Return a random Locale from the available locales on the system.
    * @see <a href="http://issues.apache.org/jira/browse/LUCENE-4020">LUCENE-4020</a>
    */
   public static Locale randomLocale(Random random) {
-    Locale locales[] = Locale.getAvailableLocales();
-    return locales[random.nextInt(locales.length)];
+    return localeForLanguageTag(availableLanguageTags[random.nextInt(availableLanguageTags.length)]);
   }
 
   /** 
@@ -1532,15 +1596,8 @@ public abstract class LuceneTestCase extends Assert {
   }
 
   /** return a Locale object equivalent to its programmatic name */
-  public static Locale localeForName(String localeName) {
-    String elements[] = localeName.split("\\_");
-    switch(elements.length) {
-      case 4: /* fallthrough for special cases */
-      case 3: return new Locale(elements[0], elements[1], elements[2]);
-      case 2: return new Locale(elements[0], elements[1]);
-      case 1: return new Locale(elements[0]);
-      default: throw new IllegalArgumentException("Invalid Locale: " + localeName);
-    }
+  public static Locale localeForLanguageTag(String languageTag) {
+    return new Locale.Builder().setLanguageTag(languageTag).build();
   }
 
   private static Directory newFSDirectoryImpl(Class<? extends FSDirectory> clazz, Path path, LockFactory lf) throws IOException {
@@ -1605,51 +1662,63 @@ public abstract class LuceneTestCase extends Assert {
   public static IndexReader wrapReader(IndexReader r) throws IOException {
     Random random = random();
       
-    // TODO: remove this, and fix those tests to wrap before putting slow around:
-    final boolean wasOriginallyAtomic = r instanceof LeafReader;
     for (int i = 0, c = random.nextInt(6)+1; i < c; i++) {
-      switch(random.nextInt(6)) {
+      switch(random.nextInt(5)) {
       case 0:
-        r = SlowCompositeReaderWrapper.wrap(r);
-        break;
-      case 1:
         // will create no FC insanity in atomic case, as ParallelLeafReader has own cache key:
+        if (VERBOSE) {
+          System.out.println("NOTE: LuceneTestCase.wrapReader: wrapping previous reader=" + r + " with ParallelLeaf/CompositeReader");
+        }
         r = (r instanceof LeafReader) ?
           new ParallelLeafReader((LeafReader) r) :
         new ParallelCompositeReader((CompositeReader) r);
         break;
-      case 2:
+      case 1:
         // Häckidy-Hick-Hack: a standard MultiReader will cause FC insanity, so we use
         // QueryUtils' reader with a fake cache key, so insanity checker cannot walk
         // along our reader:
+        if (VERBOSE) {
+          System.out.println("NOTE: LuceneTestCase.wrapReader: wrapping previous reader=" + r + " with FCInvisibleMultiReader");
+        }
         r = new FCInvisibleMultiReader(r);
         break;
-      case 3:
-        final LeafReader ar = SlowCompositeReaderWrapper.wrap(r);
-        final List<String> allFields = new ArrayList<>();
-        for (FieldInfo fi : ar.getFieldInfos()) {
-          allFields.add(fi.name);
+      case 2:
+        if (r instanceof LeafReader) {
+          final LeafReader ar = (LeafReader) r;
+          final List<String> allFields = new ArrayList<>();
+          for (FieldInfo fi : ar.getFieldInfos()) {
+            allFields.add(fi.name);
+          }
+          Collections.shuffle(allFields, random);
+          final int end = allFields.isEmpty() ? 0 : random.nextInt(allFields.size());
+          final Set<String> fields = new HashSet<>(allFields.subList(0, end));
+          // will create no FC insanity as ParallelLeafReader has own cache key:
+          if (VERBOSE) {
+            System.out.println("NOTE: LuceneTestCase.wrapReader: wrapping previous reader=" + r + " with ParallelLeafReader");
+          }
+          r = new ParallelLeafReader(
+                                     new FieldFilterLeafReader(ar, fields, false),
+                                     new FieldFilterLeafReader(ar, fields, true)
+                                     );
         }
-        Collections.shuffle(allFields, random);
-        final int end = allFields.isEmpty() ? 0 : random.nextInt(allFields.size());
-        final Set<String> fields = new HashSet<>(allFields.subList(0, end));
-        // will create no FC insanity as ParallelLeafReader has own cache key:
-        r = new ParallelLeafReader(
-                                   new FieldFilterLeafReader(ar, fields, false),
-                                   new FieldFilterLeafReader(ar, fields, true)
-                                   );
         break;
-      case 4:
+      case 3:
         // Häckidy-Hick-Hack: a standard Reader will cause FC insanity, so we use
         // QueryUtils' reader with a fake cache key, so insanity checker cannot walk
         // along our reader:
+        if (VERBOSE) {
+          System.out.println("NOTE: LuceneTestCase.wrapReader: wrapping previous reader=" + r + " with AssertingLeaf/DirectoryReader");
+        }
         if (r instanceof LeafReader) {
           r = new AssertingLeafReader((LeafReader)r);
         } else if (r instanceof DirectoryReader) {
           r = new AssertingDirectoryReader((DirectoryReader)r);
         }
         break;
-      case 5:
+      case 4:
+        if (VERBOSE) {
+          System.out.println("NOTE: LuceneTestCase.wrapReader: wrapping previous reader=" + r + " with MismatchedLeaf/DirectoryReader");
+        }
         if (r instanceof LeafReader) {
           r = new MismatchedLeafReader((LeafReader)r, random);
         } else if (r instanceof DirectoryReader) {
@@ -1660,9 +1729,8 @@ public abstract class LuceneTestCase extends Assert {
         fail("should not get here");
       }
     }
-    if (wasOriginallyAtomic) {
-      r = SlowCompositeReaderWrapper.wrap(r);
-    } else if ((r instanceof CompositeReader) && !(r instanceof FCInvisibleMultiReader)) {
+
+    if ((r instanceof CompositeReader) && !(r instanceof FCInvisibleMultiReader)) {
       // prevent cache insanity caused by e.g. ParallelCompositeReader, to fix we wrap one more time:
       r = new FCInvisibleMultiReader(r);
     }
@@ -1740,7 +1808,7 @@ public abstract class LuceneTestCase extends Assert {
   public static void overrideDefaultQueryCache() {
     // we need to reset the query cache in an @BeforeClass so that tests that
     // instantiate an IndexSearcher in an @BeforeClass method use a fresh new cache
-    IndexSearcher.setDefaultQueryCache(new LRUQueryCache(10000, 1 << 25));
+    IndexSearcher.setDefaultQueryCache(new LRUQueryCache(10000, 1 << 25, context -> true));
     IndexSearcher.setDefaultQueryCachingPolicy(MAYBE_CACHE_POLICY);
   }
 
@@ -1901,6 +1969,7 @@ public abstract class LuceneTestCase extends Assert {
     assertDocValuesEquals(info, leftReader, rightReader);
     assertDeletedDocsEquals(info, leftReader, rightReader);
     assertFieldInfosEquals(info, leftReader, rightReader);
+    assertPointsEquals(info, leftReader, rightReader);
   }
 
   /** 
@@ -1957,9 +2026,9 @@ public abstract class LuceneTestCase extends Assert {
       return;
     }
     assertTermsStatisticsEquals(info, leftTerms, rightTerms);
-    assertEquals(leftTerms.hasOffsets(), rightTerms.hasOffsets());
-    assertEquals(leftTerms.hasPositions(), rightTerms.hasPositions());
-    assertEquals(leftTerms.hasPayloads(), rightTerms.hasPayloads());
+    assertEquals("hasOffsets", leftTerms.hasOffsets(), rightTerms.hasOffsets());
+    assertEquals("hasPositions", leftTerms.hasPositions(), rightTerms.hasPositions());
+    assertEquals("hasPayloads", leftTerms.hasPayloads(), rightTerms.hasPayloads());
 
     TermsEnum leftTermsEnum = leftTerms.iterator();
     TermsEnum rightTermsEnum = rightTerms.iterator();
@@ -2324,11 +2393,13 @@ public abstract class LuceneTestCase extends Assert {
           return arg0.name().compareTo(arg1.name());
         }        
       };
-      Collections.sort(leftDoc.getFields(), comp);
-      Collections.sort(rightDoc.getFields(), comp);
+      List<IndexableField> leftFields = new ArrayList<>(leftDoc.getFields());
+      List<IndexableField> rightFields = new ArrayList<>(rightDoc.getFields());
+      Collections.sort(leftFields, comp);
+      Collections.sort(rightFields, comp);
 
-      Iterator<IndexableField> leftIterator = leftDoc.iterator();
-      Iterator<IndexableField> rightIterator = rightDoc.iterator();
+      Iterator<IndexableField> leftIterator = leftFields.iterator();
+      Iterator<IndexableField> rightIterator = rightFields.iterator();
       while (leftIterator.hasNext()) {
         assertTrue(info, rightIterator.hasNext());
         assertStoredFieldEquals(info, leftIterator.next(), rightIterator.next());
@@ -2544,6 +2615,123 @@ public abstract class LuceneTestCase extends Assert {
     assertEquals(info, left, right);
   }
 
+  // naive silly memory heavy uninversion!!  maps docID -> packed values (a Set because a given doc can be multi-valued)
+  private Map<Integer,Set<BytesRef>> uninvert(String fieldName, IndexReader reader) throws IOException {
+    final Map<Integer,Set<BytesRef>> docValues = new HashMap<>();
+    for(LeafReaderContext ctx : reader.leaves()) {
+
+      PointValues points = ctx.reader().getPointValues();
+      if (points == null) {
+        continue;
+      }
+
+      points.intersect(fieldName,
+                       new PointValues.IntersectVisitor() {
+                         @Override
+                         public void visit(int docID) {
+                           throw new UnsupportedOperationException();
+                         }
+
+                         @Override
+                         public void visit(int docID, byte[] packedValue) throws IOException {
+                           int topDocID = ctx.docBase + docID;
+                           if (docValues.containsKey(topDocID) == false) {
+                             docValues.put(topDocID, new HashSet<BytesRef>());
+                           }
+                           docValues.get(topDocID).add(new BytesRef(packedValue.clone()));
+                         }
+
+                         @Override
+                         public PointValues.Relation compare(byte[] minPackedValue, byte[] maxPackedValue) {
+                           // We pretend our query shape is so hairy that it crosses every single cell:
+                           return PointValues.Relation.CELL_CROSSES_QUERY;
+                         }
+                       });
+    }
+
+    return docValues;
+  }
+
+  public void assertPointsEquals(String info, IndexReader leftReader, IndexReader rightReader) throws IOException {
+    FieldInfos fieldInfos1 = MultiFields.getMergedFieldInfos(leftReader);
+    FieldInfos fieldInfos2 = MultiFields.getMergedFieldInfos(rightReader);
+    for(FieldInfo fieldInfo1 : fieldInfos1) {
+      if (fieldInfo1.getPointDimensionCount() != 0) {
+        FieldInfo fieldInfo2 = fieldInfos2.fieldInfo(fieldInfo1.name);
+        // same dimension count?
+        assertEquals(info, fieldInfo2.getPointDimensionCount(), fieldInfo2.getPointDimensionCount());
+        // same bytes per dimension?
+        assertEquals(info, fieldInfo2.getPointNumBytes(), fieldInfo2.getPointNumBytes());
+
+        assertEquals(info + " field=" + fieldInfo1.name,
+                     uninvert(fieldInfo1.name, leftReader),
+                     uninvert(fieldInfo1.name, rightReader));
+      }
+    }
+
+    // make sure FieldInfos2 doesn't have any point fields that FieldInfo1 didn't have
+    for(FieldInfo fieldInfo2 : fieldInfos2) {
+      if (fieldInfo2.getPointDimensionCount() != 0) {
+        FieldInfo fieldInfo1 = fieldInfos1.fieldInfo(fieldInfo2.name);
+        // same dimension count?
+        assertEquals(info, fieldInfo2.getPointDimensionCount(), fieldInfo1.getPointDimensionCount());
+        // same bytes per dimension?
+        assertEquals(info, fieldInfo2.getPointNumBytes(), fieldInfo1.getPointNumBytes());
+
+        // we don't need to uninvert and compare here ... we did that in the first loop above
+      }
+    }
+  }
+
+  /** A runnable that can throw any checked exception. */
+  @FunctionalInterface
+  public interface ThrowingRunnable {
+    void run() throws Throwable;
+  }
+
+  /** Checks a specific exception class is thrown by the given runnable, and returns it. */
+  public static <T extends Throwable> T expectThrows(Class<T> expectedType, ThrowingRunnable runnable) {
+    try {
+      runnable.run();
+    } catch (Throwable e) {
+      if (expectedType.isInstance(e)) {
+        return expectedType.cast(e);
+      }
+      AssertionFailedError assertion = new AssertionFailedError("Unexpected exception type, expected " + expectedType.getSimpleName());
+      assertion.initCause(e);
+      throw assertion;
+    }
+    throw new AssertionFailedError("Expected exception " + expectedType.getSimpleName());
+  }
+
+  /**
+   * Checks that specific wrapped and outer exception classes are thrown
+   * by the given runnable, and returns the wrapped exception. 
+   */
+  public static <TO extends Throwable, TW extends Throwable> TW expectThrows
+  (Class<TO> expectedOuterType, Class<TW> expectedWrappedType, ThrowingRunnable runnable) {
+    try {
+      runnable.run();
+    } catch (Throwable e) {
+      if (expectedOuterType.isInstance(e)) {
+        Throwable cause = e.getCause();
+        if (expectedWrappedType.isInstance(cause)) {
+          return expectedWrappedType.cast(cause);
+        } else {
+          AssertionFailedError assertion = new AssertionFailedError
+              ("Unexpected wrapped exception type, expected " + expectedWrappedType.getSimpleName());
+          assertion.initCause(e);
+          throw assertion;
+        }
+      }
+      AssertionFailedError assertion = new AssertionFailedError
+          ("Unexpected outer exception type, expected " + expectedOuterType.getSimpleName());
+      assertion.initCause(e);
+      throw assertion;
+    }
+    throw new AssertionFailedError("Expected outer exception " + expectedOuterType.getSimpleName());
+  }
+
   /** Returns true if the file exists (can be opened), false
    *  if it cannot be opened, and (unlike Java's
    *  File.exists) throws IOException if there's some
@@ -2614,14 +2802,15 @@ public abstract class LuceneTestCase extends Assert {
    * because it would start with empty permissions). You cannot grant more permissions than
    * our policy file allows, but you may restrict writing to several dirs...
    * <p><em>Note:</em> This assumes a {@link SecurityManager} enabled, otherwise it
-   * stops test execution.
+   * stops test execution. If enabled, it needs the following {@link SecurityPermission}:
+   * {@code "createAccessControlContext"}
    */
   public static <T> T runWithRestrictedPermissions(PrivilegedExceptionAction<T> action, Permission... permissions) throws Exception {
     assumeTrue("runWithRestrictedPermissions requires a SecurityManager enabled", System.getSecurityManager() != null);
+    // be sure to have required permission, otherwise doPrivileged runs with *no* permissions:
+    AccessController.checkPermission(new SecurityPermission("createAccessControlContext"));
     final PermissionCollection perms = new Permissions();
-    for (Permission p : permissions) {
-      perms.add(p);
-    }
+    Arrays.stream(permissions).forEach(perms::add);
     final AccessControlContext ctx = new AccessControlContext(new ProtectionDomain[] { new ProtectionDomain(null, perms) });
     try {
       return AccessController.doPrivileged(action, ctx);
@@ -2644,6 +2833,7 @@ public abstract class LuceneTestCase extends Assert {
    * are impacted by jdk bugs. may not avoid all jdk bugs in tests.
    * see https://bugs.openjdk.java.net/browse/JDK-8071862
    */
+  @SuppressForbidden(reason = "dodges JDK-8071862")
   public static int collate(Collator collator, String s1, String s2) {
     int v1 = collator.compare(s1, s2);
     int v2 = collator.getCollationKey(s1).compareTo(collator.getCollationKey(s2));

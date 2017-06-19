@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 
 import java.io.IOException;
@@ -71,7 +71,7 @@ public class TestTransactionRollback extends LuceneTestCase {
                                            .setIndexCommit(last));
     Map<String,String> data = new HashMap<>();
     data.put("index", "Rolled back to 1-"+id);
-    w.setCommitData(data);
+    w.setLiveCommitData(data.entrySet());
     w.close();
   }
 
@@ -142,7 +142,7 @@ public class TestTransactionRollback extends LuceneTestCase {
       if (currentRecordId%10 == 0) {
         Map<String,String> data = new HashMap<>();
         data.put("index", "records 1-"+currentRecordId);
-        w.setCommitData(data);
+        w.setLiveCommitData(data.entrySet());
         w.commit();
       }
     }
@@ -157,7 +157,7 @@ public class TestTransactionRollback extends LuceneTestCase {
   }
 
   // Rolls back to previous commit point
-  class RollbackDeletionPolicy extends IndexDeletionPolicy {
+  static class RollbackDeletionPolicy extends IndexDeletionPolicy {
     private int rollbackPoint;
 
     public RollbackDeletionPolicy(int rollbackPoint) {
@@ -197,7 +197,7 @@ public class TestTransactionRollback extends LuceneTestCase {
     }
   }
 
-  class DeleteLastCommitPolicy extends IndexDeletionPolicy {
+  static class DeleteLastCommitPolicy extends IndexDeletionPolicy {
 
     @Override
     public void onCommit(List<? extends IndexCommit> commits) throws IOException {}
@@ -222,7 +222,7 @@ public class TestTransactionRollback extends LuceneTestCase {
   }
 
   // Keeps all commit points (used to build index)
-  class KeepAllDeletionPolicy extends IndexDeletionPolicy {
+  static class KeepAllDeletionPolicy extends IndexDeletionPolicy {
     @Override
     public void onCommit(List<? extends IndexCommit> commits) throws IOException {}
     @Override

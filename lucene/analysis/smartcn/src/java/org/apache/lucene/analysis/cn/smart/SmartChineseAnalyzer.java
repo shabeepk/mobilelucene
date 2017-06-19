@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.lucene.analysis.cn.smart;
 
 import java.io.IOException;
@@ -22,14 +21,14 @@ import java.nio.charset.StandardCharsets;
 import java.util.Set;
 
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.CharArraySet;
+import org.apache.lucene.analysis.LowerCaseFilter;
+import org.apache.lucene.analysis.StopFilter;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.Tokenizer;
-import org.apache.lucene.analysis.core.StopFilter;
+import org.apache.lucene.analysis.WordlistLoader;
 import org.apache.lucene.analysis.en.PorterStemFilter;
-import org.apache.lucene.analysis.util.CharArraySet;
-import org.apache.lucene.analysis.util.WordlistLoader;
 import org.apache.lucene.util.IOUtils;
-import org.apache.lucene.util.Version;
 
 /**
  * <p>
@@ -130,15 +129,8 @@ public final class SmartChineseAnalyzer extends Analyzer {
 
   @Override
   public TokenStreamComponents createComponents(String fieldName) {
-    final Tokenizer tokenizer;
-    TokenStream result;
-    if (getVersion().onOrAfter(Version.LUCENE_4_8_0)) {
-      tokenizer = new HMMChineseTokenizer();
-      result = tokenizer;
-    } else {
-      tokenizer = new SentenceTokenizer();
-      result = new WordTokenFilter(tokenizer);
-    }
+    final Tokenizer tokenizer = new HMMChineseTokenizer();
+    TokenStream result = tokenizer;
     // result = new LowerCaseFilter(result);
     // LowerCaseFilter is not needed, as SegTokenFilter lowercases Basic Latin text.
     // The porter stemming is too strict, this is not a bug, this is a feature:)
@@ -147,5 +139,10 @@ public final class SmartChineseAnalyzer extends Analyzer {
       result = new StopFilter(result, stopWords);
     }
     return new TokenStreamComponents(tokenizer, result);
+  }
+
+  @Override
+  protected TokenStream normalize(String fieldName, TokenStream in) {
+    return new LowerCaseFilter(in);
   }
 }

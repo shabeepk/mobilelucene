@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,10 +14,12 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
+
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import org.lukhnos.portmobile.file.Path;
+import java.nio.file.Path;
 
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
@@ -96,7 +96,7 @@ public final class CommandLineUtil {
   private static String adjustDirectoryClassName(String clazzName) {
     if (clazzName == null || clazzName.trim().length() == 0) {
       throw new IllegalArgumentException("The " + FSDirectory.class.getSimpleName()
-          + " implementation cannot be null or empty");
+          + " implementation must not be null or empty");
     }
     
     if (clazzName.indexOf(".") == -1) {// if not fully qualified, assume .store
@@ -116,7 +116,7 @@ public final class CommandLineUtil {
    * @throws InvocationTargetException If the constructor throws an exception
    */
   public static FSDirectory newFSDirectory(Class<? extends FSDirectory> clazz, Path path) 
-      throws Exception {
+      throws ReflectiveOperationException {
     return newFSDirectory(clazz, path, FSLockFactory.getDefault());
   }
   
@@ -132,7 +132,7 @@ public final class CommandLineUtil {
    * @throws InvocationTargetException If the constructor throws an exception
    */
   public static FSDirectory newFSDirectory(Class<? extends FSDirectory> clazz, Path path, LockFactory lf) 
-      throws Exception {
+      throws ReflectiveOperationException {
     // Assuming every FSDirectory has a ctor(Path):
     Constructor<? extends FSDirectory> ctor = clazz.getConstructor(Path.class, LockFactory.class);
     return ctor.newInstance(path, lf);

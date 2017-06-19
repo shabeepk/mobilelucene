@@ -1,5 +1,3 @@
-package org.apache.lucene.facet.sortedset;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,18 +14,28 @@ package org.apache.lucene.facet.sortedset;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.facet.sortedset;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.lucene.facet.FacetsConfig;
 import org.apache.lucene.facet.sortedset.SortedSetDocValuesReaderState.OrdRange;
-import org.apache.lucene.index.LeafReader;
+import org.apache.lucene.index.DocValues;
+import org.apache.lucene.index.DocValuesType;
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.SlowCompositeReaderWrapper;
+import org.apache.lucene.index.LeafReader;
+import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.MultiDocValues.MultiSortedSetDocValues;
+import org.apache.lucene.index.MultiDocValues.OrdinalMap;
+import org.apache.lucene.index.MultiDocValues;
 import org.apache.lucene.index.SortedSetDocValues;
+import org.apache.lucene.util.Accountable;
+import org.apache.lucene.util.Accountables;
 import org.apache.lucene.util.BytesRef;
 
 /**
@@ -36,11 +44,12 @@ import org.apache.lucene.util.BytesRef;
 public class DefaultSortedSetDocValuesReaderState extends SortedSetDocValuesReaderState {
 
   private final String field;
-  private final LeafReader topReader;
   private final int valueCount;
 
   /** {@link IndexReader} passed to the constructor. */
-  public final IndexReader origReader;
+  public final IndexReader reader;
+
+  private final Map<String,OrdinalMap> cachedOrdMaps = new HashMap<>();
 
   private final Map<String,OrdRange> prefixToOrdRange = new HashMap<>();
 
@@ -54,12 +63,11 @@ public class DefaultSortedSetDocValuesReaderState extends SortedSetDocValuesRead
    *  field. */
   public DefaultSortedSetDocValuesReaderState(IndexReader reader, String field) throws IOException {
     this.field = field;
-    this.origReader = reader;
+    this.reader = reader;
 
     // We need this to create thread-safe MultiSortedSetDV
     // per collector:
-    topReader = SlowCompositeReaderWrapper.wrap(reader);
-    SortedSetDocValues dv = topReader.getSortedSetDocValues(field);
+    SortedSetDocValues dv = getDocValues();
     if (dv == null) {
       throw new IllegalArgumentException("field \"" + field + "\" was not indexed with SortedSetDocValues");
     }
@@ -98,10 +106,81 @@ public class DefaultSortedSetDocValuesReaderState extends SortedSetDocValuesRead
     }
   }
 
+  /**
+   * Return the memory usage of this object in bytes. Negative values are illegal.
+   */
+  @Override
+  public long ramBytesUsed() {
+    synchronized (cachedOrdMaps) {
+      long bytes = 0;
+      for (OrdinalMap map : cachedOrdMaps.values()) {
+        bytes += map.ramBytesUsed();
+      }
+
+      return bytes;
+    }
+  }
+
+  /**
+   * Returns nested resources of this class. 
+   * The result should be a point-in-time snapshot (to avoid race conditions).
+   * @see Accountables
+   */
+  @Override
+  public Collection<Accountable> getChildResources() {
+    synchronized (cachedOrdMaps) {
+      return Accountables.namedAccountables("DefaultSortedSetDocValuesReaderState", cachedOrdMaps);
+    }
+  }
+
+  @Override
+  public String toString() {
+    return "DefaultSortedSetDocValuesReaderState(field=" + field + " reader=" + reader + ")";
+  }
+  
   /** Return top-level doc values. */
   @Override
   public SortedSetDocValues getDocValues() throws IOException {
-    return topReader.getSortedSetDocValues(field);
+    // TODO: this is dup'd from slow composite reader wrapper ... can we factor it out to share?
+    OrdinalMap map = null;
+    // TODO: why are we lazy about this?  It's better if ctor pays the cost, not first query?  Oh, but we
+    // call this method from ctor, ok.  Also, we only ever store one entry in the map (for key=field) so
+    // why are we using a map?
+    synchronized (cachedOrdMaps) {
+      map = cachedOrdMaps.get(field);
+      if (map == null) {
+        // uncached, or not a multi dv
+        SortedSetDocValues dv = MultiDocValues.getSortedSetValues(reader, field);
+        if (dv instanceof MultiSortedSetDocValues) {
+          map = ((MultiSortedSetDocValues)dv).mapping;
+          if (map.owner == reader.getCoreCacheKey()) {
+            cachedOrdMaps.put(field, map);
+          }
+        }
+        return dv;
+      }
+    }
+   
+    assert map != null;
+    int size = reader.leaves().size();
+    final SortedSetDocValues[] values = new SortedSetDocValues[size];
+    final int[] starts = new int[size+1];
+    for (int i = 0; i < size; i++) {
+      LeafReaderContext context = reader.leaves().get(i);
+      final LeafReader reader = context.reader();
+      final FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(field);
+      if (fieldInfo != null && fieldInfo.getDocValuesType() != DocValuesType.SORTED_SET) {
+        return null;
+      }
+      SortedSetDocValues v = reader.getSortedSetDocValues(field);
+      if (v == null) {
+        v = DocValues.emptySortedSet();
+      }
+      values[i] = v;
+      starts[i] = context.docBase;
+    }
+    starts[size] = reader.maxDoc();
+    return new MultiSortedSetDocValues(values, starts, map);
   }
 
   /** Returns mapping from prefix to {@link OrdRange}. */
@@ -123,8 +202,8 @@ public class DefaultSortedSetDocValuesReaderState extends SortedSetDocValuesRead
   }
   
   @Override
-  public IndexReader getOrigReader() {
-    return origReader;
+  public IndexReader getReader() {
+    return reader;
   }
 
   /** Number of unique labels. */

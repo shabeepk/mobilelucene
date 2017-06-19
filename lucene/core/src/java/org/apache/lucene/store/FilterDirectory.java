@@ -1,5 +1,3 @@
-package org.apache.lucene.store;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.store;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.store;
+
 
 import java.io.IOException;
 import java.util.Collection;
@@ -29,7 +29,7 @@ import java.util.Collection;
  *  {@link Directory} or {@link BaseDirectory} rather than try to reuse
  *  functionality of existing {@link Directory}s by extending this class.
  *  @lucene.internal */
-public class FilterDirectory extends Directory {
+public abstract class FilterDirectory extends Directory {
 
   /** Get the wrapped instance by <code>dir</code> as long as this reader is
    *  an instance of {@link FilterDirectory}.  */
@@ -74,13 +74,23 @@ public class FilterDirectory extends Directory {
   }
 
   @Override
+  public IndexOutput createTempOutput(String prefix, String suffix, IOContext context) throws IOException {
+    return in.createTempOutput(prefix, suffix, context);
+  }
+
+  @Override
   public void sync(Collection<String> names) throws IOException {
     in.sync(names);
   }
 
   @Override
-  public void renameFile(String source, String dest) throws IOException {
-    in.renameFile(source, dest);
+  public void rename(String source, String dest) throws IOException {
+    in.rename(source, dest);
+  }
+
+  @Override
+  public void syncMetaData() throws IOException {
+    in.syncMetaData();
   }
 
   @Override

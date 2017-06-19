@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -76,13 +76,13 @@ abstract class TermsHash {
     bytePool.reset(false, false);
   }
 
-  void flush(Map<String,TermsHashPerField> fieldsToFlush, final SegmentWriteState state) throws IOException {
+  void flush(Map<String,TermsHashPerField> fieldsToFlush, final SegmentWriteState state, Sorter.DocMap sortMap) throws IOException {
     if (nextTermsHash != null) {
       Map<String,TermsHashPerField> nextChildFields = new HashMap<>();
       for (final Map.Entry<String,TermsHashPerField> entry : fieldsToFlush.entrySet()) {
         nextChildFields.put(entry.getKey(), entry.getValue().nextPerField);
       }
-      nextTermsHash.flush(nextChildFields, state);
+      nextTermsHash.flush(nextChildFields, state, sortMap);
     }
   }
 

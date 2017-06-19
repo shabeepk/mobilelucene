@@ -1,5 +1,3 @@
-package org.apache.lucene.replicator;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.replicator;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.replicator;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -123,9 +122,9 @@ public class IndexReplicationClientTest extends ReplicatorTestCase {
   
   private Revision createRevision(final int id) throws IOException {
     publishWriter.addDocument(new Document());
-    publishWriter.setCommitData(new HashMap<String, String>() {{
+    publishWriter.setLiveCommitData(new HashMap<String, String>() {{
       put(VERSION_ID, Integer.toString(id, 16));
-    }});
+    }}.entrySet());
     publishWriter.commit();
     return new IndexRevision(publishWriter);
   }
@@ -220,17 +219,6 @@ public class IndexReplicationClientTest extends ReplicatorTestCase {
     client.close();
     callback.close();
     
-    // Replicator violates write-once policy. It may be that the
-    // handler copies files to the index dir, then fails to copy a
-    // file and reverts the copy operation. On the next attempt, it
-    // will copy the same file again. There is nothing wrong with this
-    // in a real system, but it does violate write-once, and MDW
-    // doesn't like it. Disabling it means that we won't catch cases
-    // where the handler overwrites an existing index file, but
-    // there's nothing currently we can do about it, unless we don't
-    // use MDW.
-    handlerDir.setPreventDoubleWrite(false);
-
     // wrap sourceDirFactory to return a MockDirWrapper so we can simulate errors
     final SourceDirectoryFactory in = sourceDirFactory;
     final AtomicInteger failures = new AtomicInteger(atLeast(10));

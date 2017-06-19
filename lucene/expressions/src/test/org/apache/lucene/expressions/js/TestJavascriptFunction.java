@@ -1,4 +1,3 @@
-package org.apache.lucene.expressions.js;
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -15,6 +14,7 @@ package org.apache.lucene.expressions.js;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.expressions.js;
 
 import org.apache.lucene.expressions.Expression;
 import org.apache.lucene.util.LuceneTestCase;
@@ -24,7 +24,7 @@ public class TestJavascriptFunction extends LuceneTestCase {
   
   private void assertEvaluatesTo(String expression, double expected) throws Exception {
     Expression evaluator = JavascriptCompiler.compile(expression);
-    double actual = evaluator.evaluate(0, null);
+    double actual = evaluator.evaluate(null);
     assertEquals(expected, actual, DELTA);
   }
   
@@ -158,7 +158,7 @@ public class TestJavascriptFunction extends LuceneTestCase {
   }
   
   public void testHaversinMethod() throws Exception {
-    assertEvaluatesTo("haversin(40.7143528,-74.0059731,40.759011,-73.9844722)", 5.284299568309);
+    assertEvaluatesTo("haversin(40.7143528,-74.0059731,40.759011,-73.9844722)", 5.285885589128259);
   }
   
   public void testLnMethod() throws Exception {

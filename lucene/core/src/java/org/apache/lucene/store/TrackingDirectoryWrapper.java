@@ -1,5 +1,3 @@
-package org.apache.lucene.store;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.store;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.store;
+
 
 import java.io.IOException;
 import java.util.Collections;
@@ -46,24 +46,34 @@ public final class TrackingDirectoryWrapper extends FilterDirectory {
   }
 
   @Override
+  public IndexOutput createTempOutput(String prefix, String suffix, IOContext context)
+      throws IOException {
+    IndexOutput tempOutput = in.createTempOutput(prefix, suffix, context);
+    createdFileNames.add(tempOutput.getName());
+    return tempOutput;
+  }
+
+  @Override
   public void copyFrom(Directory from, String src, String dest, IOContext context) throws IOException {
     in.copyFrom(from, src, dest, context);
     createdFileNames.add(dest);
   }
 
   @Override
-  public void renameFile(String source, String dest) throws IOException {
-    in.renameFile(source, dest);
+  public void rename(String source, String dest) throws IOException {
+    in.rename(source, dest);
     synchronized (createdFileNames) {
       createdFileNames.add(dest);
       createdFileNames.remove(source);
     }
   }
 
-  // maybe clone before returning.... all callers are
-  // cloning anyway....
+  /** NOTE: returns a copy of the created files. */
   public Set<String> getCreatedFiles() {
-    return createdFileNames;
+    return new HashSet<>(createdFileNames);
   }
 
+  public void clearCreatedFiles() {
+    createdFileNames.clear();
+  }
 }

@@ -1,5 +1,3 @@
-package org.apache.lucene.util.fst;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.util.fst;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util.fst;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -31,7 +30,6 @@ import org.apache.lucene.util.IntsRef;
 import org.apache.lucene.util.IntsRefBuilder;
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.util.TestUtil;
-import org.apache.lucene.util.TestUtil;
 import org.apache.lucene.util.fst.UpToTwoPositiveIntOutputs.TwoLongs;
 
 import static org.apache.lucene.util.fst.FSTTester.getRandomString;
@@ -45,8 +43,6 @@ public class TestFSTsMisc extends LuceneTestCase {
   public void setUp() throws Exception {
     super.setUp();
     dir = newMockDirectory();
-    dir.setPreventDoubleWrite(false);
-    dir.setEnableVirusScanner(false);
   }
 
   @Override

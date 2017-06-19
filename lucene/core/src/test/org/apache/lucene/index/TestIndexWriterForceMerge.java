@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,12 +14,10 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 import java.util.Locale;
 
 import org.apache.lucene.analysis.Analyzer;
@@ -126,7 +122,6 @@ public class TestIndexWriterForceMerge extends LuceneTestCase {
   public void testForceMergeTempSpaceUsage() throws IOException {
 
     final MockDirectoryWrapper dir = newMockDirectory();
-    dir.setEnableVirusScanner(false);
     // don't use MockAnalyzer, variable length payloads can cause merge to make things bigger,
     // since things are optimized for fixed length case. this is a problem for MemoryPF's encoding.
     // (it might have other problems too)

@@ -1,5 +1,3 @@
-package org.apache.lucene.store;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -17,13 +15,18 @@ package org.apache.lucene.store;
  * limitations under the License.
  */
 
+package org.apache.lucene.store;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
-import org.apache.lucene.util.IOUtils;
+import org.apache.lucene.mockfile.ExtrasFS;
 import org.apache.lucene.util.LuceneTestCase;
 
 public class TestDirectory extends LuceneTestCase {
@@ -38,11 +41,13 @@ public class TestDirectory extends LuceneTestCase {
       largeBuffer[i] = (byte) i; // automatically loops with modulo
     }
 
-    final FSDirectory[] dirs = new FSDirectory[] {
-      new SimpleFSDirectory(path),
-      new NIOFSDirectory(path),
-      new MMapDirectory(path)
-    };
+    final List<FSDirectory> dirs0 = new ArrayList<>();
+    dirs0.add(new SimpleFSDirectory(path));
+    dirs0.add(new NIOFSDirectory(path));
+    if (hasWorkingMMapOnWindows()) {
+      dirs0.add(new MMapDirectory(path));
+    }
+    final FSDirectory[] dirs = dirs0.stream().toArray(FSDirectory[]::new);
 
     for (int i=0; i<dirs.length; i++) {
       FSDirectory dir = dirs[i];
@@ -89,12 +94,9 @@ public class TestDirectory extends LuceneTestCase {
       Lock lock = dir.obtainLock(lockname);
 
       for (Directory other : dirs) {
-        try {
+        expectThrows(LockObtainFailedException.class, () -> {
           other.obtainLock(lockname);
-          fail("didnt get exception");
-        } catch (LockObtainFailedException e) {
-          // OK
-        }
+        });
       }
 
       lock.close();
@@ -110,23 +112,17 @@ public class TestDirectory extends LuceneTestCase {
       dir.close();
       assertFalse(dir.isOpen);
     }
-    
-    IOUtils.rm(path);
   }
 
   // LUCENE-1468
   @SuppressWarnings("resource")
   public void testCopySubdir() throws Throwable {
     Path path = createTempDir("testsubdir");
-    try {
-      Files.createDirectory(path.resolve("subdir"));
-      FSDirectory fsDir = new SimpleFSDirectory(path);
-      RAMDirectory ramDir = new RAMDirectory(fsDir, newIOContext(random()));
-      List<String> files = Arrays.asList(ramDir.listAll());
-      assertFalse(files.contains("subdir"));
-    } finally {
-      IOUtils.rm(path);
-    }
+    Files.createDirectory(path.resolve("subdir"));
+    FSDirectory fsDir = new SimpleFSDirectory(path);
+    RAMDirectory ramDir = new RAMDirectory(fsDir, newIOContext(random()));
+    List<String> files = Arrays.asList(ramDir.listAll());
+    assertFalse(files.contains("subdir"));
   }
 
   // LUCENE-1468
@@ -137,16 +133,24 @@ public class TestDirectory extends LuceneTestCase {
       IndexOutput out = fsDir.createOutput("afile", newIOContext(random()));
       out.close();
       assertTrue(slowFileExists(fsDir, "afile"));
-      try {
+      expectThrows(IOException.class, () -> {
         new SimpleFSDirectory(path.resolve("afile"));
-        fail("did not hit expected exception");
-      } catch (IOException nsde) {
-        // Expected
-      }
+      });
     } finally {
       fsDir.close();
-      IOUtils.rm(path);
     }
+  }
+
+  public void testListAll() throws Throwable {
+    Path dir = createTempDir("testdir");
+    assumeFalse("this test does not expect extra files", dir.getFileSystem().provider() instanceof ExtrasFS);
+    Path file1 = Files.createFile(dir.resolve("tempfile1"));
+    Path file2 = Files.createFile(dir.resolve("tempfile2"));
+    Set<String> files = new HashSet<>(Arrays.asList(FSDirectory.listAll(dir)));
+
+    assertTrue(files.size() == 2);
+    assertTrue(files.contains(file1.getFileName().toString()));
+    assertTrue(files.contains(file2.getFileName().toString()));
   }
 }
 

@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,13 +14,15 @@ package org.apache.lucene.analysis.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.util;
+
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import org.lukhnos.portmobile.file.Files;
-import org.lukhnos.portmobile.file.NoSuchFileException;
-import org.lukhnos.portmobile.file.Path;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
 
 /**
  * Simple {@link ResourceLoader} that opens resource files

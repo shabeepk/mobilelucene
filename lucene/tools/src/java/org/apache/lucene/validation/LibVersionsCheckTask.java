@@ -1,5 +1,3 @@
-package org.apache.lucene.validation;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.validation;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.validation;
 
 import org.apache.ivy.Ivy;
 import org.apache.ivy.core.LogOptions;
@@ -112,9 +111,9 @@ public class LibVersionsCheckTask extends Task {
   private File ignoreConflictsFile;
 
   /**
-   * Ivy settings file: ivy-settings.xml
+   * Ivy settings file: top-level-ivy-settings.xml
    */
-  private File ivySettingsFile;
+  private File topLevelIvySettingsFile;
 
   /**
    * Location of common build dir: lucene/build/
@@ -125,6 +124,11 @@ public class LibVersionsCheckTask extends Task {
    * Location of ivy cache resolution directory.
    */
   private File ivyResolutionCacheDir;
+  
+  /**
+   * Artifact lock strategy that Ivy should use.
+   */
+  private String ivyLockStrategy;
   
   /**
    * A logging level associated with verbose logging.
@@ -146,7 +150,7 @@ public class LibVersionsCheckTask extends Task {
    */
   private Map<String,HashSet<String>> ignoreConflictVersions = new HashMap<>();
 
-  private class Dependency {
+  private static class Dependency {
     String org;
     String name;
     String directVersion;
@@ -176,12 +180,16 @@ public class LibVersionsCheckTask extends Task {
     centralizedVersionsFile = file;
   }
 
-  public void setIvySettingsFile(File file) {
-    ivySettingsFile = file;
+  public void setTopLevelIvySettingsFile(File file) {
+    topLevelIvySettingsFile = file;
   }
-  
+
   public void setIvyResolutionCacheDir(File dir) {
     ivyResolutionCacheDir = dir;
+  }
+  
+  public void setIvyLockStrategy(String strategy) {
+    this.ivyLockStrategy = strategy;
   }
 
   public void setCommonBuildDir(File file) {
@@ -683,12 +691,14 @@ public class LibVersionsCheckTask extends Task {
       ivySettings.setVariable("common.build.dir", commonBuildDir.getAbsolutePath());
       ivySettings.setVariable("ivy.exclude.types", "source|javadoc");
       ivySettings.setVariable("ivy.resolution-cache.dir", ivyResolutionCacheDir.getAbsolutePath());
+      ivySettings.setVariable("ivy.lock-strategy", ivyLockStrategy);
+      ivySettings.setVariable("ivysettings.xml", getProject().getProperty("ivysettings.xml")); // nested settings file
       ivySettings.setBaseDir(commonBuildDir);
       ivySettings.setDefaultConflictManager(new NoConflictManager());
       ivy = Ivy.newInstance(ivySettings);
-      ivy.configure(ivySettingsFile);
+      ivy.configure(topLevelIvySettingsFile);
     } catch (Exception e) {
-      throw new BuildException("Exception reading " + ivySettingsFile.getPath() + ": " + e.toString(), e);
+      throw new BuildException("Exception reading " + topLevelIvySettingsFile.getPath() + ": " + e.toString(), e);
     }
   }
 

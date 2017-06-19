@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.hunspell;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,13 +14,15 @@ package org.apache.lucene.analysis.hunspell;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.hunspell;
+
 
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import org.apache.lucene.analysis.hunspell.Dictionary;
+import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.util.LuceneTestCase.SuppressSysoutChecks;
@@ -165,14 +165,14 @@ public class TestAllDictionaries extends LuceneTestCase {
       IOUtils.rm(tmp);
       Files.createDirectory(tmp);
       
-      try (InputStream in = Files.newInputStream(f)) {
+      try (InputStream in = Files.newInputStream(f); Directory tempDir = getDirectory()) {
         TestUtil.unzip(in, tmp);
         Path dicEntry = tmp.resolve(tests[i+1]);
         Path affEntry = tmp.resolve(tests[i+2]);
       
         try (InputStream dictionary = Files.newInputStream(dicEntry);
              InputStream affix = Files.newInputStream(affEntry)) {
-          Dictionary dic = new Dictionary(affix, dictionary);
+          Dictionary dic = new Dictionary(tempDir, "dictionary", affix, dictionary);
           System.out.println(tests[i] + "\t" + RamUsageTester.humanSizeOf(dic) + "\t(" +
                              "words=" + RamUsageTester.humanSizeOf(dic.words) + ", " +
                              "flags=" + RamUsageTester.humanSizeOf(dic.flagLookup) + ", " +
@@ -204,11 +204,16 @@ public class TestAllDictionaries extends LuceneTestCase {
           Path affEntry = tmp.resolve(tests[i+2]);
         
           try (InputStream dictionary = Files.newInputStream(dicEntry);
-              InputStream affix = Files.newInputStream(affEntry)) {
-            new Dictionary(affix, dictionary);
+               InputStream affix = Files.newInputStream(affEntry);
+               Directory tempDir = getDirectory()) {
+            new Dictionary(tempDir, "dictionary", affix, dictionary);
           } 
         }
       }
     }    
+  }
+
+  private Directory getDirectory() {
+    return newDirectory();
   }
 }

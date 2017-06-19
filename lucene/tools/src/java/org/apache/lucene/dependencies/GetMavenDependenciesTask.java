@@ -1,5 +1,3 @@
-package org.apache.lucene.dependencies;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.dependencies;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.dependencies;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.Project;
@@ -55,6 +54,7 @@ import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -75,7 +75,7 @@ import javax.xml.xpath.XPathFactory;
  */
 public class GetMavenDependenciesTask extends Task {
   private static final Pattern PROPERTY_PREFIX_FROM_IVY_XML_FILE_PATTERN = Pattern.compile
-      ("[/\\\\](lucene|solr)[/\\\\](?:(?:contrib|(analysis)|(example))[/\\\\])?([^/\\\\]+)[/\\\\]ivy\\.xml");
+      ("[/\\\\](lucene|solr)[/\\\\](?:(?:contrib|(analysis)|(example)|(server))[/\\\\])?([^/\\\\]+)[/\\\\]ivy\\.xml");
   private static final Pattern COORDINATE_KEY_PATTERN = Pattern.compile("/([^/]+)/([^/]+)");
   private static final Pattern MODULE_DEPENDENCIES_COORDINATE_KEY_PATTERN
       = Pattern.compile("(.*?)(\\.test)?\\.dependencies");
@@ -104,7 +104,7 @@ public class GetMavenDependenciesTask extends Task {
     // (i.e., not invoke Maven's transitive dependency mechanism).
     // Format is "groupId:artifactId"
     globalOptionalExternalDependencies.addAll(Arrays.asList
-        ("org.slf4j:jcl-over-slf4j", "org.slf4j:jul-to-slf4j", "org.slf4j:slf4j-log4j12"));
+        ("org.slf4j:jul-to-slf4j", "org.slf4j:slf4j-log4j12"));
   }
 
   private final XPath xpath = XPathFactory.newInstance().newXPath();
@@ -119,6 +119,7 @@ public class GetMavenDependenciesTask extends Task {
   private final DocumentBuilder documentBuilder;
   private File ivyCacheDir;
   private Pattern internalJarPattern;
+  private Map<String,String> ivyModuleInfo;
 
 
   /**
@@ -190,6 +191,8 @@ public class GetMavenDependenciesTask extends Task {
     internalJarPattern = Pattern.compile(".*(lucene|solr)([^/]*?)-"
         + Pattern.quote(getProject().getProperty("version")) + "\\.jar");
 
+    ivyModuleInfo = getIvyModuleInfo(ivyXmlResources, documentBuilder, xpath);
+
     setInternalDependencyProperties();            // side-effect: all modules' internal deps are recorded
     setExternalDependencyProperties();            // side-effect: all modules' external deps are recorded
     setGrandparentDependencyManagementProperty(); // uses deps recorded in above two methods
@@ -221,10 +224,56 @@ public class GetMavenDependenciesTask extends Task {
   }
 
   /**
+   * Visits all ivy.xml files and collects module and organisation attributes into a map.
+   */
+  private static Map<String,String> getIvyModuleInfo(Resources ivyXmlResources,
+      DocumentBuilder documentBuilder, XPath xpath) {
+    Map<String,String> ivyInfoModuleToOrganisation = new HashMap<String,String>();
+    traverseIvyXmlResources(ivyXmlResources, new Consumer<File>() {
+      @Override
+      public void accept(File f) {
+        try {
+          Document document = documentBuilder.parse(f);
+          {
+            String infoPath = "/ivy-module/info";
+            NodeList infos = (NodeList)xpath.evaluate(infoPath, document, XPathConstants.NODESET);
+            for (int infoNum = 0 ; infoNum < infos.getLength() ; ++infoNum) {
+              Element infoElement = (Element)infos.item(infoNum);
+              String infoOrg = infoElement.getAttribute("organisation");
+              String infoOrgSuffix = infoOrg.substring(infoOrg.lastIndexOf('.')+1);
+              String infoModule = infoElement.getAttribute("module");
+              String module = infoOrgSuffix+"-"+infoModule;
+              ivyInfoModuleToOrganisation.put(module, infoOrg);
+            }
+          }
+        } catch (XPathExpressionException | IOException | SAXException e) {
+          throw new RuntimeException(e);
+        }
+      }
+    });
+    return ivyInfoModuleToOrganisation;
+  }
+
+  /**
    * Collects external dependencies from each ivy.xml file and sets
    * external dependency properties to be inserted into modules' POMs. 
    */
   private void setExternalDependencyProperties() {
+    traverseIvyXmlResources(ivyXmlResources, new Consumer<File>() {
+      @Override
+      public void accept(File f) {
+        try {
+        collectExternalDependenciesFromIvyXmlFile(f);
+        } catch (XPathExpressionException | IOException | SAXException e) {
+          throw new RuntimeException(e);
+        }
+      }
+    });
+    addSharedExternalDependencies();
+    setExternalDependencyXmlProperties();
+  }
+
+  private static void traverseIvyXmlResources(Resources ivyXmlResources, Consumer<File> ivyXmlFileConsumer) {
     @SuppressWarnings("unchecked")
     Iterator<Resource> iter = (Iterator<Resource>)ivyXmlResources.iterator();
     while (iter.hasNext()) {
@@ -239,19 +288,17 @@ public class GetMavenDependenciesTask extends Task {
 
       File ivyXmlFile = ((FileResource)resource).getFile();
       try {
-        collectExternalDependenciesFromIvyXmlFile(ivyXmlFile);
+        ivyXmlFileConsumer.accept(ivyXmlFile);
       } catch (BuildException e) {
         throw e;
       } catch (Exception e) {
         throw new BuildException("Exception reading file " + ivyXmlFile.getPath() + ": " + e, e);
       }
     }
-    addSharedExternalDependencies();
-    setExternalDependencyXmlProperties();
   }
 
   /**
-   * For each module that include other modules' external dependencies via
+   * For each module that includes other modules' external dependencies via
    * including all files under their ".../lib/" dirs in their (test.)classpath,
    * add the other modules' dependencies to its set of external dependencies. 
    */
@@ -320,6 +367,7 @@ public class GetMavenDependenciesTask extends Task {
         if (globalOptionalExternalDependencies.contains(dependencyCoordinate)
             || (perModuleOptionalExternalDependencies.containsKey(module)
                 && perModuleOptionalExternalDependencies.get(module).contains(dependencyCoordinate))) {
+          // make a copy of the dep and set optional=true
           dep = new ExternalDependency(dep.groupId, dep.artifactId, dep.classifier, dep.isTestDependency, true);
         }
         deps.add(dep);
@@ -396,7 +444,7 @@ public class GetMavenDependenciesTask extends Task {
           }
         }
       }
-      String groupId = "org.apache." + artifactId.substring(0, artifactId.indexOf('-'));
+      String groupId = ivyModuleInfo.get(artifactId);
       appendDependencyXml(builder, groupId, artifactId, "      ", "${project.version}", false, false, null, exclusions);
     }
   }
@@ -442,13 +490,13 @@ public class GetMavenDependenciesTask extends Task {
     } catch (IOException e) {
       throw new BuildException("Exception reading centralized versions file " + centralizedVersionsFile.getPath(), e);
     } 
-    SortedSet<Map.Entry> sortedEntries = new TreeSet<>(new Comparator<Map.Entry>() {
-      @Override public int compare(Map.Entry o1, Map.Entry o2) {
+    SortedSet<Map.Entry<?,?>> sortedEntries = new TreeSet<>(new Comparator<Map.Entry<?,?>>() {
+      @Override public int compare(Map.Entry<?,?> o1, Map.Entry<?,?> o2) {
         return ((String)o1.getKey()).compareTo((String)o2.getKey());
       }
     });
     sortedEntries.addAll(versions.entrySet());
-    for (Map.Entry entry : sortedEntries) {
+    for (Map.Entry<?,?> entry : sortedEntries) {
       String key = (String)entry.getKey();
       Matcher matcher = COORDINATE_KEY_PATTERN.matcher(key);
       if (matcher.lookingAt()) {
@@ -525,7 +573,7 @@ public class GetMavenDependenciesTask extends Task {
     }
     Map<String,SortedSet<String>> testScopeDependencies = new HashMap<>();
     Map<String, String> testScopePropertyKeys = new HashMap<>();
-    for (Map.Entry entry : moduleDependencies.entrySet()) {
+    for (Map.Entry<?,?> entry : moduleDependencies.entrySet()) {
       String newPropertyKey = (String)entry.getKey();
       StringBuilder newPropertyValue = new StringBuilder();
       String value = (String)entry.getValue();
@@ -581,7 +629,7 @@ public class GetMavenDependenciesTask extends Task {
             continue;  // skip external (/(test-)lib/), and non-jar and unwanted (self) internal deps
           }
           String artifactId = dependencyToArtifactId(newPropertyKey, dependency);
-          String groupId = "org.apache." + artifactId.substring(0, artifactId.indexOf('-'));
+          String groupId = ivyModuleInfo.get(artifactId);
           String coordinate = groupId + ':' + artifactId;
           sortedDeps.add(coordinate);
         }
@@ -640,7 +688,7 @@ public class GetMavenDependenciesTask extends Task {
       // Pattern.compile("(lucene|solr)/build/(.*)/classes/java");
       String artifact = matcher.group(2);
       artifact = artifact.replace('/', '-');
-      artifact = artifact.replace("(?<!solr-)analysis-", "analyzers-");
+      artifact = artifact.replaceAll("(?<!solr-)analysis-", "analyzers-");
       if ("lucene".equals(matcher.group(1))) {
         artifactId.append("lucene-");
       }
@@ -683,7 +731,7 @@ public class GetMavenDependenciesTask extends Task {
     String module = getModuleName(ivyXmlFile);
     log("Collecting external dependencies from: " + ivyXmlFile.getPath(), verboseLevel);
     Document document = documentBuilder.parse(ivyXmlFile);
-    // Exclude the 'start' configuration in solr/example/ivy.xml
+    // Exclude the 'start' configuration in solr/server/ivy.xml
     String dependencyPath = "/ivy-module/dependencies/dependency[not(starts-with(@conf,'start'))]";
     NodeList dependencies = (NodeList)xpath.evaluate(dependencyPath, document, XPathConstants.NODESET);
     for (int depNum = 0 ; depNum < dependencies.getLength() ; ++depNum) {
@@ -738,7 +786,7 @@ public class GetMavenDependenciesTask extends Task {
   /**
    * Stores information about an external dependency
    */
-  private class ExternalDependency implements Comparable<ExternalDependency> {
+  private static class ExternalDependency implements Comparable<ExternalDependency> {
     String groupId;
     String artifactId;
     boolean isTestDependency;
@@ -815,12 +863,13 @@ public class GetMavenDependenciesTask extends Task {
     builder.append(matcher.group(1));
     if (null != matcher.group(2)) { // "lucene/analysis/..."
       builder.append("-analyzers");
-    }
-    if (null != matcher.group(3)) { // "solr/example/..."
+    } else if (null != matcher.group(3)) { // "solr/example/..."
       builder.append("-example");
+    } else if (null != matcher.group(4)) { // "solr/server/..."
+      builder.append("-server");
     }
     builder.append('-');
-    builder.append(matcher.group(4));
+    builder.append(matcher.group(5));
     return builder.toString().replace("solr-solr-", "solr-");
   }
 

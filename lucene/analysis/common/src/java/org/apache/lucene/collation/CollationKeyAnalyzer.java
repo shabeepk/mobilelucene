@@ -1,5 +1,3 @@
-package org.apache.lucene.collation;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,11 +14,13 @@ package org.apache.lucene.collation;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.collation;
+
 
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.core.KeywordTokenizer;
-import org.apache.lucene.util.Version;
+import org.apache.lucene.util.AttributeFactory;
 
 import java.text.Collator;
 
@@ -82,6 +82,11 @@ public final class CollationKeyAnalyzer extends Analyzer {
    */
   public CollationKeyAnalyzer(Collator collator) {
     this.factory = new CollationAttributeFactory(collator);
+  }
+
+  @Override
+  protected AttributeFactory attributeFactory(String fieldName) {
+    return factory;
   }
 
   @Override

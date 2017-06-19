@@ -1,3 +1,19 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.lucene.index;
 
 import java.io.IOException;
@@ -20,34 +36,16 @@ import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.document.SortedSetDocValuesField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.MockDirectoryWrapper;
 import org.apache.lucene.store.NRTCachingDirectory;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.LuceneTestCase;
-import org.apache.lucene.util.LuceneTestCase.Nightly;
 import org.apache.lucene.util.TestUtil;
 import org.junit.Test;
 
 import com.carrotsearch.randomizedtesting.generators.RandomPicks;
 
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 
 public class TestBinaryDocValuesUpdates extends LuceneTestCase {
 
@@ -124,7 +122,7 @@ public class TestBinaryDocValuesUpdates extends LuceneTestCase {
       writer.close();
       reader = DirectoryReader.open(dir);
     } else { // NRT
-      reader = DirectoryReader.open(writer, true);
+      reader = DirectoryReader.open(writer);
       writer.close();
     }
     
@@ -166,7 +164,7 @@ public class TestBinaryDocValuesUpdates extends LuceneTestCase {
       writer.close();
       reader = DirectoryReader.open(dir);
     } else { // NRT
-      reader = DirectoryReader.open(writer, true);
+      reader = DirectoryReader.open(writer);
       writer.close();
     }
     
@@ -195,7 +193,7 @@ public class TestBinaryDocValuesUpdates extends LuceneTestCase {
     final boolean isNRT = random().nextBoolean();
     final DirectoryReader reader1;
     if (isNRT) {
-      reader1 = DirectoryReader.open(writer, true);
+      reader1 = DirectoryReader.open(writer);
     } else {
       writer.commit();
       reader1 = DirectoryReader.open(dir);
@@ -249,20 +247,18 @@ public class TestBinaryDocValuesUpdates extends LuceneTestCase {
       writer.close();
       reader = DirectoryReader.open(dir);
     } else { // NRT
-      reader = DirectoryReader.open(writer, true);
+      reader = DirectoryReader.open(writer);
       writer.close();
     }
     
-    LeafReader slow = SlowCompositeReaderWrapper.wrap(reader);
-    
-    Bits liveDocs = slow.getLiveDocs();
+    Bits liveDocs = MultiFields.getLiveDocs(reader);
     boolean[] expectedLiveDocs = new boolean[] { true, false, false, true, true, true };
     for (int i = 0; i < expectedLiveDocs.length; i++) {
       assertEquals(expectedLiveDocs[i], liveDocs.get(i));
     }
     
     long[] expectedValues = new long[] { 1, 2, 3, 17, 5, 17};
-    BinaryDocValues bdv = slow.getBinaryDocValues("val");
+    BinaryDocValues bdv = MultiDocValues.getBinaryValues(reader, "val");
     for (int i = 0; i < expectedValues.length; i++) {
       assertEquals(expectedValues[i], getValue(bdv, i));
     }
@@ -293,7 +289,7 @@ public class TestBinaryDocValuesUpdates extends LuceneTestCase {
       writer.close();
       reader = DirectoryReader.open(dir);
     } else { // NRT
-      reader = DirectoryReader.open(writer, true);
+      reader = DirectoryReader.open(writer);
       writer.close();
     }
     
@@ -431,19 +427,13 @@ public class TestBinaryDocValuesUpdates extends LuceneTestCase {
     writer.commit();
     writer.addDocument(doc); // in-memory document
     
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       writer.updateBinaryDocValue(new Term("key", "doc"), "bdv", toBytes(17L));
-      fail("should not have allowed creating new fields through update");
-    } catch (IllegalArgumentException e) {
-      // ok
-    }
+    });
     
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       writer.updateBinaryDocValue(new Term("key", "doc"), "foo", toBytes(17L));
-      fail("should not have allowed updating an existing field to binary-dv");
-    } catch (IllegalArgumentException e) {
-      // ok
-    }
+    });
     
     writer.close();
     dir.close();
@@ -475,10 +465,9 @@ public class TestBinaryDocValuesUpdates extends LuceneTestCase {
     
     final DirectoryReader reader = DirectoryReader.open(dir);
     
-    LeafReader r = SlowCompositeReaderWrapper.wrap(reader);
-    BinaryDocValues bdv = r.getBinaryDocValues("bdv");
-    SortedDocValues sdv = r.getSortedDocValues("sorted");
-    for (int i = 0; i < r.maxDoc(); i++) {
+    BinaryDocValues bdv = MultiDocValues.getBinaryValues(reader, "bdv");
+    SortedDocValues sdv = MultiDocValues.getSortedValues(reader, "sorted");
+    for (int i = 0; i < reader.maxDoc(); i++) {
       assertEquals(17, getValue(bdv, i));
       BytesRef term = sdv.get(i);
       assertEquals(new BytesRef("value"), term);
@@ -505,9 +494,8 @@ public class TestBinaryDocValuesUpdates extends LuceneTestCase {
     writer.close();
     
     final DirectoryReader reader = DirectoryReader.open(dir);
-    final LeafReader r = SlowCompositeReaderWrapper.wrap(reader);
-    BinaryDocValues bdv = r.getBinaryDocValues("bdv");
-    for (int i = 0; i < r.maxDoc(); i++) {
+    BinaryDocValues bdv = MultiDocValues.getBinaryValues(reader, "bdv");
+    for (int i = 0; i < reader.maxDoc(); i++) {
       assertEquals(3, getValue(bdv, i));
     }
     reader.close();
@@ -567,7 +555,7 @@ public class TestBinaryDocValuesUpdates extends LuceneTestCase {
         writer.commit();
         reader = DirectoryReader.open(dir);
       } else {
-        reader = DirectoryReader.open(writer, true);
+        reader = DirectoryReader.open(writer);
       }
       
       assertEquals(1, reader.leaves().size());
@@ -604,9 +592,8 @@ public class TestBinaryDocValuesUpdates extends LuceneTestCase {
     writer.close();
     
     final DirectoryReader reader = DirectoryReader.open(dir);
-    final LeafReader r = SlowCompositeReaderWrapper.wrap(reader);
-    BinaryDocValues bdv = r.getBinaryDocValues("bdv");
-    for (int i = 0; i < r.maxDoc(); i++) {
+    BinaryDocValues bdv = MultiDocValues.getBinaryValues(reader, "bdv");
+    for (int i = 0; i < reader.maxDoc(); i++) {
       assertEquals(3, getValue(bdv, i));
     }
     reader.close();
@@ -625,7 +612,7 @@ public class TestBinaryDocValuesUpdates extends LuceneTestCase {
     final boolean isNRT = random.nextBoolean();
     DirectoryReader reader;
     if (isNRT) {
-      reader = DirectoryReader.open(writer, true);
+      reader = DirectoryReader.open(writer);
     } else {
       writer.commit();
       reader = DirectoryReader.open(dir);
@@ -892,10 +879,10 @@ public class TestBinaryDocValuesUpdates extends LuceneTestCase {
               if (random.nextDouble() < 0.1) { // reopen NRT reader (apply updates), on average once every 10 updates
                 if (reader == null) {
 //                  System.out.println("[" + Thread.currentThread().getName() + "] open NRT");
-                  reader = DirectoryReader.open(writer, true);
+                  reader = DirectoryReader.open(writer);
                 } else {
 //                  System.out.println("[" + Thread.currentThread().getName() + "] reopen NRT");
-                  DirectoryReader r2 = DirectoryReader.openIfChanged(reader, writer, true);
+                  DirectoryReader r2 = DirectoryReader.openIfChanged(reader, writer);
                   if (r2 != null) {
                     reader.close();
                     reader = r2;
@@ -972,7 +959,7 @@ public class TestBinaryDocValuesUpdates extends LuceneTestCase {
       Term t = new Term("id", "doc" + doc);
       long value = random().nextLong();
       writer.updateDocValues(t, new BinaryDocValuesField("f", toBytes(value)), new BinaryDocValuesField("cf", toBytes(value*2)));
-      DirectoryReader reader = DirectoryReader.open(writer, true);
+      DirectoryReader reader = DirectoryReader.open(writer);
       for (LeafReaderContext context : reader.leaves()) {
         LeafReader r = context.reader();
         BinaryDocValues fbdv = r.getBinaryDocValues("f");
@@ -1024,9 +1011,8 @@ public class TestBinaryDocValuesUpdates extends LuceneTestCase {
     writer.close();
     
     DirectoryReader reader = DirectoryReader.open(dir);
-    LeafReader r = SlowCompositeReaderWrapper.wrap(reader);
-    BinaryDocValues f1 = r.getBinaryDocValues("f1");
-    BinaryDocValues f2 = r.getBinaryDocValues("f2");
+    BinaryDocValues f1 = MultiDocValues.getBinaryValues(reader, "f1");
+    BinaryDocValues f2 = MultiDocValues.getBinaryValues(reader, "f2");
     assertEquals(12L, getValue(f1, 0));
     assertEquals(13L, getValue(f2, 0));
     assertEquals(17L, getValue(f1, 1));
@@ -1094,10 +1080,6 @@ public class TestBinaryDocValuesUpdates extends LuceneTestCase {
 
   public void testDeleteUnusedUpdatesFiles() throws Exception {
     Directory dir = newDirectory();
-    // test explicitly needs files to always be actually deleted
-    if (dir instanceof MockDirectoryWrapper) {
-      ((MockDirectoryWrapper)dir).setEnableVirusScanner(false);
-    }
     IndexWriterConfig conf = newIndexWriterConfig(new MockAnalyzer(random()));
     IndexWriter writer = new IndexWriter(dir, conf);
     
@@ -1291,7 +1273,7 @@ public class TestBinaryDocValuesUpdates extends LuceneTestCase {
     conf.setRAMBufferSizeMB(IndexWriterConfig.DISABLE_AUTO_FLUSH);
     writer = new IndexWriter(cachingDir, conf);
     writer.updateBinaryDocValue(new Term("id", "doc-0"), "val", toBytes(100L));
-    DirectoryReader reader = DirectoryReader.open(writer, true); // flush
+    DirectoryReader reader = DirectoryReader.open(writer); // flush
     assertEquals(0, cachingDir.listCachedFiles().length);
     
     IOUtils.close(reader, writer, cachingDir);

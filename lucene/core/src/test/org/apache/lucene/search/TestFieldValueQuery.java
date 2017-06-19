@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 
@@ -139,15 +139,12 @@ public class TestFieldValueQuery extends LuceneTestCase {
       iw.close();
 
       final float boost = random().nextFloat() * 10;
-      final Query ref = new ConstantScoreQuery(new TermQuery(new Term("has_value", "yes")));
-      ref.setBoost(boost);
+      final Query ref = new BoostQuery(new ConstantScoreQuery(new TermQuery(new Term("has_value", "yes"))), boost);
 
-      final Query q1 = new FieldValueQuery("dv1");
-      q1.setBoost(boost);
+      final Query q1 = new BoostQuery(new FieldValueQuery("dv1"), boost);
       assertSameMatches(searcher, ref, q1, true);
 
-      final Query q2 = new FieldValueQuery("dv2");
-      q2.setBoost(boost);
+      final Query q2 = new BoostQuery(new FieldValueQuery("dv2"), boost);
       assertSameMatches(searcher, ref, q2, true);
 
       reader.close();

@@ -1,5 +1,3 @@
-package org.apache.lucene.search.grouping.term;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.grouping.term;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.grouping.term;
 
 import java.io.IOException;
 
@@ -23,18 +22,18 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.SortedDocValues;
 import org.apache.lucene.search.Sort;
-import org.apache.lucene.search.grouping.AbstractFirstPassGroupingCollector;
+import org.apache.lucene.search.grouping.FirstPassGroupingCollector;
 import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.BytesRef;
 
 /**
- * Concrete implementation of {@link org.apache.lucene.search.grouping.AbstractFirstPassGroupingCollector} that groups based on
- * field values and more specifically uses {@link org.apache.lucene.index.SortedDocValues}
+ * Concrete implementation of {@link FirstPassGroupingCollector} that groups based on
+ * field values and more specifically uses {@link SortedDocValues}
  * to collect groups.
  *
  * @lucene.experimental
  */
-public class TermFirstPassGroupingCollector extends AbstractFirstPassGroupingCollector<BytesRef> {
+public class TermFirstPassGroupingCollector extends FirstPassGroupingCollector<BytesRef> {
 
   private SortedDocValues index;
 
@@ -91,9 +90,5 @@ public class TermFirstPassGroupingCollector extends AbstractFirstPassGroupingCol
     super.doSetNextReader(readerContext);
     index = DocValues.getSorted(readerContext.reader(), groupField);
   }
-  
-  @Override
-  public boolean needsScores() {
-    return true; // TODO, maybe we don't?
-  }
+
 }

@@ -1,5 +1,3 @@
-package org.apache.lucene.search.suggest.document;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.suggest.document;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.suggest.document;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.AnalyzerWrapper;
@@ -82,7 +81,7 @@ public final class CompletionAnalyzer extends AnalyzerWrapper {
   private final int maxGraphExpansions;
 
   /**
-   * Wraps an analyzer to convert it's output token stream to an automaton
+   * Wraps an analyzer to convert its output token stream to an automaton
    *
    * @param analyzer token stream to be converted to an automaton
    * @param preserveSep Preserve separation between tokens when converting to an automaton

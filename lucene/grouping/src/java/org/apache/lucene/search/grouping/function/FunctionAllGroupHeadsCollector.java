@@ -1,5 +1,3 @@
-package org.apache.lucene.search.grouping.function;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,12 @@ package org.apache.lucene.search.grouping.function;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.grouping.function;
+
+import java.io.IOException;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.queries.function.FunctionValues;
@@ -25,25 +29,20 @@ import org.apache.lucene.search.LeafFieldComparator;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
-import org.apache.lucene.search.grouping.AbstractAllGroupHeadsCollector;
+import org.apache.lucene.search.grouping.AllGroupHeadsCollector;
 import org.apache.lucene.util.mutable.MutableValue;
 
-import java.io.IOException;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-
 /**
- * An implementation of {@link AbstractAllGroupHeadsCollector} for retrieving the most relevant groups when grouping
+ * An implementation of {@link AllGroupHeadsCollector} for retrieving the most relevant groups when grouping
  * by {@link ValueSource}.
  *
  * @lucene.experimental
  */
-public class FunctionAllGroupHeadsCollector extends AbstractAllGroupHeadsCollector<FunctionAllGroupHeadsCollector.GroupHead> {
+public class FunctionAllGroupHeadsCollector extends AllGroupHeadsCollector<MutableValue> {
 
   private final ValueSource groupBy;
   private final Map<?, ?> vsContext;
-  private final Map<MutableValue, GroupHead> groups;
+  private final Map<MutableValue, FunctionGroupHead> groups;
   private final Sort sortWithinGroup;
 
   private FunctionValues.ValueFiller filler;
@@ -74,10 +73,10 @@ public class FunctionAllGroupHeadsCollector extends AbstractAllGroupHeadsCollect
   @Override
   protected void retrieveGroupHeadAndAddIfNotExist(int doc) throws IOException {
     filler.fillValue(doc);
-    GroupHead groupHead = groups.get(mval);
+    FunctionGroupHead groupHead = groups.get(mval);
     if (groupHead == null) {
       MutableValue groupValue = mval.duplicate();
-      groupHead = new GroupHead(groupValue, sortWithinGroup, doc);
+      groupHead = new FunctionGroupHead(groupValue, sortWithinGroup, doc);
       groups.put(groupValue, groupHead);
       temporalResult.stop = true;
     } else {
@@ -87,14 +86,14 @@ public class FunctionAllGroupHeadsCollector extends AbstractAllGroupHeadsCollect
   }
 
   @Override
-  protected Collection<GroupHead> getCollectedGroupHeads() {
+  protected Collection<FunctionGroupHead> getCollectedGroupHeads() {
     return groups.values();
   }
 
   @Override
   public void setScorer(Scorer scorer) throws IOException {
     this.scorer = scorer;
-    for (GroupHead groupHead : groups.values()) {
+    for (FunctionGroupHead groupHead : groups.values()) {
       for (LeafFieldComparator comparator : groupHead.leafComparators) {
         comparator.setScorer(scorer);
       }
@@ -108,7 +107,7 @@ public class FunctionAllGroupHeadsCollector extends AbstractAllGroupHeadsCollect
     filler = values.getValueFiller();
     mval = filler.getValue();
 
-    for (GroupHead groupHead : groups.values()) {
+    for (FunctionGroupHead groupHead : groups.values()) {
       for (int i = 0; i < groupHead.comparators.length; i++) {
         groupHead.leafComparators[i] = groupHead.comparators[i].getLeafComparator(context);
       }
@@ -118,13 +117,13 @@ public class FunctionAllGroupHeadsCollector extends AbstractAllGroupHeadsCollect
   /** Holds current head document for a single group.
    *
    * @lucene.experimental */
-  public class GroupHead extends AbstractAllGroupHeadsCollector.GroupHead<MutableValue> {
+  public class FunctionGroupHead extends AllGroupHeadsCollector.GroupHead<MutableValue> {
 
     final FieldComparator<?>[] comparators;
     final LeafFieldComparator[] leafComparators;
 
     @SuppressWarnings({"unchecked","rawtypes"})
-    private GroupHead(MutableValue groupValue, Sort sort, int doc) throws IOException {
+    private FunctionGroupHead(MutableValue groupValue, Sort sort, int doc) throws IOException {
       super(groupValue, doc + readerContext.docBase);
       final SortField[] sortFields = sort.getSort();
       comparators = new FieldComparator[sortFields.length];
@@ -155,6 +154,6 @@ public class FunctionAllGroupHeadsCollector extends AbstractAllGroupHeadsCollect
 
   @Override
   public boolean needsScores() {
-    return true; // TODO, maybe we don't: e.g. return sortWithinGroup.needsScores()
+    return sortWithinGroup.needsScores();
   }
 }

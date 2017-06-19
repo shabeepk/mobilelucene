@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -32,13 +32,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 
+import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
-import org.apache.lucene.document.LongField;
 import org.apache.lucene.document.NumericDocValuesField;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchAllDocsQuery;
-import org.apache.lucene.search.NumericRangeQuery;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
@@ -140,7 +139,7 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
 
       // start with empty commit:
       w.commit();
-      mgr = new ReaderManager(new ParallelLeafDirectoryReader(DirectoryReader.open(w, true)));
+      mgr = new ReaderManager(new ParallelLeafDirectoryReader(DirectoryReader.open(w)));
     }
 
     protected abstract IndexWriterConfig getIndexWriterConfig() throws IOException;
@@ -234,8 +233,11 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
             firstExc = t;
           }
         }
+        
         // throw the first exception
-        IOUtils.reThrow(firstExc);
+        if (firstExc != null) {
+          throw IOUtils.rethrowAlways(firstExc);
+        }
       }
     }
 
@@ -384,7 +386,7 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
 
             final Directory dir = openDirectory(leafIndex);
 
-            if (Files.exists(leafIndex.resolve("done")) == false) {
+            if (slowFileExists(dir, "done") == false) {
               if (DEBUG) System.out.println(Thread.currentThread().getName() + ": TEST: build segment index for " + leaf + " " + segIDGen + " (source: " + info.getDiagnostics().get("source") + ") dir=" + leafIndex);
 
               if (dir.listAll().length != 0) {
@@ -406,13 +408,8 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
             //TestUtil.checkIndex(dir);
 
             SegmentInfos infos = SegmentInfos.readLatestCommit(dir);
-            final LeafReader parLeafReader;
-            if (infos.size() == 1) {
-              parLeafReader = new SegmentReader(infos.info(0), IOContext.DEFAULT);
-            } else {
-              // This just means we didn't forceMerge above:
-              parLeafReader = SlowCompositeReaderWrapper.wrap(DirectoryReader.open(dir));
-            }
+            assert infos.size() == 1;
+            final LeafReader parLeafReader = new SegmentReader(infos.info(0), IOContext.DEFAULT);
 
             //checkParallelReader(leaf, parLeafReader, schemaGen);
 
@@ -505,11 +502,11 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
     }
 
     /** Just replaces the sub-readers with parallel readers, so reindexed fields are merged into new segments. */
-    private class ReindexingMergePolicy extends MergePolicy {
+    private class ReindexingMergePolicy extends MergePolicyWrapper {
 
       class ReindexingOneMerge extends OneMerge {
 
-        List<LeafReader> parallelReaders;
+        final List<ParallelLeafReader> parallelReaders = new ArrayList<>();
         final long schemaGen;
 
         ReindexingOneMerge(List<SegmentCommitInfo> segments) {
@@ -525,41 +522,32 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
         }
 
         @Override
-        public List<CodecReader> getMergeReaders() throws IOException {
-          if (parallelReaders == null) {
-            parallelReaders = new ArrayList<>();
-            for (CodecReader reader : super.getMergeReaders()) {
-              parallelReaders.add(getCurrentReader((SegmentReader)reader, schemaGen));
-            }
+        public CodecReader wrapForMerge(CodecReader reader) throws IOException {
+          LeafReader wrapped = getCurrentReader((SegmentReader)reader, schemaGen);
+          if (wrapped instanceof ParallelLeafReader) {
+            parallelReaders.add((ParallelLeafReader) wrapped);
           }
-
-          // TODO: fix ParallelLeafReader, if this is a good use case
-          List<CodecReader> mergeReaders = new ArrayList<>();
-          for (LeafReader reader : parallelReaders) {
-            mergeReaders.add(SlowCodecReaderWrapper.wrap(reader));
-          }
-          return mergeReaders;
+          return SlowCodecReaderWrapper.wrap(wrapped);
         }
 
         @Override
         public void mergeFinished() throws IOException {
           Throwable th = null;
-          for(LeafReader r : parallelReaders) {
-            if (r instanceof ParallelLeafReader) {
-              try {
-                r.decRef();
-              } catch (Throwable t) {
-                if (th == null) {
-                  th = t;
-                }
+          for (ParallelLeafReader r : parallelReaders) {
+            try {
+              r.decRef();
+            } catch (Throwable t) {
+              if (th == null) {
+                th = t;
               }
             }
           }
 
-          // If any error occured, throw it.
-          IOUtils.reThrow(th);
+          if (th != null) {
+            throw IOUtils.rethrowAlways(th);
+          }
         }
-    
+
         @Override
         public void setMergeInfo(SegmentCommitInfo info) {
           // Record that this merged segment is current as of this schemaGen:
@@ -567,10 +555,6 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
           super.setMergeInfo(info);
         }
 
-        @Override
-        public MergePolicy.DocMap getDocMap(final MergeState mergeState) {
-          return super.getDocMap(mergeState);
-        }
       }
 
       class ReindexingMergeSpecification extends MergeSpecification {
@@ -596,11 +580,9 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
         return wrapped;
       }
 
-      final MergePolicy in;
-
       /** Create a new {@code MergePolicy} that sorts documents with the given {@code sort}. */
       public ReindexingMergePolicy(MergePolicy in) {
-        this.in = in;
+        super(in);
       }
 
       @Override
@@ -681,13 +663,11 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
           Document newDoc = new Document();
           long value = Long.parseLong(oldDoc.get("text").split(" ")[1]);
           newDoc.add(new NumericDocValuesField("number", value));
-          newDoc.add(new LongField("number", value, Field.Store.NO));
+          newDoc.add(new LongPoint("number", value));
           w.addDocument(newDoc);
         }
 
-        if (random().nextBoolean()) {
-          w.forceMerge(1);
-        }
+        w.forceMerge(1);
 
         w.close();
       }
@@ -737,7 +717,7 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
             Document newDoc = new Document();
             long value = Long.parseLong(oldDoc.get("text").split(" ")[1]);
             newDoc.add(new NumericDocValuesField("number_" + newSchemaGen, value));
-            newDoc.add(new LongField("number", value, Field.Store.NO));
+            newDoc.add(new LongPoint("number", value));
             w.addDocument(newDoc);
           }
         } else {
@@ -753,9 +733,7 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
           }
         }
 
-        if (random().nextBoolean()) {
-          w.forceMerge(1);
-        }
+        w.forceMerge(1);
 
         w.close();
       }
@@ -832,7 +810,7 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
             Document newDoc = new Document();
             long value = Long.parseLong(oldDoc.get("text").split(" ")[1]);
             newDoc.add(new NumericDocValuesField("number", newSchemaGen*value));
-            newDoc.add(new LongField("number", value, Field.Store.NO));
+            newDoc.add(new LongPoint("number", value));
             w.addDocument(newDoc);
           }
         } else {
@@ -848,9 +826,7 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
           }
         }
 
-        if (random().nextBoolean()) {
-          w.forceMerge(1);
-        }
+        w.forceMerge(1);
 
         w.close();
       }
@@ -895,7 +871,8 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
     AtomicLong currentSchemaGen = new AtomicLong();
 
     // TODO: separate refresh thread, search threads, indexing threads
-    ReindexingReader reindexer = getReindexerNewDVFields(createTempDir(), currentSchemaGen);
+    Path root = createTempDir();
+    ReindexingReader reindexer = getReindexerNewDVFields(root, currentSchemaGen);
     reindexer.commit();
 
     Document doc = new Document();
@@ -1151,7 +1128,8 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
   }
 
   public void testBasic() throws Exception {
-    ReindexingReader reindexer = getReindexer(createTempDir());
+    Path tempPath = createTempDir();
+    ReindexingReader reindexer = getReindexer(tempPath);
 
     // Start with initial empty commit:
     reindexer.commit();
@@ -1168,7 +1146,7 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
       checkAllNumberDVs(r);
       IndexSearcher s = newSearcher(r);
       testNumericDVSort(s);
-      testNumericRangeQuery(s);
+      testPointRangeQuery(s);
     } finally {
       reindexer.mgr.release(r);
     }
@@ -1190,7 +1168,7 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
       checkAllNumberDVs(r);
       IndexSearcher s = newSearcher(r);
       testNumericDVSort(s);
-      testNumericRangeQuery(s);
+      testPointRangeQuery(s);
     } finally {
       reindexer.mgr.release(r);
     }
@@ -1209,7 +1187,7 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
       checkAllNumberDVs(r);
       IndexSearcher s = newSearcher(r);
       testNumericDVSort(s);
-      testNumericRangeQuery(s);
+      testPointRangeQuery(s);
     } finally {
       reindexer.mgr.release(r);
     }
@@ -1261,7 +1239,7 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
           checkAllNumberDVs(r);
           IndexSearcher s = newSearcher(r);
           testNumericDVSort(s);
-          testNumericRangeQuery(s);
+          testPointRangeQuery(s);
         } finally {
           reindexer.mgr.release(r);
         }
@@ -1340,7 +1318,7 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
     }
   }
 
-  private static void testNumericRangeQuery(IndexSearcher s) throws IOException {
+  private static void testPointRangeQuery(IndexSearcher s) throws IOException {
     NumericDocValues numbers = MultiDocValues.getNumericValues(s.getIndexReader(), "number");
     for(int i=0;i<100;i++) {
       // Confirm we can range search by the new indexed (numeric) field:
@@ -1352,7 +1330,7 @@ public class TestDemoParallelLeafReader extends LuceneTestCase {
         max = x;
       }
 
-      TopDocs hits = s.search(NumericRangeQuery.newLongRange("number", min, max, true, true), 100);
+      TopDocs hits = s.search(LongPoint.newRangeQuery("number", min, max), 100);
       for(ScoreDoc scoreDoc : hits.scoreDocs) {
         long value = Long.parseLong(s.doc(scoreDoc.doc).get("text").split(" ")[1]);
         assertTrue(value >= min);

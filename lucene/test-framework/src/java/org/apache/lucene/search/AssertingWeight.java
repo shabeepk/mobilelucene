@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,52 +14,64 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
 
 import java.io.IOException;
 import java.util.Random;
-import java.util.Set;
-
 import org.apache.lucene.index.LeafReaderContext;
-import org.apache.lucene.index.Term;
 
-class AssertingWeight extends Weight {
+class AssertingWeight extends FilterWeight {
 
   final Random random;
-  final Weight in;
   final boolean needsScores;
 
   AssertingWeight(Random random, Weight in, boolean needsScores) {
-    super(in.getQuery());
+    super(in);
     this.random = random;
-    this.in = in;
     this.needsScores = needsScores;
   }
 
   @Override
-  public void extractTerms(Set<Term> terms) {
-    in.extractTerms(terms);
-  }
-
-  @Override
-  public Explanation explain(LeafReaderContext context, int doc) throws IOException {
-    return in.explain(context, doc);
-  }
-
-  @Override
-  public float getValueForNormalization() throws IOException {
-    return in.getValueForNormalization();
-  }
-
-  @Override
-  public void normalize(float norm, float topLevelBoost) {
-    in.normalize(norm, topLevelBoost);
-  }
-
-  @Override
   public Scorer scorer(LeafReaderContext context) throws IOException {
-    final Scorer inScorer = in.scorer(context);
-    assert inScorer == null || inScorer.docID() == -1;
-    return AssertingScorer.wrap(new Random(random.nextLong()), inScorer, needsScores);
+    if (random.nextBoolean()) {
+      final Scorer inScorer = in.scorer(context);
+      assert inScorer == null || inScorer.docID() == -1;
+      return AssertingScorer.wrap(new Random(random.nextLong()), inScorer, needsScores);
+    } else {
+      final ScorerSupplier scorerSupplier = scorerSupplier(context);
+      if (scorerSupplier == null) {
+        return null;
+      }
+      if (random.nextBoolean()) {
+        // Evil: make sure computing the cost has no side effects
+        scorerSupplier.cost();
+      }
+      return scorerSupplier.get(false);
+    }
+  }
+
+  @Override
+  public ScorerSupplier scorerSupplier(LeafReaderContext context) throws IOException {
+    final ScorerSupplier inScorerSupplier = in.scorerSupplier(context);
+    if (inScorerSupplier == null) {
+      return null;
+    }
+    return new ScorerSupplier() {
+      private boolean getCalled = false;
+      @Override
+      public Scorer get(boolean randomAccess) throws IOException {
+        assert getCalled == false;
+        getCalled = true;
+        return AssertingScorer.wrap(new Random(random.nextLong()), inScorerSupplier.get(randomAccess), needsScores);
+      }
+
+      @Override
+      public long cost() {
+        final long cost = inScorerSupplier.cost();
+        assert cost >= 0;
+        return cost;
+      }
+    };
   }
 
   @Override

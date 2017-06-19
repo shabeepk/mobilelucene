@@ -1,5 +1,3 @@
-package org.apache.lucene.queries;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,15 +14,16 @@ package org.apache.lucene.queries;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queries;
 
 import java.io.IOException;
-import org.lukhnos.portmobile.util.Objects;
+import java.util.Objects;
 import java.util.Set;
 
+import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.*;
-import org.apache.lucene.util.Bits;
 
 /**
  * The BoostingQuery class can be used to effectively demote results that match a given query. 
@@ -39,7 +38,7 @@ import org.apache.lucene.util.Bits;
  * demoting effect
  * 
  * This code was originally made available here: 
- *   <a href="http://marc.theaimsgroup.com/?l=lucene-user&m=108058407130459&w=2">http://marc.theaimsgroup.com/?l=lucene-user&amp;m=108058407130459&amp;w=2</a>
+ *   <a href="http://marc.theaimsgroup.com/?l=lucene-user&amp;m=108058407130459&amp;w=2">http://marc.theaimsgroup.com/?l=lucene-user&amp;m=108058407130459&amp;w=2</a>
  * and is documented here: http://wiki.apache.org/lucene-java/CommunityContributions
  */
 public class BoostingQuery extends Query {
@@ -49,9 +48,18 @@ public class BoostingQuery extends Query {
 
     public BoostingQuery(Query match, Query context, float boost) {
       this.match = match;
-      this.context = context.clone();        // clone before boost
+      this.context = context; // ignore context-only matches
       this.boost = boost;
-      this.context.setBoost(0.0f);                      // ignore context-only matches
+    }
+
+    @Override
+    public Query rewrite(IndexReader reader) throws IOException {
+      Query matchRewritten = match.rewrite(reader);
+      Query contextRewritten = context.rewrite(reader);
+      if (match != matchRewritten || context != contextRewritten) {
+        return new BoostingQuery(matchRewritten, contextRewritten, boost);
+      }
+      return super.rewrite(reader);
     }
 
     @Override
@@ -59,8 +67,8 @@ public class BoostingQuery extends Query {
       if (needsScores == false) {
         return match.createWeight(searcher, needsScores);
       }
-      final Weight matchWeight = match.createWeight(searcher, needsScores);
-      final Weight contextWeight = context.createWeight(searcher, false);
+      final Weight matchWeight = searcher.createWeight(match, needsScores);
+      final Weight contextWeight = searcher.createWeight(context, false);
       return new Weight(this) {
 
         @Override
@@ -89,8 +97,8 @@ public class BoostingQuery extends Query {
         }
 
         @Override
-        public void normalize(float norm, float topLevelBoost) {
-          matchWeight.normalize(norm, topLevelBoost);
+        public void normalize(float norm, float boost) {
+          matchWeight.normalize(norm, boost);
         }
 
         @Override
@@ -103,9 +111,9 @@ public class BoostingQuery extends Query {
           if (contextScorer == null) {
             return matchScorer;
           }
-          final TwoPhaseIterator contextTwoPhase = contextScorer.asTwoPhaseIterator();
-          final DocIdSetIterator contextApproximation = contextTwoPhase == null
-              ? contextScorer
+          TwoPhaseIterator contextTwoPhase = contextScorer.twoPhaseIterator();
+          DocIdSetIterator contextApproximation = contextTwoPhase == null
+              ? contextScorer.iterator()
               : contextTwoPhase.approximation();
           return new FilterScorer(matchScorer) {
             @Override
@@ -126,20 +134,33 @@ public class BoostingQuery extends Query {
       };
     }
 
-    @Override
-    public int hashCode() {
-      return 31 * super.hashCode() + Objects.hash(match, context, boost);
+    public Query getMatch() {
+      return match;
+    }
+
+    public Query getContext() {
+      return context;
+    }
+
+    public float getBoost() {
+      return boost;
     }
 
     @Override
-    public boolean equals(Object obj) {
-      if (super.equals(obj) == false) {
-        return false;
-      }
-      BoostingQuery that = (BoostingQuery) obj;
-      return match.equals(that.match)
-          && context.equals(that.context)
-          && Float.floatToIntBits(boost) == Float.floatToIntBits(that.boost);
+    public int hashCode() {
+      return 31 * classHash() + Objects.hash(match, context, boost);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      return sameClassAs(other) &&
+             equalsTo(getClass().cast(other));
+    }
+
+    private boolean equalsTo(BoostingQuery other) {
+      return match.equals(other.match)
+          && context.equals(other.context)
+          && Float.floatToIntBits(boost) == Float.floatToIntBits(other.boost);
     }
 
     @Override

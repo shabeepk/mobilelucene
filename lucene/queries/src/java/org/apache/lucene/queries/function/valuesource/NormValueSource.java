@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.lucene.queries.function.valuesource;
 
 import org.apache.lucene.index.LeafReaderContext;
@@ -60,7 +59,7 @@ public class NormValueSource extends ValueSource {
     IndexSearcher searcher = (IndexSearcher)context.get("searcher");
     final TFIDFSimilarity similarity = IDFValueSource.asTFIDF(searcher.getSimilarity(true), field);
     if (similarity == null) {
-      throw new UnsupportedOperationException("requires a TFIDFSimilarity (such as DefaultSimilarity)");
+      throw new UnsupportedOperationException("requires a TFIDFSimilarity (such as ClassicSimilarity)");
     }
     final NumericDocValues norms = readerContext.reader().getNormValues(field);
 

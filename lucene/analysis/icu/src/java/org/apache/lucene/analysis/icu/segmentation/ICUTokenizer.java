@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.icu.segmentation;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.analysis.icu.segmentation;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.icu.segmentation;
+
 
 import java.io.IOException;
 import java.io.Reader;
@@ -68,7 +68,7 @@ public final class ICUTokenizer extends Tokenizer {
    * @see DefaultICUTokenizerConfig
    */
   public ICUTokenizer() {
-    this(new DefaultICUTokenizerConfig(true));
+    this(new DefaultICUTokenizerConfig(true, true));
   }
 
   /**

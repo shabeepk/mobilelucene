@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,10 +14,12 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
+
 
 import java.io.IOException;
 import java.io.PrintStream;
-import org.lukhnos.portmobile.file.attribute.FileTime;
+import java.time.Instant;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -68,8 +68,6 @@ public class PrintStreamInfoStream extends InfoStream {
   
   /** Returns the current time as string for insertion into log messages. */
   protected String getTimestamp() {
-    // We "misuse" Java 7 FileTime API here, because it returns a nice ISO-8601 string with milliseconds (UTC timezone).
-    // The alternative, SimpleDateFormat is not thread safe!
-    return FileTime.fromMillis(System.currentTimeMillis()).toString();
+    return Instant.now().toString();
   }  
 }

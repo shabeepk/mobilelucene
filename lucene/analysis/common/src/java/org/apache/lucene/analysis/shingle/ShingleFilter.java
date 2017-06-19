@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.shingle;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.analysis.shingle;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.shingle;
+
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -343,7 +343,12 @@ public final class ShingleFilter extends TokenFilter {
           noShingleOutput = false;
         }
         offsetAtt.setOffset(offsetAtt.startOffset(), nextToken.offsetAtt.endOffset());
-        posLenAtt.setPositionLength(builtGramSize);
+        if (outputUnigrams) {
+          posLenAtt.setPositionLength(builtGramSize);
+        } else {
+          // position length for this token is the number of position created by shingles of smaller size.
+          posLenAtt.setPositionLength(Math.max(1, (builtGramSize - minShingleSize) + 1));
+        }
         isOutputHere = true;
         gramSize.advance();
         tokenAvailable = true;
@@ -578,7 +583,7 @@ public final class ShingleFilter extends TokenFilter {
     }
   }
     
-  private class InputWindowToken {
+  private static class InputWindowToken {
     final AttributeSource attSource;
     final CharTermAttribute termAtt;
     final OffsetAttribute offsetAtt;

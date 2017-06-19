@@ -1,7 +1,3 @@
-package org.apache.lucene.analysis;
-
-import java.io.Reader;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,6 +14,10 @@ import java.io.Reader;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis;
+
+import java.io.Reader;
+
 
 /**
  * An analyzer wrapper, that doesn't allow to wrap components or readers.
@@ -54,12 +54,22 @@ public abstract class DelegatingAnalyzerWrapper extends AnalyzerWrapper {
   protected final TokenStreamComponents wrapComponents(String fieldName, TokenStreamComponents components) {
     return super.wrapComponents(fieldName, components);
   }
-  
+
+  @Override
+  protected final TokenStream wrapTokenStreamForNormalization(String fieldName, TokenStream in) {
+    return super.wrapTokenStreamForNormalization(fieldName, in);
+  }
+
   @Override
   protected final Reader wrapReader(String fieldName, Reader reader) {
     return super.wrapReader(fieldName, reader);
   }
-  
+
+  @Override
+  protected final Reader wrapReaderForNormalization(String fieldName, Reader reader) {
+    return super.wrapReaderForNormalization(fieldName, reader);
+  }
+
   private static final class DelegatingReuseStrategy extends ReuseStrategy {
     DelegatingAnalyzerWrapper wrapper;
     private final ReuseStrategy fallbackStrategy;

@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,10 +14,11 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import org.apache.lucene.index.Term;
 import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.ToStringUtils;
 import org.apache.lucene.util.automaton.Automaton;
 
 /** A Query that matches documents containing terms with a specified prefix. A PrefixQuery
@@ -36,13 +35,14 @@ public class PrefixQuery extends AutomatonQuery {
     // It's OK to pass unlimited maxDeterminizedStates: the automaton is born small and determinized:
     super(prefix, toAutomaton(prefix.bytes()), Integer.MAX_VALUE, true);
     if (prefix == null) {
-      throw new NullPointerException("prefix cannot be null");
+      throw new NullPointerException("prefix must not be null");
     }
   }
 
   /** Build an automaton accepting all terms with the specified prefix. */
   public static Automaton toAutomaton(BytesRef prefix) {
-    Automaton automaton = new Automaton();
+    final int numStatesAndTransitions = prefix.length+1;
+    final Automaton automaton = new Automaton(numStatesAndTransitions, numStatesAndTransitions);
     int lastState = automaton.createState();
     for(int i=0;i<prefix.length;i++) {
       int state = automaton.createState();
@@ -67,11 +67,10 @@ public class PrefixQuery extends AutomatonQuery {
     StringBuilder buffer = new StringBuilder();
     if (!getField().equals(field)) {
       buffer.append(getField());
-      buffer.append(":");
+      buffer.append(':');
     }
     buffer.append(term.text());
     buffer.append('*');
-    buffer.append(ToStringUtils.boost(getBoost()));
     return buffer.toString();
   }
 

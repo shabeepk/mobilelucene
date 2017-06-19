@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spans;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,10 +14,12 @@ package org.apache.lucene.search.spans;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spans;
+
 
 import java.io.IOException;
 import java.util.Map;
-import org.lukhnos.portmobile.util.Objects;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.lucene.index.IndexReader;
@@ -30,12 +30,11 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TwoPhaseIterator;
-import org.apache.lucene.util.ToStringUtils;
 
 /** Removes matches which overlap with another SpanQuery or which are
  * within x tokens before or y tokens after another SpanQuery.
  */
-public class SpanNotQuery extends SpanQuery implements Cloneable {
+public final class SpanNotQuery extends SpanQuery {
   private SpanQuery include;
   private SpanQuery exclude;
   private final int pre;
@@ -50,19 +49,23 @@ public class SpanNotQuery extends SpanQuery implements Cloneable {
 
   /** Construct a SpanNotQuery matching spans from <code>include</code> which
    * have no overlap with spans from <code>exclude</code> within
-   * <code>dist</code> tokens of <code>include</code>. */
+   * <code>dist</code> tokens of <code>include</code>. Inversely, a negative
+   * <code>dist</code> value may be used to specify a certain amount of allowable
+   * overlap. */
   public SpanNotQuery(SpanQuery include, SpanQuery exclude, int dist) {
      this(include, exclude, dist, dist);
   }
 
   /** Construct a SpanNotQuery matching spans from <code>include</code> which
    * have no overlap with spans from <code>exclude</code> within
-   * <code>pre</code> tokens before or <code>post</code> tokens of <code>include</code>. */
+   * <code>pre</code> tokens before or <code>post</code> tokens of
+   * <code>include</code>. Inversely, negative values for <code>pre</code> and/or
+   * <code>post</code> allow a certain amount of overlap to occur. */
   public SpanNotQuery(SpanQuery include, SpanQuery exclude, int pre, int post) {
     this.include = Objects.requireNonNull(include);
     this.exclude = Objects.requireNonNull(exclude);
-    this.pre = (pre >=0) ? pre : 0;
-    this.post = (post >= 0) ? post : 0;
+    this.pre = pre;
+    this.post = post;
 
     if (include.getField() != null && exclude.getField() != null && !include.getField().equals(exclude.getField()))
       throw new IllegalArgumentException("Clauses must have same field.");
@@ -89,24 +92,16 @@ public class SpanNotQuery extends SpanQuery implements Cloneable {
     buffer.append(", ");
     buffer.append(Integer.toString(post));
     buffer.append(")");
-    buffer.append(ToStringUtils.boost(getBoost()));
     return buffer.toString();
   }
 
-  @Override
-  public SpanNotQuery clone() {
-    SpanNotQuery spanNotQuery = new SpanNotQuery((SpanQuery) include.clone(),
-                                                                (SpanQuery) exclude.clone(), pre, post);
-    spanNotQuery.setBoost(getBoost());
-    return spanNotQuery;
-  }
 
   @Override
   public SpanWeight createWeight(IndexSearcher searcher, boolean needsScores) throws IOException {
     SpanWeight includeWeight = include.createWeight(searcher, false);
     SpanWeight excludeWeight = exclude.createWeight(searcher, false);
     return new SpanNotWeight(searcher, needsScores ? getTermContexts(includeWeight, excludeWeight) : null,
-                                   includeWeight, excludeWeight);
+                                  includeWeight, excludeWeight);
   }
 
   public class SpanNotWeight extends SpanWeight {
@@ -126,7 +121,6 @@ public class SpanNotQuery extends SpanQuery implements Cloneable {
       includeWeight.extractTermContexts(contexts);
     }
 
-
     @Override
     public Spans getSpans(final LeafReaderContext context, Postings requiredPostings) throws IOException {
       Spans includeSpans = includeWeight.getSpans(context, requiredPostings);
@@ -134,13 +128,13 @@ public class SpanNotQuery extends SpanQuery implements Cloneable {
         return null;
       }
 
-      final Spans excludeSpans = excludeWeight.getSpans(context, requiredPostings);
+      Spans excludeSpans = excludeWeight.getSpans(context, requiredPostings);
       if (excludeSpans == null) {
         return includeSpans;
       }
 
-      final TwoPhaseIterator excludeTwoPhase = excludeSpans.asTwoPhaseIterator();
-      final DocIdSetIterator excludeApproximation = excludeTwoPhase == null ? null : excludeTwoPhase.approximation();
+      TwoPhaseIterator excludeTwoPhase = excludeSpans.asTwoPhaseIterator();
+      DocIdSetIterator excludeApproximation = excludeTwoPhase == null ? null : excludeTwoPhase.approximation();
 
       return new FilterSpans(includeSpans) {
         // last document we have checked matches() against for the exclusion, and failed
@@ -201,42 +195,30 @@ public class SpanNotQuery extends SpanQuery implements Cloneable {
 
   @Override
   public Query rewrite(IndexReader reader) throws IOException {
-    SpanNotQuery clone = null;
-
     SpanQuery rewrittenInclude = (SpanQuery) include.rewrite(reader);
-    if (rewrittenInclude != include) {
-      clone = this.clone();
-      clone.include = rewrittenInclude;
-    }
     SpanQuery rewrittenExclude = (SpanQuery) exclude.rewrite(reader);
-    if (rewrittenExclude != exclude) {
-      if (clone == null) clone = this.clone();
-      clone.exclude = rewrittenExclude;
+    if (rewrittenInclude != include || rewrittenExclude != exclude) {
+      return new SpanNotQuery(rewrittenInclude, rewrittenExclude, pre, post);
     }
-
-    if (clone != null) {
-      return clone;                        // some clauses rewrote
-    } else {
-      return this;                         // no clauses rewrote
-    }
+    return super.rewrite(reader);
   }
-
     /** Returns true iff <code>o</code> is equal to this. */
   @Override
-  public boolean equals(Object o) {
-    if (!super.equals(o))
-      return false;
+  public boolean equals(Object other) {
+    return sameClassAs(other) &&
+           equalsTo(getClass().cast(other));
+  } 
 
-    SpanNotQuery other = (SpanNotQuery)o;
-    return this.include.equals(other.include)
-            && this.exclude.equals(other.exclude)
-            && this.pre == other.pre
-            && this.post == other.post;
+  private boolean equalsTo(SpanNotQuery other) { 
+    return include.equals(other.include) && 
+           exclude.equals(other.exclude) && 
+           pre == other.pre && 
+           post == other.post;
   }
 
   @Override
   public int hashCode() {
-    int h = super.hashCode();
+    int h = classHash();
     h = Integer.rotateLeft(h, 1);
     h ^= include.hashCode();
     h = Integer.rotateLeft(h, 1);

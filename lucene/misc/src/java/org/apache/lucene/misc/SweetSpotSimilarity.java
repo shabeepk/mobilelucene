@@ -14,10 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.lucene.misc;
 
-import org.apache.lucene.search.similarities.DefaultSimilarity;
+import org.apache.lucene.search.similarities.ClassicSimilarity;
 import org.apache.lucene.index.FieldInvertState;
 
 /**
@@ -38,7 +37,7 @@ import org.apache.lucene.index.FieldInvertState;
  *
  * @see <a href="doc-files/ss.gnuplot">A Gnuplot file used to generate some of the visualizations refrenced from each function.</a> 
  */
-public class SweetSpotSimilarity extends DefaultSimilarity {
+public class SweetSpotSimilarity extends ClassicSimilarity {
 
   private int ln_min = 1;
   private int ln_max = 1;
@@ -224,4 +223,20 @@ public class SweetSpotSimilarity extends DefaultSimilarity {
     
   }
 
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    sb.append("SweetSpotSimilarity")
+        .append("(")
+        .append("ln_min="+ln_min+", ")
+        .append("ln_max=").append(ln_max).append(", ")
+        .append("ln_steep=").append(ln_steep).append(", ")
+        .append("tf_base=").append(tf_base).append(", ")
+        .append("tf_min=").append(tf_min).append(", ")
+        .append("tf_hyper_min=").append(tf_hyper_min).append(", ")
+        .append("tf_hyper_max=").append(tf_hyper_max).append(", ")
+        .append("tf_hyper_base=").append(tf_hyper_base).append(", ")
+        .append("tf_hyper_xoffset=").append(tf_hyper_xoffset)
+        .append(")");
+    return sb.toString();
+  }
 }

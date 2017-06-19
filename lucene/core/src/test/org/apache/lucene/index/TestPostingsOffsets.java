@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -33,7 +33,6 @@ import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
-import org.apache.lucene.document.IntField;
 import org.apache.lucene.document.NumericDocValuesField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
@@ -239,7 +238,6 @@ public class TestPostingsOffsets extends LuceneTestCase {
 
     for(int docCount=0;docCount<numDocs;docCount++) {
       Document doc = new Document();
-      doc.add(new IntField("id", docCount, Field.Store.YES));
       doc.add(new NumericDocValuesField("id", docCount));
       List<Token> tokens = new ArrayList<>();
       final int numTokens = atLeast(100);
@@ -377,10 +375,9 @@ public class TestPostingsOffsets extends LuceneTestCase {
       riw.addDocument(doc);
     }
     CompositeReader ir = riw.getReader();
-    LeafReader slow = SlowCompositeReaderWrapper.wrap(ir);
-    FieldInfos fis = slow.getFieldInfos();
+    FieldInfos fis = MultiFields.getMergedFieldInfos(ir);
     assertEquals(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS, fis.fieldInfo("foo").getIndexOptions());
-    slow.close();
+    ir.close();
     ir.close();
     riw.close();
     dir.close();
@@ -404,48 +401,36 @@ public class TestPostingsOffsets extends LuceneTestCase {
   
   // NOTE: the next two tests aren't that good as we need an EvilToken...
   public void testNegativeOffsets() throws Exception {
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       checkTokens(new Token[] { 
           makeToken("foo", 1, -1, -1)
       });
-      fail();
-    } catch (IllegalArgumentException expected) {
-      //expected
-    }
+    });
   }
   
   public void testIllegalOffsets() throws Exception {
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       checkTokens(new Token[] { 
           makeToken("foo", 1, 1, 0)
       });
-      fail();
-    } catch (IllegalArgumentException expected) {
-      //expected
-    }
+    });
   }
   
   public void testIllegalOffsetsAcrossFieldInstances() throws Exception {
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       checkTokens(new Token[] { makeToken("use", 1, 150, 160) }, 
                   new Token[] { makeToken("use", 1, 50, 60) });
-      fail();
-    } catch (IllegalArgumentException expected) {
-      //expected
-    }
+    });
   }
    
   public void testBackwardsOffsets() throws Exception {
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       checkTokens(new Token[] { 
          makeToken("foo", 1, 0, 3),
          makeToken("foo", 1, 4, 7),
          makeToken("foo", 0, 3, 6)
       });
-      fail();
-    } catch (IllegalArgumentException expected) {
-      // expected
-    }
+    });
   }
   
   public void testStackedTokens() throws Exception {
@@ -473,14 +458,14 @@ public class TestPostingsOffsets extends LuceneTestCase {
     // add good document
     Document doc = new Document();
     iw.addDocument(doc);
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       FieldType ft = new FieldType(TextField.TYPE_NOT_STORED);
       ft.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS);
       doc.add(new Field("foo", "bar", ft));
       doc.add(new Field("foo", "bar", ft));
       iw.addDocument(doc);
-      fail("didn't get expected exception");
-    } catch (IllegalArgumentException expected) {}
+    });
+    iw.commit();
     iw.close();
 
     // make sure we see our good doc

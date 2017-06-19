@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 
@@ -77,10 +77,7 @@ public class TestTryDelete extends LuceneTestCase
     IndexWriter writer = getWriter(directory);
 
     ReferenceManager<IndexSearcher> mgr = new SearcherManager(writer,
-                                                              true,
                                                               new SearcherFactory());
-
-    TrackingIndexWriter mgrWriter = new TrackingIndexWriter(writer);
 
     IndexSearcher searcher = mgr.acquire();
 
@@ -90,11 +87,11 @@ public class TestTryDelete extends LuceneTestCase
 
     long result;
     if (random().nextBoolean()) {
-      IndexReader r = DirectoryReader.open(writer, true);
-      result = mgrWriter.tryDeleteDocument(r, 0);
+      IndexReader r = DirectoryReader.open(writer);
+      result = writer.tryDeleteDocument(r, 0);
       r.close();
     } else {
-      result = mgrWriter.tryDeleteDocument(searcher.getIndexReader(), 0);
+      result = writer.tryDeleteDocument(searcher.getIndexReader(), 0);
     }
 
     // The tryDeleteDocument should have succeeded:
@@ -125,7 +122,6 @@ public class TestTryDelete extends LuceneTestCase
     IndexWriter writer = getWriter(directory);
 
     ReferenceManager<IndexSearcher> mgr = new SearcherManager(writer,
-                                                              true,
                                                               new SearcherFactory());
 
     IndexSearcher searcher = mgr.acquire();
@@ -134,11 +130,9 @@ public class TestTryDelete extends LuceneTestCase
                                       100);
     assertEquals(1, topDocs.totalHits);
 
-    TrackingIndexWriter mgrWriter = new TrackingIndexWriter(writer);
-    long result = mgrWriter.tryDeleteDocument(DirectoryReader.open(writer,
-                                                                   true), 0);
+    long result = writer.tryDeleteDocument(DirectoryReader.open(writer), 0);
 
-    assertEquals(1, result);
+    assertTrue(result != -1);
 
     writer.commit();
 
@@ -170,7 +164,6 @@ public class TestTryDelete extends LuceneTestCase
     IndexWriter writer = getWriter(directory);
 
     ReferenceManager<IndexSearcher> mgr = new SearcherManager(writer,
-                                                              true,
                                                               new SearcherFactory());
 
     IndexSearcher searcher = mgr.acquire();
@@ -179,11 +172,9 @@ public class TestTryDelete extends LuceneTestCase
                                       100);
     assertEquals(1, topDocs.totalHits);
 
-    TrackingIndexWriter mgrWriter = new TrackingIndexWriter(writer);
-    long result = mgrWriter.deleteDocuments(new TermQuery(new Term("foo",
-                                                                   "0")));
+    long result = writer.deleteDocuments(new TermQuery(new Term("foo", "0")));
 
-    assertEquals(1, result);
+    assertTrue(result != -1);
 
     // writer.commit();
 

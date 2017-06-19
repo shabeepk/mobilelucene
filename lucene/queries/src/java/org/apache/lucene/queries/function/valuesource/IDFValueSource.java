@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.lucene.queries.function.valuesource;
 
 import org.apache.lucene.index.*;
@@ -50,7 +49,7 @@ public class IDFValueSource extends DocFreqValueSource {
     IndexSearcher searcher = (IndexSearcher)context.get("searcher");
     TFIDFSimilarity sim = asTFIDF(searcher.getSimilarity(true), field);
     if (sim == null) {
-      throw new UnsupportedOperationException("requires a TFIDFSimilarity (such as DefaultSimilarity)");
+      throw new UnsupportedOperationException("requires a TFIDFSimilarity (such as ClassicSimilarity)");
     }
     int docfreq = searcher.getIndexReader().docFreq(new Term(indexedField, indexedBytes));
     float idf = sim.idf(docfreq, searcher.getIndexReader().maxDoc());

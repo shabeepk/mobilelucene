@@ -1,7 +1,25 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.lucene.index;
 
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -26,45 +44,132 @@ import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopFieldDocs;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.MockDirectoryWrapper;
 import org.apache.lucene.store.NRTCachingDirectory;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.LuceneTestCase;
-import org.apache.lucene.util.LuceneTestCase.Nightly;
 import org.apache.lucene.util.TestUtil;
 import org.junit.Test;
 
 import com.carrotsearch.randomizedtesting.generators.RandomPicks;
 
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 @SuppressWarnings("resource")
 public class TestNumericDocValuesUpdates extends LuceneTestCase {
 
   private Document doc(int id) {
+    // make sure we don't set the doc's value to 0, to not confuse with a document that's missing values
+    return doc(id, id +1);
+  }
+  
+  private Document doc(int id, long val) {
     Document doc = new Document();
     doc.add(new StringField("id", "doc-" + id, Store.NO));
-    // make sure we don't set the doc's value to 0, to not confuse with a document that's missing values
-    doc.add(new NumericDocValuesField("val", id + 1));
+    doc.add(new NumericDocValuesField("val", val));
     return doc;
   }
+
+  public void testMultipleUpdatesSameDoc() throws Exception {
+
+    Directory dir = newDirectory();
+    IndexWriterConfig conf = newIndexWriterConfig(new MockAnalyzer(random()));
+    
+    conf.setMaxBufferedDocs(3); // small number of docs, so use a tiny maxBufferedDocs
+
+    IndexWriter writer = new IndexWriter(dir, conf);
+
+    writer.updateDocument       (new Term("id","doc-1"), doc(1, 1000000000L ));
+    writer.updateNumericDocValue(new Term("id","doc-1"), "val", 1000001111L );
+    writer.updateDocument       (new Term("id","doc-2"), doc(2, 2000000000L ));
+    writer.updateDocument       (new Term("id","doc-2"), doc(2, 2222222222L ));
+    writer.updateNumericDocValue(new Term("id","doc-1"), "val", 1111111111L );
+    writer.commit();
+    
+    final DirectoryReader reader = DirectoryReader.open(dir);
+    final IndexSearcher searcher = new IndexSearcher(reader);
+    TopFieldDocs td;
+    
+    td = searcher.search(new TermQuery(new Term("id", "doc-1")), 1, 
+                         new Sort(new SortField("val", SortField.Type.LONG)));
+    assertEquals("doc-1 missing?", 1, td.scoreDocs.length);
+    assertEquals("doc-1 value", 1111111111L, ((FieldDoc)td.scoreDocs[0]).fields[0]);
+    
+    td = searcher.search(new TermQuery(new Term("id", "doc-2")), 1, 
+                        new Sort(new SortField("val", SortField.Type.LONG)));
+    assertEquals("doc-2 missing?", 1, td.scoreDocs.length);
+    assertEquals("doc-2 value", 2222222222L, ((FieldDoc)td.scoreDocs[0]).fields[0]);
+    
+    IOUtils.close(reader, writer, dir);
+  }
+
+  public void testBiasedMixOfRandomUpdates() throws Exception {
+    // 3 types of operations: add, updated, updateDV.
+    // rather then randomizing equally, we'll pick (random) cutoffs so each test run is biased,
+    // in terms of some ops happen more often then others
+    final int ADD_CUTOFF = TestUtil.nextInt(random(), 1, 98);
+    final int UPD_CUTOFF = TestUtil.nextInt(random(), ADD_CUTOFF+1, 99);
+
+    Directory dir = newDirectory();
+    IndexWriterConfig conf = newIndexWriterConfig(new MockAnalyzer(random()));
+
+    IndexWriter writer = new IndexWriter(dir, conf);
+    
+    final int numOperations = atLeast(1000);
+    final Map<Integer,Long> expected = new HashMap<>(numOperations / 3);
+
+    // start with at least one doc before any chance of updates
+    final int numSeedDocs = atLeast(1); 
+    for (int i = 0; i < numSeedDocs; i++) {
+      final long val = random().nextLong();
+      expected.put(i, val);
+      writer.addDocument(doc(i, val));
+    }
+
+    int numDocUpdates = 0;
+    int numValueUpdates = 0;
+
+    //System.out.println("TEST: numOperations=" + numOperations + " ADD_CUTOFF=" + ADD_CUTOFF + " UPD_CUTOFF=" + UPD_CUTOFF);
+
+    for (int i = 0; i < numOperations; i++) {
+      final int op = TestUtil.nextInt(random(), 1, 100);
+      final long val = random().nextLong();
+      if (op <= ADD_CUTOFF) {
+        final int id = expected.size();
+        //System.out.println("TEST i=" + i + ": addDocument id=" + id + " val=" + val);
+        expected.put(id, val);
+        writer.addDocument(doc(id, val));
+      } else {
+        final int id = TestUtil.nextInt(random(), 0, expected.size()-1);
+        expected.put(id, val);
+        if (op <= UPD_CUTOFF) {
+          numDocUpdates++;
+          //System.out.println("TEST i=" + i + ": updateDocument id=" + id + " val=" + val);
+          writer.updateDocument(new Term("id","doc-" + id), doc(id, val));
+        } else {
+          numValueUpdates++;
+          //System.out.println("TEST i=" + i + ": updateDV id=" + id + " val=" + val);
+          writer.updateNumericDocValue(new Term("id","doc-" + id), "val", val);
+        }
+      }
+    }
+
+    writer.commit();
+    
+    final DirectoryReader reader = DirectoryReader.open(dir);
+    final IndexSearcher searcher = new IndexSearcher(reader);
+
+    // TODO: make more efficient if max numOperations is going to be increased much
+    for (Map.Entry<Integer,Long> expect : expected.entrySet()) {
+      String id = "doc-" + expect.getKey();
+      TopFieldDocs td = searcher.search(new TermQuery(new Term("id", id)), 1, 
+                                        new Sort(new SortField("val", SortField.Type.LONG)));
+      assertEquals(id + " missing?", 1, td.totalHits);
+      assertEquals(id + " value", expect.getValue(), ((FieldDoc)td.scoreDocs[0]).fields[0]);
+    }
+    
+    IOUtils.close(reader, writer, dir);
+  }
+
   
   @Test
   public void testUpdatesAreFlushed() throws IOException {
@@ -109,7 +214,7 @@ public class TestNumericDocValuesUpdates extends LuceneTestCase {
       writer.close();
       reader = DirectoryReader.open(dir);
     } else { // NRT
-      reader = DirectoryReader.open(writer, true);
+      reader = DirectoryReader.open(writer);
       writer.close();
     }
     
@@ -152,7 +257,7 @@ public class TestNumericDocValuesUpdates extends LuceneTestCase {
       writer.close();
       reader = DirectoryReader.open(dir);
     } else { // NRT
-      reader = DirectoryReader.open(writer, true);
+      reader = DirectoryReader.open(writer);
       writer.close();
     }
     
@@ -182,7 +287,7 @@ public class TestNumericDocValuesUpdates extends LuceneTestCase {
     final boolean isNRT = random().nextBoolean();
     final DirectoryReader reader1;
     if (isNRT) {
-      reader1 = DirectoryReader.open(writer, true);
+      reader1 = DirectoryReader.open(writer);
     } else {
       writer.commit();
       reader1 = DirectoryReader.open(dir);
@@ -235,20 +340,18 @@ public class TestNumericDocValuesUpdates extends LuceneTestCase {
       writer.close();
       reader = DirectoryReader.open(dir);
     } else { // NRT
-      reader = DirectoryReader.open(writer, true);
+      reader = DirectoryReader.open(writer);
       writer.close();
     }
     
-    LeafReader slow = SlowCompositeReaderWrapper.wrap(reader);
-    
-    Bits liveDocs = slow.getLiveDocs();
+    Bits liveDocs = MultiFields.getLiveDocs(reader);
     boolean[] expectedLiveDocs = new boolean[] { true, false, false, true, true, true };
     for (int i = 0; i < expectedLiveDocs.length; i++) {
       assertEquals(expectedLiveDocs[i], liveDocs.get(i));
     }
     
     long[] expectedValues = new long[] { 1, 2, 3, 17, 5, 17};
-    NumericDocValues ndv = slow.getNumericDocValues("val");
+    NumericDocValues ndv = MultiDocValues.getNumericValues(reader, "val");
     for (int i = 0; i < expectedValues.length; i++) {
       assertEquals(expectedValues[i], ndv.get(i));
     }
@@ -280,7 +383,7 @@ public class TestNumericDocValuesUpdates extends LuceneTestCase {
       writer.close();
       reader = DirectoryReader.open(dir);
     } else { // NRT
-      reader = DirectoryReader.open(writer, true);
+      reader = DirectoryReader.open(writer);
       writer.close();
     }
     
@@ -422,19 +525,13 @@ public class TestNumericDocValuesUpdates extends LuceneTestCase {
     writer.commit();
     writer.addDocument(doc); // in-memory document
     
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       writer.updateNumericDocValue(new Term("key", "doc"), "ndv", 17L);
-      fail("should not have allowed creating new fields through update");
-    } catch (IllegalArgumentException e) {
-      // ok
-    }
+    });
     
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       writer.updateNumericDocValue(new Term("key", "doc"), "foo", 17L);
-      fail("should not have allowed updating an existing field to numeric-dv");
-    } catch (IllegalArgumentException e) {
-      // ok
-    }
+    });
     
     writer.close();
     dir.close();
@@ -467,10 +564,9 @@ public class TestNumericDocValuesUpdates extends LuceneTestCase {
     
     final DirectoryReader reader = DirectoryReader.open(dir);
     
-    LeafReader r = SlowCompositeReaderWrapper.wrap(reader);
-    NumericDocValues ndv = r.getNumericDocValues("ndv");
-    SortedDocValues sdv = r.getSortedDocValues("sorted");
-    for (int i = 0; i < r.maxDoc(); i++) {
+    NumericDocValues ndv = MultiDocValues.getNumericValues(reader, "ndv");
+    SortedDocValues sdv = MultiDocValues.getSortedValues(reader, "sorted");
+    for (int i = 0; i < reader.maxDoc(); i++) {
       assertEquals(17, ndv.get(i));
       final BytesRef term = sdv.get(i);
       assertEquals(new BytesRef("value"), term);
@@ -498,9 +594,8 @@ public class TestNumericDocValuesUpdates extends LuceneTestCase {
     writer.close();
     
     final DirectoryReader reader = DirectoryReader.open(dir);
-    final LeafReader r = SlowCompositeReaderWrapper.wrap(reader);
-    NumericDocValues ndv = r.getNumericDocValues("ndv");
-    for (int i = 0; i < r.maxDoc(); i++) {
+    NumericDocValues ndv = MultiDocValues.getNumericValues(reader, "ndv");
+    for (int i = 0; i < reader.maxDoc(); i++) {
       assertEquals(3, ndv.get(i));
     }
     reader.close();
@@ -561,7 +656,7 @@ public class TestNumericDocValuesUpdates extends LuceneTestCase {
         writer.commit();
         reader = DirectoryReader.open(dir);
       } else {
-        reader = DirectoryReader.open(writer, true);
+        reader = DirectoryReader.open(writer);
       }
       
       assertEquals(1, reader.leaves().size());
@@ -599,9 +694,8 @@ public class TestNumericDocValuesUpdates extends LuceneTestCase {
     writer.close();
     
     final DirectoryReader reader = DirectoryReader.open(dir);
-    final LeafReader r = SlowCompositeReaderWrapper.wrap(reader);
-    NumericDocValues ndv = r.getNumericDocValues("ndv");
-    for (int i = 0; i < r.maxDoc(); i++) {
+    NumericDocValues ndv = MultiDocValues.getNumericValues(reader, "ndv");
+    for (int i = 0; i < reader.maxDoc(); i++) {
       assertEquals(3, ndv.get(i));
     }
     reader.close();
@@ -621,7 +715,7 @@ public class TestNumericDocValuesUpdates extends LuceneTestCase {
     final boolean isNRT = random.nextBoolean();
     DirectoryReader reader;
     if (isNRT) {
-      reader = DirectoryReader.open(writer, true);
+      reader = DirectoryReader.open(writer);
     } else {
       writer.commit();
       reader = DirectoryReader.open(dir);
@@ -813,7 +907,7 @@ public class TestNumericDocValuesUpdates extends LuceneTestCase {
     writer.close();
     
     reader = DirectoryReader.open(dir);
-    LeafReader ar = getOnlySegmentReader(reader);
+    LeafReader ar = getOnlyLeafReader(reader);
     assertEquals(DocValuesType.NUMERIC, ar.getFieldInfos().fieldInfo("foo").getDocValuesType());
     IndexSearcher searcher = new IndexSearcher(reader);
     TopFieldDocs td;
@@ -976,10 +1070,10 @@ public class TestNumericDocValuesUpdates extends LuceneTestCase {
               if (random.nextDouble() < 0.1) { // reopen NRT reader (apply updates), on average once every 10 updates
                 if (reader == null) {
 //                  System.out.println("[" + Thread.currentThread().getName() + "] open NRT");
-                  reader = DirectoryReader.open(writer, true);
+                  reader = DirectoryReader.open(writer);
                 } else {
 //                  System.out.println("[" + Thread.currentThread().getName() + "] reopen NRT");
-                  DirectoryReader r2 = DirectoryReader.openIfChanged(reader, writer, true);
+                  DirectoryReader r2 = DirectoryReader.openIfChanged(reader, writer);
                   if (r2 != null) {
                     reader.close();
                     reader = r2;
@@ -1057,7 +1151,7 @@ public class TestNumericDocValuesUpdates extends LuceneTestCase {
       Term t = new Term("id", "doc" + doc);
       long value = random().nextLong();
       writer.updateDocValues(t, new NumericDocValuesField("f", value), new NumericDocValuesField("cf", value*2));
-      DirectoryReader reader = DirectoryReader.open(writer, true);
+      DirectoryReader reader = DirectoryReader.open(writer);
       for (LeafReaderContext context : reader.leaves()) {
         LeafReader r = context.reader();
         NumericDocValues fndv = r.getNumericDocValues("f");
@@ -1110,9 +1204,8 @@ public class TestNumericDocValuesUpdates extends LuceneTestCase {
     writer.close();
     
     DirectoryReader reader = DirectoryReader.open(dir);
-    LeafReader r = SlowCompositeReaderWrapper.wrap(reader);
-    NumericDocValues f1 = r.getNumericDocValues("f1");
-    NumericDocValues f2 = r.getNumericDocValues("f2");
+    NumericDocValues f1 = MultiDocValues.getNumericValues(reader, "f1");
+    NumericDocValues f2 = MultiDocValues.getNumericValues(reader, "f2");
     assertEquals(12L, f1.get(0));
     assertEquals(13L, f2.get(0));
     assertEquals(17L, f1.get(1));
@@ -1182,10 +1275,6 @@ public class TestNumericDocValuesUpdates extends LuceneTestCase {
   @Test
   public void testDeleteUnusedUpdatesFiles() throws Exception {
     Directory dir = newDirectory();
-    // test explicitly needs files to always be actually deleted
-    if (dir instanceof MockDirectoryWrapper) {
-      ((MockDirectoryWrapper)dir).setEnableVirusScanner(false);
-    }
     IndexWriterConfig conf = newIndexWriterConfig(new MockAnalyzer(random()));
     IndexWriter writer = new IndexWriter(dir, conf);
     
@@ -1381,7 +1470,7 @@ public class TestNumericDocValuesUpdates extends LuceneTestCase {
     conf.setRAMBufferSizeMB(IndexWriterConfig.DISABLE_AUTO_FLUSH);
     writer = new IndexWriter(cachingDir, conf);
     writer.updateNumericDocValue(new Term("id", "doc-0"), "val", 100L);
-    DirectoryReader reader = DirectoryReader.open(writer, true); // flush
+    DirectoryReader reader = DirectoryReader.open(writer); // flush
     assertEquals(0, cachingDir.listCachedFiles().length);
     
     IOUtils.close(reader, writer, cachingDir);

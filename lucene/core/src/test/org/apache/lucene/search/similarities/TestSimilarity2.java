@@ -1,5 +1,3 @@
-package org.apache.lucene.search.similarities;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search.similarities;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.similarities;
+
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,10 +26,12 @@ import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.RandomIndexWriter;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
@@ -38,6 +40,7 @@ import org.apache.lucene.search.spans.SpanOrQuery;
 import org.apache.lucene.search.spans.SpanTermQuery;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.LuceneTestCase;
+import org.apache.lucene.util.TestUtil;
 
 /**
  * Tests against all the similarities we have
@@ -49,7 +52,7 @@ public class TestSimilarity2 extends LuceneTestCase {
   public void setUp() throws Exception {
     super.setUp();
     sims = new ArrayList<>();
-    sims.add(new DefaultSimilarity());
+    sims.add(new ClassicSimilarity());
     sims.add(new BM25Similarity());
     // TODO: not great that we dup this all with TestSimilarityBase
     for (BasicModel basicModel : TestSimilarityBase.BASIC_MODELS) {
@@ -69,6 +72,9 @@ public class TestSimilarity2 extends LuceneTestCase {
     sims.add(new LMDirichletSimilarity());
     sims.add(new LMJelinekMercerSimilarity(0.1f));
     sims.add(new LMJelinekMercerSimilarity(0.7f));
+    for (Independence independence : TestSimilarityBase.INDEPENDENCE_MEASURES) {
+      sims.add(new DFISimilarity(independence));
+    }
   }
   
   /** because of stupid things like querynorm, it's possible we computeStats on a field that doesnt exist at all
@@ -160,6 +166,52 @@ public class TestSimilarity2 extends LuceneTestCase {
     dir.close();
   }
   
+  /** make sure scores are not skewed by docs not containing the field */
+  public void testNoFieldSkew() throws Exception {
+    Directory dir = newDirectory();
+    // an evil merge policy could reorder our docs for no reason
+    IndexWriterConfig iwConfig = newIndexWriterConfig().setMergePolicy(newLogMergePolicy());
+    RandomIndexWriter iw = new RandomIndexWriter(random(), dir, iwConfig);
+    Document doc = new Document();
+    doc.add(newTextField("foo", "bar baz somethingelse", Field.Store.NO));
+    iw.addDocument(doc);
+    IndexReader ir = iw.getReader();
+    IndexSearcher is = newSearcher(ir);
+    
+    BooleanQuery.Builder queryBuilder = new BooleanQuery.Builder();
+    queryBuilder.add(new TermQuery(new Term("foo", "bar")), BooleanClause.Occur.SHOULD);
+    queryBuilder.add(new TermQuery(new Term("foo", "baz")), BooleanClause.Occur.SHOULD);
+    Query query = queryBuilder.build();
+    
+    // collect scores
+    List<Explanation> scores = new ArrayList<>();
+    for (Similarity sim : sims) {
+      is.setSimilarity(sim);
+      scores.add(is.explain(query, 0));
+    }
+    ir.close();
+    
+    // add some additional docs without the field
+    int numExtraDocs = TestUtil.nextInt(random(), 1, 1000);
+    for (int i = 0; i < numExtraDocs; i++) {
+      iw.addDocument(new Document());
+    }
+    
+    // check scores are the same
+    ir = iw.getReader();
+    is = newSearcher(ir);
+    for (int i = 0; i < sims.size(); i++) {
+      is.setSimilarity(sims.get(i));
+      Explanation expected = scores.get(i);
+      Explanation actual = is.explain(query, 0);
+      assertEquals(sims.get(i).toString() + ": actual=" + actual + ",expected=" + expected, expected.getValue(), actual.getValue(), 0F);
+    }
+    
+    iw.close();
+    ir.close();
+    dir.close();
+  }
+  
   /** make sure all sims work if TF is omitted */
   public void testOmitTF() throws Exception {
     Directory dir = newDirectory();
@@ -237,8 +289,9 @@ public class TestSimilarity2 extends LuceneTestCase {
       TopDocs td = is.search(query, 10);
       assertEquals(1, td.totalHits);
       float score = td.scoreDocs[0].score;
-      assertTrue(score >= 0.0f);
+      assertFalse("negative score for " + sim, score < 0.0f);
       assertFalse("inf score for " + sim, Float.isInfinite(score));
+      assertFalse("nan score for " + sim, Float.isNaN(score));
     }
     ir.close();
     dir.close();

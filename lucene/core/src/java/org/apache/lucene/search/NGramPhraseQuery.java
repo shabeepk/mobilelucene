@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,9 +14,11 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
-import org.lukhnos.portmobile.util.Objects;
+import java.util.Objects;
 
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
@@ -74,26 +74,31 @@ public class NGramPhraseQuery extends Query {
         builder.add(terms[i], i);
       }
     }
-    PhraseQuery rewritten = builder.build();
-    rewritten.setBoost(phraseQuery.getBoost());
-    return rewritten;
+    return builder.build();
   }
 
   @Override
-  public boolean equals(Object o) {
-    if (super.equals(o) == false) {
-      return false;
-    }
-    NGramPhraseQuery other = (NGramPhraseQuery) o;
-    return n == other.n && phraseQuery.equals(other.phraseQuery);
+  public boolean equals(Object other) {
+    return sameClassAs(other) &&
+           equalsTo(getClass().cast(other));
+  }
+
+  private boolean equalsTo(NGramPhraseQuery other) {
+    return n == other.n && 
+           phraseQuery.equals(other.phraseQuery);
   }
 
   @Override
   public int hashCode() {
-    int h = super.hashCode();
+    int h = classHash();
     h = 31 * h + phraseQuery.hashCode();
     h = 31 * h + n;
     return h;
+  }
+
+  /** Return the n in n-gram */
+  public int getN() {
+    return n;
   }
 
   /** Return the list of terms. */
@@ -104,16 +109,6 @@ public class NGramPhraseQuery extends Query {
   /** Return the list of relative positions that each term should appear at. */
   public int[] getPositions() {
     return phraseQuery.getPositions();
-  }
-
-  @Override
-  public float getBoost() {
-    return phraseQuery.getBoost();
-  }
-
-  @Override
-  public void setBoost(float b) {
-    phraseQuery.setBoost(b);
   }
 
   @Override

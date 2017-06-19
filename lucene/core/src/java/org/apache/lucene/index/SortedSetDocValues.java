@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,8 +14,13 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
+
+import java.io.IOException;
 
 import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.automaton.CompiledAutomaton;
 
 /**
  * A per-document set of presorted byte[] values.
@@ -102,5 +105,26 @@ public abstract class SortedSetDocValues {
    */
   public TermsEnum termsEnum() {
     return new SortedSetDocValuesTermsEnum(this);
+  }
+
+  /**
+   * Returns a {@link TermsEnum} over the values, filtered by a {@link CompiledAutomaton}
+   * The enum supports {@link TermsEnum#ord()}.
+   */
+  public TermsEnum intersect(CompiledAutomaton automaton) throws IOException {
+    TermsEnum in = termsEnum();
+    switch (automaton.type) {
+      case NONE:
+        return TermsEnum.EMPTY;
+      case ALL:
+        return in;
+      case SINGLE:
+        return new SingleTermsEnum(in, automaton.term);
+      case NORMAL:
+        return new AutomatonTermsEnum(in, automaton);
+      default:
+        // unreachable
+        throw new RuntimeException("unhandled case");
+    }
   }
 }

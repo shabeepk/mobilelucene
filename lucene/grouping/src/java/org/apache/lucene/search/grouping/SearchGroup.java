@@ -1,5 +1,3 @@
-package org.apache.lucene.search.grouping;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,30 +14,38 @@ package org.apache.lucene.search.grouping;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.grouping;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.NavigableSet;
+import java.util.TreeSet;
 
 import org.apache.lucene.search.FieldComparator;
-import org.apache.lucene.search.LeafFieldComparator;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
-
-import java.io.IOException;
-import java.util.*;
 
 /**
  * Represents a group that is found during the first pass search.
  *
  * @lucene.experimental
  */
-public class SearchGroup<GROUP_VALUE_TYPE> {
+public class SearchGroup<T> {
 
   /** The value that defines this group  */
-  public GROUP_VALUE_TYPE groupValue;
+  public T groupValue;
 
   /** The sort values used during sorting. These are the
    *  groupSort field values of the highest rank document
    *  (by the groupSort) within the group.  Can be
    * <code>null</code> if <code>fillFields=false</code> had
-   * been passed to {@link AbstractFirstPassGroupingCollector#getTopGroups} */
+   * been passed to {@link FirstPassGroupingCollector#getTopGroups} */
   public Object[] sortValues;
 
   @Override
@@ -154,10 +160,13 @@ public class SearchGroup<GROUP_VALUE_TYPE> {
 
   private static class GroupComparator<T> implements Comparator<MergedGroup<T>> {
 
+    @SuppressWarnings("rawtypes")
     public final FieldComparator[] comparators;
+    
     public final int[] reversed;
 
-    public GroupComparator(Sort groupSort) throws IOException {
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public GroupComparator(Sort groupSort) {
       final SortField[] sortFields = groupSort.getSort();
       comparators = new FieldComparator[sortFields.length];
       reversed = new int[sortFields.length];
@@ -198,7 +207,7 @@ public class SearchGroup<GROUP_VALUE_TYPE> {
     private final NavigableSet<MergedGroup<T>> queue;
     private final Map<T,MergedGroup<T>> groupsSeen;
 
-    public GroupMerger(Sort groupSort) throws IOException {
+    public GroupMerger(Sort groupSort) {
       groupComp = new GroupComparator<>(groupSort);
       queue = new TreeSet<>(groupComp);
       groupsSeen = new HashMap<>();
@@ -287,11 +296,11 @@ public class SearchGroup<GROUP_VALUE_TYPE> {
       }
 
       // Pull merged topN groups:
-      final List<SearchGroup<T>> newTopGroups = new ArrayList<>();
+      final List<SearchGroup<T>> newTopGroups = new ArrayList<>(topN);
 
       int count = 0;
 
-      while(queue.size() != 0) {
+      while(!queue.isEmpty()) {
         final MergedGroup<T> group = queue.pollFirst();
         group.processed = true;
         //System.out.println("  pop: shards=" + group.shards + " group=" + (group.groupValue == null ? "null" : (((BytesRef) group.groupValue).utf8ToString())) + " sortValues=" + Arrays.toString(group.topValues));
@@ -313,7 +322,7 @@ public class SearchGroup<GROUP_VALUE_TYPE> {
         }
       }
 
-      if (newTopGroups.size() == 0) {
+      if (newTopGroups.isEmpty()) {
         return null;
       } else {
         return newTopGroups;
@@ -326,13 +335,12 @@ public class SearchGroup<GROUP_VALUE_TYPE> {
    *  groupSort must match how the groups were sorted, and
    *  the provided SearchGroups must have been computed
    *  with fillFields=true passed to {@link
-   *  AbstractFirstPassGroupingCollector#getTopGroups}.
+   *  FirstPassGroupingCollector#getTopGroups}.
    *
    * <p>NOTE: this returns null if the topGroups is empty.
    */
-  public static <T> Collection<SearchGroup<T>> merge(List<Collection<SearchGroup<T>>> topGroups, int offset, int topN, Sort groupSort)
-    throws IOException {
-    if (topGroups.size() == 0) {
+  public static <T> Collection<SearchGroup<T>> merge(List<Collection<SearchGroup<T>>> topGroups, int offset, int topN, Sort groupSort) {
+    if (topGroups.isEmpty()) {
       return null;
     } else {
       return new GroupMerger<T>(groupSort).merge(topGroups, offset, topN);

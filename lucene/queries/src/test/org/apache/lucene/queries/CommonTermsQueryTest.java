@@ -1,5 +1,3 @@
-package org.apache.lucene.queries;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.queries;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queries;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -33,7 +32,6 @@ import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.RandomIndexWriter;
-import org.apache.lucene.index.SlowCompositeReaderWrapper;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.TermContext;
 import org.apache.lucene.index.Terms;
@@ -41,12 +39,14 @@ import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.QueryUtils;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.similarities.BM25Similarity;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.IOUtils;
@@ -178,12 +178,10 @@ public class CommonTermsQueryTest extends LuceneTestCase {
     Random random = random();
     CommonTermsQuery query = new CommonTermsQuery(randomOccur(random),
         randomOccur(random), random().nextFloat());
-    try {
+    // null values are not supported
+    expectThrows(IllegalArgumentException.class, () -> {
       query.add(null);
-      fail("null values are not supported");
-    } catch (IllegalArgumentException ex) {
-      
-    }
+    });
   }
   
   public void testMinShouldMatch() throws IOException {
@@ -264,7 +262,7 @@ public class CommonTermsQueryTest extends LuceneTestCase {
       assertEquals("0", r.document(search.scoreDocs[0].doc).get("id"));
       assertEquals("2", r.document(search.scoreDocs[1].doc).get("id"));
       assertEquals("3", r.document(search.scoreDocs[2].doc).get("id"));
-      assertTrue(search.scoreDocs[1].score > search.scoreDocs[2].score);
+      assertTrue(search.scoreDocs[1].score >= search.scoreDocs[2].score);
     }
     
     {
@@ -323,23 +321,19 @@ public class CommonTermsQueryTest extends LuceneTestCase {
     IOUtils.close(r, w, dir, analyzer);
   }
   
+  /** MUST_NOT is not supported */
   public void testIllegalOccur() {
     Random random = random();
     
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       new CommonTermsQuery(Occur.MUST_NOT, randomOccur(random), random()
           .nextFloat());
-      fail("MUST_NOT is not supproted");
-    } catch (IllegalArgumentException ex) {
+    });
       
-    }
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       new CommonTermsQuery(randomOccur(random), Occur.MUST_NOT, random()
           .nextFloat());
-      fail("MUST_NOT is not supproted");
-    } catch (IllegalArgumentException ex) {
-      
-    }
+    });
   }
 
   @Test
@@ -360,6 +354,9 @@ public class CommonTermsQueryTest extends LuceneTestCase {
 
     IndexReader r = w.getReader();
     IndexSearcher s = newSearcher(r);
+    // don't use a randomized similarity, e.g. stopwords for DFI can get scored as 0,
+    // so boosting them is kind of crazy
+    s.setSimilarity(new BM25Similarity());
     {
       CommonTermsQuery query = new CommonTermsQuery(Occur.SHOULD, Occur.SHOULD,
           random().nextBoolean() ? 2.0f : 0.5f);
@@ -401,8 +398,9 @@ public class CommonTermsQueryTest extends LuceneTestCase {
     analyzer.setMaxTokenLength(TestUtil.nextInt(random(), 1, IndexWriter.MAX_TERM_LENGTH));
     RandomIndexWriter w = new RandomIndexWriter(random(), dir, analyzer);
     createRandomIndex(atLeast(50), w, random().nextLong());
+    w.forceMerge(1);
     DirectoryReader reader = w.getReader();
-    LeafReader wrapper = SlowCompositeReaderWrapper.wrap(reader);
+    LeafReader wrapper = getOnlyLeafReader(reader);
     String field = "body";
     Terms terms = wrapper.terms(field);
     PriorityQueue<TermAndFreq> lowFreqQueue = new PriorityQueue<CommonTermsQueryTest.TermAndFreq>(
@@ -491,7 +489,7 @@ public class CommonTermsQueryTest extends LuceneTestCase {
       QueryUtils.check(random(), cq, newSearcher(reader2));
       reader2.close();
     } finally {
-      IOUtils.close(reader, wrapper, w, dir, analyzer);
+      IOUtils.close(reader, w, dir, analyzer);
     }
     
   }
@@ -546,7 +544,7 @@ public class CommonTermsQueryTest extends LuceneTestCase {
     protected Query newTermQuery(Term term, TermContext context) {
       Query query = super.newTermQuery(term, context);
       if (term.text().equals("universe")) {
-        query.setBoost(100f);
+        query = new BoostQuery(query, 100f);
       }
       return query;
     }

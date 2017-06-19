@@ -1,5 +1,3 @@
-package org.apache.lucene.search.suggest.fst;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,10 +14,15 @@ package org.apache.lucene.search.suggest.fst;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.suggest.fst;
+
+import java.util.Comparator;
 
 import org.apache.lucene.search.suggest.InMemorySorter;
+import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefIterator;
+import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.util.OfflineSorter;
 import org.junit.Test;
@@ -27,14 +30,15 @@ import org.junit.Test;
 public class BytesRefSortersTest extends LuceneTestCase {
   @Test
   public void testExternalRefSorter() throws Exception {
-    ExternalRefSorter s = new ExternalRefSorter(new OfflineSorter());
+    Directory tempDir = newDirectory();
+    ExternalRefSorter s = new ExternalRefSorter(new OfflineSorter(tempDir, "temp"));
     check(s);
-    s.close();
+    IOUtils.close(s, tempDir);
   }
 
   @Test
   public void testInMemorySorter() throws Exception {
-    check(new InMemorySorter(BytesRef.getUTF8SortedAsUnicodeComparator()));
+    check(new InMemorySorter(Comparator.naturalOrder()));
   }
 
   private void check(BytesRefSorter sorter) throws Exception {
@@ -49,18 +53,17 @@ public class BytesRefSortersTest extends LuceneTestCase {
     BytesRefIterator i2 = sorter.iterator();
     
     // Verify sorter contract.
-    try {
+    expectThrows(IllegalStateException.class, () -> {
       sorter.add(new BytesRef(new byte [1]));
-      fail("expected contract violation.");
-    } catch (IllegalStateException e) {
-      // Expected.
-    }
-    BytesRef spare1;
-    BytesRef spare2;
-    while ((spare1 = i1.next()) != null && (spare2 = i2.next()) != null) {
+    });
+
+    while (true) {
+      BytesRef spare1 = i1.next();
+      BytesRef spare2 = i2.next();
       assertEquals(spare1, spare2);
+      if (spare1 == null) {
+        break;
+      }
     }
-    assertNull(i1.next());
-    assertNull(i2.next());
   }  
 }

@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,14 +14,14 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
 
-import org.apache.lucene.index.IndexReader.ReaderClosedListener;
-import org.apache.lucene.util.Bits;
 
 import java.io.IOException;
 
-// Extra imports by portmobile.
-import org.lukhnos.portmobile.j2objc.annotations.Weak;
+import org.apache.lucene.index.IndexReader.ReaderClosedListener;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.util.Bits;
 
 /** {@code LeafReader} is an abstract class, providing an interface for accessing an
  index.  Search of an index is done entirely through this abstract interface,
@@ -49,7 +47,6 @@ import org.lukhnos.portmobile.j2objc.annotations.Weak;
 */
 public abstract class LeafReader extends IndexReader {
 
-  @Weak
   private final LeafReaderContext readerContext = new LeafReaderContext(this);
 
   /** Sole constructor. (For invocation by subclass
@@ -86,7 +83,7 @@ public abstract class LeafReader extends IndexReader {
      *  SegmentReader} has closed. The provided {@code
      *  ownerCoreCacheKey} will be the same key as the one
      *  returned by {@link LeafReader#getCoreCacheKey()}. */
-    public void onClose(Object ownerCoreCacheKey) throws IOException;
+    void onClose(Object ownerCoreCacheKey) throws IOException;
   }
 
   private static class CoreClosedListenerWrapper implements ReaderClosedListener {
@@ -304,6 +301,10 @@ public abstract class LeafReader extends IndexReader {
    */
   public abstract Bits getLiveDocs();
 
+  /** Returns the {@link PointValues} used for numeric or
+   *  spatial searches, or null if there are no point fields. */
+  public abstract PointValues getPointValues();
+
   /**
    * Checks consistency of this reader.
    * <p>
@@ -312,40 +313,7 @@ public abstract class LeafReader extends IndexReader {
    * @lucene.internal
    */
   public abstract void checkIntegrity() throws IOException;
-  
-  /** Returns {@link DocsEnum} for the specified term.
-   *  This will return null if either the field or
-   *  term does not exist.
-   *  @deprecated use {@link #postings(Term)} instead */
-  @Deprecated
-  public final DocsEnum termDocsEnum(Term term) throws IOException {
-    assert term.field() != null;
-    assert term.bytes() != null;
-    final Terms terms = terms(term.field());
-    if (terms != null) {
-      final TermsEnum termsEnum = terms.iterator();
-      if (termsEnum.seekExact(term.bytes())) {
-        return termsEnum.docs(getLiveDocs(), null);
-      }
-    }
-    return null;
-  }
 
-  /** Returns {@link DocsAndPositionsEnum} for the specified
-   *  term.  This will return null if the
-   *  field or term does not exist or positions weren't indexed.
-   *  @deprecated use {@link #postings(Term, int)} instead */
-  @Deprecated
-  public final DocsAndPositionsEnum termPositionsEnum(Term term) throws IOException {
-    assert term.field() != null;
-    assert term.bytes() != null;
-    final Terms terms = terms(term.field());
-    if (terms != null) {
-      final TermsEnum termsEnum = terms.iterator();
-      if (termsEnum.seekExact(term.bytes())) {
-        return termsEnum.docsAndPositions(getLiveDocs(), null);
-      }
-    }
-    return null;
-  }
+  /** Returns null if this leaf is unsorted, or the {@link Sort} that it was sorted by */
+  public abstract Sort getIndexSort();
 }

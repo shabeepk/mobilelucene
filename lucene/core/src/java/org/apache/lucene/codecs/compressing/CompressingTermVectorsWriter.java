@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.compressing;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.codecs.compressing;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.compressing;
+
 
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -35,17 +35,15 @@ import org.apache.lucene.index.Fields;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentInfo;
-import org.apache.lucene.store.BufferedChecksumIndexInput;
-import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.DataInput;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.GrowableByteArrayDataOutput;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.GrowableByteArrayDataOutput;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.packed.BlockPackedWriter;
@@ -272,8 +270,8 @@ public final class CompressingTermVectorsWriter extends TermVectorsWriter {
   @Override
   public void finishDocument() throws IOException {
     // append the payload bytes of the doc after its terms
-    termSuffixes.writeBytes(payloadBytes.bytes, payloadBytes.length);
-    payloadBytes.length = 0;
+    termSuffixes.writeBytes(payloadBytes.getBytes(), payloadBytes.getPosition());
+    payloadBytes.reset();
     ++numDocs;
     if (triggerFlush()) {
       flush();
@@ -319,7 +317,7 @@ public final class CompressingTermVectorsWriter extends TermVectorsWriter {
   }
 
   private boolean triggerFlush() {
-    return termSuffixes.length >= chunkSize
+    return termSuffixes.getPosition() >= chunkSize
         || pendingDocs.size() >= MAX_DOCUMENTS_PER_CHUNK;
   }
 
@@ -358,14 +356,14 @@ public final class CompressingTermVectorsWriter extends TermVectorsWriter {
       flushPayloadLengths();
 
       // compress terms and payloads and write them to the output
-      compressor.compress(termSuffixes.bytes, 0, termSuffixes.length, vectorsStream);
+      compressor.compress(termSuffixes.getBytes(), 0, termSuffixes.getPosition(), vectorsStream);
     }
 
     // reset
     pendingDocs.clear();
     curDoc = null;
     curField = null;
-    termSuffixes.length = 0;
+    termSuffixes.reset();
     numChunks++;
   }
 
@@ -733,6 +731,11 @@ public final class CompressingTermVectorsWriter extends TermVectorsWriter {
 
   @Override
   public int merge(MergeState mergeState) throws IOException {
+    if (mergeState.needsIndexSort) {
+      // TODO: can we gain back some optos even if index is sorted?  E.g. if sort results in large chunks of contiguous docs from one sub
+      // being copied over...?
+      return super.merge(mergeState);
+    }
     int docCount = 0;
     int numReaders = mergeState.maxDocs.length;
 

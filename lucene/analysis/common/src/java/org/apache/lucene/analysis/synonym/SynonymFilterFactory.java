@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.synonym;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,14 +14,15 @@ package org.apache.lucene.analysis.synonym;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.synonym;
+
 
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
-import org.lukhnos.portmobile.charset.StandardCharsets;
+import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -31,15 +30,15 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.LowerCaseFilter;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.Tokenizer;
-import org.apache.lucene.analysis.core.LowerCaseFilter;
+import org.apache.lucene.analysis.core.FlattenGraphFilterFactory;
 import org.apache.lucene.analysis.core.WhitespaceTokenizer;
 import org.apache.lucene.analysis.util.ResourceLoader;
 import org.apache.lucene.analysis.util.ResourceLoaderAware;
 import org.apache.lucene.analysis.util.TokenFilterFactory;
 import org.apache.lucene.analysis.util.TokenizerFactory;
-import org.apache.lucene.util.Version;
 
 /**
  * Factory for {@link SynonymFilter}.
@@ -74,7 +73,11 @@ import org.apache.lucene.util.Version;
  *   <li><code>{@link Analyzer} analyzer</code> - an analyzer used for each raw synonym</li>
  * </ul>
  * @see SolrSynonymParser SolrSynonymParser: default format
+ *
+ * @deprecated Use {@link SynonymGraphFilterFactory} instead, but be sure to also
+ * use {@link FlattenGraphFilterFactory} at index time (not at search time) as well.
  */
+@Deprecated
 public class SynonymFilterFactory extends TokenFilterFactory implements ResourceLoaderAware {
   private final boolean ignoreCase;
   private final String tokenizerFactory;
@@ -171,7 +174,9 @@ public class SynonymFilterFactory extends TokenFilterFactory implements Resource
     List<String> files = splitFileNames(synonyms);
     for (String file : files) {
       decoder.reset();
-      parser.parse(new InputStreamReader(loader.openResource(file), decoder));
+      try (final Reader isr = new InputStreamReader(loader.openResource(file), decoder)) {
+        parser.parse(isr);
+      }
     }
     return parser.build();
   }

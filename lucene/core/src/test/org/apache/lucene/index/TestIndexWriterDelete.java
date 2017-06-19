@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -498,10 +498,7 @@ public class TestIndexWriterDelete extends LuceneTestCase {
 
     // First build up a starting index:
     MockDirectoryWrapper startDir = newMockDirectory();
-    // TODO: find the resource leak that only occurs sometimes here.
-    startDir.setNoDeleteOpenFile(false);
-    // test uses IW unref'ed helper which is unaware of retries
-    startDir.setEnableVirusScanner(false);
+
     IndexWriter writer = new IndexWriter(startDir, newIndexWriterConfig(new MockAnalyzer(random(), MockTokenizer.WHITESPACE, false)));
     for (int i = 0; i < 157; i++) {
       Document d = new Document();
@@ -525,10 +522,7 @@ public class TestIndexWriterDelete extends LuceneTestCase {
         System.out.println("TEST: cycle");
       }
       MockDirectoryWrapper dir = new MockDirectoryWrapper(random(), TestUtil.ramCopyOf(startDir));
-      dir.setPreventDoubleWrite(false);
       dir.setAllowRandomFileNotFoundException(false);
-      // test uses IW unref'ed helper which is unaware of retries
-      dir.setEnableVirusScanner(false);
       IndexWriter modifier = new IndexWriter(dir,
                                              newIndexWriterConfig(new MockAnalyzer(random(), MockTokenizer.WHITESPACE, false))
                                              .setMaxBufferedDocs(1000)
@@ -843,22 +837,17 @@ public class TestIndexWriterDelete extends LuceneTestCase {
     // case, creation of the cfs file happens next so we
     // need the doc (to test that it's okay that we don't
     // lose deletes if failing while creating the cfs file)
-    boolean failed = false;
-    try {
-      if (VERBOSE) {
-        System.out.println("TEST: now commit for failure");
-      }
-      modifier.commit();
-    } catch (RuntimeException ioe) {
-      // expected
-      if (VERBOSE) {
-        System.out.println("TEST: hit exc:");
-        ioe.printStackTrace(System.out);
-      }
-      failed = true;
-    }
 
-    assertTrue(failed);
+    if (VERBOSE) {
+      System.out.println("TEST: now commit for failure");
+    }
+    RuntimeException expected = expectThrows(RuntimeException.class, () -> {
+      modifier.commit();
+    });
+    if (VERBOSE) {
+      System.out.println("TEST: hit exc:");
+      expected.printStackTrace(System.out);
+    }
 
     // The commit above failed, so we need to retry it (which will
     // succeed, because the failure is a one-shot)
@@ -913,8 +902,6 @@ public class TestIndexWriterDelete extends LuceneTestCase {
     String[] text = { "Amsterdam", "Venice" };
 
     MockDirectoryWrapper dir = newMockDirectory();
-    // test uses IW unref'ed helper which is unaware of retries
-    dir.setEnableVirusScanner(false);
     IndexWriter modifier = new IndexWriter(dir, newIndexWriterConfig(new MockAnalyzer(random(), MockTokenizer.WHITESPACE, false)));
     modifier.commit();
     dir.failOn(failure.reset());
@@ -1249,9 +1236,9 @@ public class TestIndexWriterDelete extends LuceneTestCase {
     iwc = new IndexWriterConfig(new MockAnalyzer(random()));
     iwc.setOpenMode(IndexWriterConfig.OpenMode.APPEND);
     w = new IndexWriter(d, iwc);
-    IndexReader r = DirectoryReader.open(w, false);
-    assertTrue(w.tryDeleteDocument(r, 1));
-    assertTrue(w.tryDeleteDocument(r.leaves().get(0).reader(), 0));
+    IndexReader r = DirectoryReader.open(w, false, false);
+    assertTrue(w.tryDeleteDocument(r, 1) != -1);
+    assertTrue(w.tryDeleteDocument(r.leaves().get(0).reader(), 0) != -1);
     r.close();
     w.close();
 
@@ -1311,8 +1298,8 @@ public class TestIndexWriterDelete extends LuceneTestCase {
     }
 
     // First one triggers, but does not reflect, the merge:
-    DirectoryReader.open(w, true).close();
-    IndexReader r =DirectoryReader.open(w, true);
+    DirectoryReader.open(w).close();
+    IndexReader r = DirectoryReader.open(w);
     assertEquals(1, r.leaves().size());
     r.close();
 
@@ -1371,7 +1358,7 @@ public class TestIndexWriterDelete extends LuceneTestCase {
       w.deleteDocuments(new Term("id", ""+i));
     }
 
-    DirectoryReader r = DirectoryReader.open(w, true);
+    DirectoryReader r = DirectoryReader.open(w);
     assertEquals(0, r.leaves().size());
     assertEquals(0, r.maxDoc());
     r.close();
@@ -1406,7 +1393,7 @@ public class TestIndexWriterDelete extends LuceneTestCase {
 
     w.forceMerge(1);
 
-    DirectoryReader r = DirectoryReader.open(w, true);
+    DirectoryReader r = DirectoryReader.open(w);
     assertEquals(1, r.leaves().size());
     r.close();
 

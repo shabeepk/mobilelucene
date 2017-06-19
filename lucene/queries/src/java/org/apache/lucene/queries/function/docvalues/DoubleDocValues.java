@@ -1,5 +1,3 @@
-package org.apache.lucene.queries.function.docvalues;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,8 +14,9 @@ package org.apache.lucene.queries.function.docvalues;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queries.function.docvalues;
 
-import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.queries.function.FunctionValues;
 import org.apache.lucene.queries.function.ValueSource;
 import org.apache.lucene.queries.function.ValueSourceScorer;
@@ -84,7 +83,7 @@ public abstract class DoubleDocValues extends FunctionValues {
   }
   
   @Override
-  public ValueSourceScorer getRangeScorer(IndexReader reader, String lowerVal, String upperVal, boolean includeLower, boolean includeUpper) {
+  public ValueSourceScorer getRangeScorer(LeafReaderContext readerContext, String lowerVal, String upperVal, boolean includeLower, boolean includeUpper) {
     double lower,upper;
 
     if (lowerVal==null) {
@@ -104,36 +103,40 @@ public abstract class DoubleDocValues extends FunctionValues {
 
 
     if (includeLower && includeUpper) {
-      return new ValueSourceScorer(reader, this) {
+      return new ValueSourceScorer(readerContext, this) {
         @Override
-        public boolean matchesValue(int doc) {
+        public boolean matches(int doc) {
+          if (!exists(doc)) return false;
           double docVal = doubleVal(doc);
           return docVal >= l && docVal <= u;
         }
       };
     }
     else if (includeLower && !includeUpper) {
-      return new ValueSourceScorer(reader, this) {
+      return new ValueSourceScorer(readerContext, this) {
         @Override
-        public boolean matchesValue(int doc) {
+        public boolean matches(int doc) {
+          if (!exists(doc)) return false;
           double docVal = doubleVal(doc);
           return docVal >= l && docVal < u;
         }
       };
     }
     else if (!includeLower && includeUpper) {
-      return new ValueSourceScorer(reader, this) {
+      return new ValueSourceScorer(readerContext, this) {
         @Override
-        public boolean matchesValue(int doc) {
+        public boolean matches(int doc) {
+          if (!exists(doc)) return false;
           double docVal = doubleVal(doc);
           return docVal > l && docVal <= u;
         }
       };
     }
     else {
-      return new ValueSourceScorer(reader, this) {
+      return new ValueSourceScorer(readerContext, this) {
         @Override
-        public boolean matchesValue(int doc) {
+        public boolean matches(int doc) {
+          if (!exists(doc)) return false;
           double docVal = doubleVal(doc);
           return docVal > l && docVal < u;
         }

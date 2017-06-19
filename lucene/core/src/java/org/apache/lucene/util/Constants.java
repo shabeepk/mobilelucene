@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
+
 
 import java.util.StringTokenizer;
 
@@ -68,10 +68,14 @@ public final class Constants {
       JVM_MINOR_VERSION = 0;
     }
     boolean is64Bit = false;
-    final String x = System.getProperty("sun.arch.data.model");
-    if (x != null) {
-      is64Bit = x.contains("64");
-    } else {
+    String datamodel = null;
+    try {
+      datamodel = System.getProperty("sun.arch.data.model");
+      if (datamodel != null) {
+        is64Bit = datamodel.contains("64");
+      }
+    } catch (SecurityException ex) {}
+    if (datamodel == null) {
       if (OS_ARCH != null && OS_ARCH.contains("64")) {
         is64Bit = true;
       } else {
@@ -80,7 +84,7 @@ public final class Constants {
     }
     JRE_IS_64BIT = is64Bit;
   }
-  
+
   public static final boolean JRE_IS_MINIMUM_JAVA8 = JVM_MAJOR_VERSION > 1 || (JVM_MAJOR_VERSION == 1 && JVM_MINOR_VERSION >= 8);
   public static final boolean JRE_IS_MINIMUM_JAVA9 = JVM_MAJOR_VERSION > 1 || (JVM_MAJOR_VERSION == 1 && JVM_MINOR_VERSION >= 9);
 

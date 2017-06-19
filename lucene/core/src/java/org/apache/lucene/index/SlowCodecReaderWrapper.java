@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,18 +14,19 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Iterator;
 
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.NormsProducer;
+import org.apache.lucene.codecs.PointsReader;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.TermVectorsReader;
-import org.apache.lucene.util.Accountable;
+import org.apache.lucene.search.Sort;
 import org.apache.lucene.util.Bits;
 
 /**
@@ -48,7 +47,7 @@ public final class SlowCodecReaderWrapper {
    */
   public static CodecReader wrap(final LeafReader reader) throws IOException {
     if (reader instanceof CodecReader) {
-      return (CodecReader)reader;
+      return (CodecReader) reader;
     } else {
       // simulate it slowly, over the leafReader api:
       reader.checkIntegrity();
@@ -94,6 +93,16 @@ public final class SlowCodecReaderWrapper {
         }
 
         @Override
+        public PointValues getPointValues() {
+          return reader.getPointValues();
+        }
+
+        @Override
+        public PointsReader getPointsReader() {
+          return pointValuesToReader(reader.getPointValues());
+        }
+
+        @Override
         public Bits getLiveDocs() {
           return reader.getLiveDocs();
         }
@@ -117,8 +126,79 @@ public final class SlowCodecReaderWrapper {
         public void removeCoreClosedListener(CoreClosedListener listener) {
           reader.removeCoreClosedListener(listener);
         }
+
+        @Override
+        public String toString() {
+          return "SlowCodecReaderWrapper(" + reader + ")";
+        }
+
+        @Override
+        public Sort getIndexSort() {
+          return reader.getIndexSort();
+        }
       };
     }
+  }
+
+  private static PointsReader pointValuesToReader(PointValues values) {
+    if (values == null) {
+      return null;
+    }
+    return new PointsReader() {
+      @Override
+      public void intersect(String fieldName, IntersectVisitor visitor) throws IOException {
+        values.intersect(fieldName, visitor);
+      }
+
+      @Override
+      public long estimatePointCount(String fieldName, IntersectVisitor visitor) {
+        return values.estimatePointCount(fieldName, visitor);
+      }
+
+      @Override
+      public void checkIntegrity() throws IOException {
+        // We already checkIntegrity the entire reader up front
+      }
+
+      @Override
+      public void close() {
+      }
+
+      @Override
+      public long ramBytesUsed() {
+        return 0;
+      }
+
+      @Override
+      public byte[] getMinPackedValue(String fieldName) throws IOException {
+        return values.getMinPackedValue(fieldName);
+      }
+
+      @Override
+      public byte[] getMaxPackedValue(String fieldName) throws IOException {
+        return values.getMaxPackedValue(fieldName);
+      }
+
+      @Override
+      public int getNumDimensions(String fieldName) throws IOException {
+        return values.getNumDimensions(fieldName);
+      }
+
+      @Override
+      public int getBytesPerDimension(String fieldName) throws IOException {
+        return values.getBytesPerDimension(fieldName);
+      }
+
+      @Override
+      public long size(String fieldName) {
+        return values.size(fieldName);
+      }
+
+      @Override
+      public int getDocCount(String fieldName) {
+        return values.getDocCount(fieldName);
+      }
+    };
   }
   
   private static NormsProducer readerToNormsProducer(final LeafReader reader) {
@@ -141,11 +221,6 @@ public final class SlowCodecReaderWrapper {
       @Override
       public long ramBytesUsed() {
         return 0;
-      }
-
-      @Override
-      public Collection<Accountable> getChildResources() {
-        return Collections.emptyList();
       }
     };
   }
@@ -196,11 +271,6 @@ public final class SlowCodecReaderWrapper {
       public long ramBytesUsed() {
         return 0;
       }
-      
-      @Override
-      public Collection<Accountable> getChildResources() {
-        return Collections.emptyList();
-      }
     };
   }
 
@@ -229,11 +299,6 @@ public final class SlowCodecReaderWrapper {
       public long ramBytesUsed() {
         return 0;
       }
-      
-      @Override
-      public Collection<Accountable> getChildResources() {
-        return Collections.emptyList();
-      }
     };
   }
 
@@ -261,11 +326,6 @@ public final class SlowCodecReaderWrapper {
       @Override
       public long ramBytesUsed() {
         return 0;
-      }
-      
-      @Override
-      public Collection<Accountable> getChildResources() {
-        return Collections.emptyList();
       }
     };
   }
@@ -300,11 +360,6 @@ public final class SlowCodecReaderWrapper {
       @Override
       public long ramBytesUsed() {
         return 0;
-      }
-      
-      @Override
-      public Collection<Accountable> getChildResources() {
-        return Collections.emptyList();
       }
     };
   }

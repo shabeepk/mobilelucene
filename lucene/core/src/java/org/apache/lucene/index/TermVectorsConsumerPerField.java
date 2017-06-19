@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
 
 import java.io.IOException;
 
@@ -23,7 +22,6 @@ import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
 import org.apache.lucene.analysis.tokenattributes.PayloadAttribute;
 import org.apache.lucene.codecs.TermVectorsWriter;
 import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.RamUsageEstimator;
 
 final class TermVectorsConsumerPerField extends TermsHashPerField {
 
@@ -283,7 +281,7 @@ final class TermVectorsConsumerPerField extends TermsHashPerField {
 
     @Override
     int bytesPerPosting() {
-      return super.bytesPerPosting() + 3 * RamUsageEstimator.NUM_BYTES_INT;
+      return super.bytesPerPosting() + 3 * Integer.BYTES;
     }
   }
 }

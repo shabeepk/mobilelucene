@@ -1,8 +1,3 @@
-package org.apache.lucene.util;
-
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -19,6 +14,10 @@ import java.security.PrivilegedAction;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
+
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 
 /**
  * A {@link SecurityManager} that prevents tests calling {@link System#exit(int)}.
@@ -29,7 +28,9 @@ import java.security.PrivilegedAction;
  */ 
 public final class TestSecurityManager extends SecurityManager {
   
-  static final String TEST_RUNNER_PACKAGE = "com.carrotsearch.ant.tasks.junit4.";
+  static final String JUNIT4_TEST_RUNNER_PACKAGE = "com.carrotsearch.ant.tasks.junit4.";
+  static final String ECLIPSE_TEST_RUNNER_PACKAGE = "org.eclipse.jdt.internal.junit.runner.";
+  static final String IDEA_TEST_RUNNER_PACKAGE = "com.intellij.rt.execution.junit.";
 
   /**
    * Creates a new TestSecurityManager. This ctor is called on JVM startup,
@@ -65,7 +66,9 @@ public final class TestSecurityManager extends SecurityManager {
           }
           
           if (exitMethodHit != null) {
-            if (className.startsWith(TEST_RUNNER_PACKAGE)) {
+            if (className.startsWith(JUNIT4_TEST_RUNNER_PACKAGE) || 
+                className.startsWith(ECLIPSE_TEST_RUNNER_PACKAGE) ||
+                className.startsWith(IDEA_TEST_RUNNER_PACKAGE)) {
               // this exit point is allowed, we return normally from closure:
               return /*void*/ null;
             } else {

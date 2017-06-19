@@ -1,12 +1,3 @@
-package org.apache.lucene.queryparser.xml.builders;
-
-import org.apache.lucene.index.Term;
-import org.apache.lucene.search.Query;
-import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.queryparser.xml.DOMUtils;
-import org.apache.lucene.queryparser.xml.ParserException;
-import org.apache.lucene.queryparser.xml.QueryBuilder;
-import org.w3c.dom.Element;
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -23,7 +14,16 @@ import org.w3c.dom.Element;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queryparser.xml.builders;
 
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.BoostQuery;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.queryparser.xml.DOMUtils;
+import org.apache.lucene.queryparser.xml.ParserException;
+import org.apache.lucene.queryparser.xml.QueryBuilder;
+import org.w3c.dom.Element;
 /**
  * Builder for {@link TermQuery}
  */
@@ -33,8 +33,11 @@ public class TermQueryBuilder implements QueryBuilder {
   public Query getQuery(Element e) throws ParserException {
     String field = DOMUtils.getAttributeWithInheritanceOrFail(e, "fieldName");
     String value = DOMUtils.getNonBlankTextOrFail(e);
-    TermQuery tq = new TermQuery(new Term(field, value));
-    tq.setBoost(DOMUtils.getAttribute(e, "boost", 1.0f));
+    Query tq = new TermQuery(new Term(field, value));
+    float boost = DOMUtils.getAttribute(e, "boost", 1.0f);
+    if (boost != 1f) {
+      tq = new BoostQuery(tq, boost);
+    }
     return tq;
   }
 

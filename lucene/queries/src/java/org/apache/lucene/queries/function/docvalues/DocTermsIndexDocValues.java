@@ -14,14 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.lucene.queries.function.docvalues;
 
 import java.io.IOException;
 
-import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.DocValues;
-import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SortedDocValues;
 import org.apache.lucene.queries.function.FunctionValues;
 import org.apache.lucene.queries.function.ValueSource;
@@ -94,7 +92,7 @@ public abstract class DocTermsIndexDocValues extends FunctionValues {
   public abstract Object objectVal(int doc);  // force subclasses to override
 
   @Override
-  public ValueSourceScorer getRangeScorer(IndexReader reader, String lowerVal, String upperVal, boolean includeLower, boolean includeUpper) {
+  public ValueSourceScorer getRangeScorer(LeafReaderContext readerContext, String lowerVal, String upperVal, boolean includeLower, boolean includeUpper) {
     // TODO: are lowerVal and upperVal in indexed form or not?
     lowerVal = lowerVal == null ? null : toTerm(lowerVal);
     upperVal = upperVal == null ? null : toTerm(upperVal);
@@ -122,9 +120,9 @@ public abstract class DocTermsIndexDocValues extends FunctionValues {
     final int ll = lower;
     final int uu = upper;
 
-    return new ValueSourceScorer(reader, this) {
+    return new ValueSourceScorer(readerContext, this) {
       @Override
-      public boolean matchesValue(int doc) {
+      public boolean matches(int doc) {
         int ord = termsIndex.getOrd(doc);
         return ord >= ll && ord <= uu;
       }

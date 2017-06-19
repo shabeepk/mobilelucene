@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spans;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search.spans;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spans;
+
 
 import java.io.IOException;
 import java.util.Map;
@@ -24,11 +24,9 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.TermContext;
-import org.apache.lucene.index.Terms;
 import org.apache.lucene.search.CollectionStatistics;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.TermStatistics;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.similarities.Similarity;
@@ -101,7 +99,7 @@ public abstract class SpanWeight extends Weight {
       i++;
     }
     CollectionStatistics collectionStats = searcher.collectionStatistics(query.getField());
-    return this.similarity.computeWeight(query.getBoost(), collectionStats, termStats);
+    return similarity.computeWeight(collectionStats, termStats);
   }
 
   /**
@@ -113,7 +111,6 @@ public abstract class SpanWeight extends Weight {
   /**
    * Expert: Return a Spans object iterating over matches from this Weight
    * @param ctx a LeafReaderContext for this Spans
-   * @param requiredPostings the postings information required
    * @return a Spans
    * @throws IOException on error
    */
@@ -125,36 +122,37 @@ public abstract class SpanWeight extends Weight {
   }
 
   @Override
-  public void normalize(float queryNorm, float topLevelBoost) {
+  public void normalize(float queryNorm, float boost) {
     if (simWeight != null) {
-      simWeight.normalize(queryNorm, topLevelBoost);
+      simWeight.normalize(queryNorm, boost);
     }
   }
 
   @Override
-  public Scorer scorer(LeafReaderContext context) throws IOException {
-    if (field == null) {
+  public SpanScorer scorer(LeafReaderContext context) throws IOException {
+    final Spans spans = getSpans(context, Postings.POSITIONS);
+    if (spans == null) {
       return null;
     }
-    Terms terms = context.reader().terms(field);
-    if (terms != null && terms.hasPositions() == false) {
-      throw new IllegalStateException("field \"" + field + "\" was indexed without position data; cannot run SpanQuery (query=" + parentQuery + ")");
-    }
-
-    Spans spans = getSpans(context, Postings.POSITIONS);
-    Similarity.SimScorer simScorer = getSimScorer(context);
-    return (spans == null) ? null : new SpanScorer(spans, this, simScorer);
+    final Similarity.SimScorer docScorer = getSimScorer(context);
+    return new SpanScorer(this, spans, docScorer);
   }
 
+  /**
+   * Return a SimScorer for this context
+   * @param context the LeafReaderContext
+   * @return a SimWeight
+   * @throws IOException on error
+   */
   public Similarity.SimScorer getSimScorer(LeafReaderContext context) throws IOException {
     return simWeight == null ? null : similarity.simScorer(simWeight, context);
   }
 
   @Override
   public Explanation explain(LeafReaderContext context, int doc) throws IOException {
-    SpanScorer scorer = (SpanScorer) scorer(context);
+    SpanScorer scorer = scorer(context);
     if (scorer != null) {
-      int newDoc = scorer.advance(doc);
+      int newDoc = scorer.iterator().advance(doc);
       if (newDoc == doc) {
         float freq = scorer.sloppyFreq();
         SimScorer docScorer = similarity.simScorer(simWeight, context);

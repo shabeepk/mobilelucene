@@ -1,5 +1,3 @@
-package org.apache.lucene.facet;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.facet;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.facet;
 
 import java.io.IOException;
 import java.util.Random;
@@ -181,6 +180,17 @@ public class TestDrillDownQuery extends FacetTestCase {
     q4.add("b");
     docs = searcher.search(q4, 100);
     assertEquals(10, docs.totalHits);
+  }
+  
+  public void testZeroLimit() throws IOException {
+    IndexSearcher searcher = newSearcher(reader);
+    DrillDownQuery q = new DrillDownQuery(config);
+    q.add("b", "1");
+    int limit = 0;
+    FacetsCollector facetCollector = new FacetsCollector();
+    FacetsCollector.search(searcher, q, limit, facetCollector);
+    Facets facets = getTaxonomyFacetCounts(taxo, config, facetCollector, config.getDimConfig("b").indexFieldName);
+    assertNotNull(facets.getTopChildren(10, "b"));
   }
   
   public void testScoring() throws IOException {

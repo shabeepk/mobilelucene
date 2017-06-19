@@ -1,4 +1,3 @@
-package org.apache.lucene.search.highlight;
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -15,7 +14,7 @@ package org.apache.lucene.search.highlight;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+package org.apache.lucene.search.highlight;
 /**
  * Formats text with different color intensity depending on the score of the
  * term.
@@ -41,7 +40,7 @@ public class GradientFormatter implements Formatter
      * Sets the color range for the IDF scores
      * 
      * @param maxScore
-     *            The score (and above) displayed as maxColor (See QueryScorer.getMaxWeight 
+     *            The score (and above) displayed as maxColor (See {@link QueryScorer#getMaxTermWeight()} 
      *         which can be used to calibrate scoring scale)
      * @param minForegroundColor
      *            The hex color used for representing IDF scores of zero eg

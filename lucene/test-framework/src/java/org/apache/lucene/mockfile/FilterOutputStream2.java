@@ -1,5 +1,3 @@
-package org.apache.lucene.mockfile;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.mockfile;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.mockfile;
 
 import java.io.FilterOutputStream;
 import java.io.IOException;
@@ -35,7 +34,7 @@ import java.util.Objects;
  * that just overrides {@code close} will not force bytes to be 
  * written one-at-a-time.
  */
-public class FilterOutputStream2 extends OutputStream {
+public abstract class FilterOutputStream2 extends OutputStream {
   
   /** 
    * The underlying {@code OutputStream} instance. 

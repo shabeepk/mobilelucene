@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
@@ -76,14 +76,6 @@ public class TestNGramPhraseQuery extends LuceneTestCase {
     PhraseQuery rewritten3 = (PhraseQuery) q;
     assertArrayEquals(new Term[]{new Term("f", "ABC"), new Term("f", "DEF"), new Term("f", "FGH")}, rewritten3.getTerms());
     assertArrayEquals(new int[]{0, 3, 5}, rewritten3.getPositions());
-    
-    // LUCENE-4970: boosting test
-    NGramPhraseQuery pq4 = new NGramPhraseQuery(2, new PhraseQuery("f", "AB", "BC", "CD"));
-    pq4.setBoost(100.0F);
-    
-    q = pq4.rewrite(reader);
-    assertNotSame(pq4, q);
-    assertEquals(pq4.getBoost(), q.getBoost(), 0.1f);
   }
 
 }

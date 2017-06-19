@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.simpletext;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,9 +14,10 @@ package org.apache.lucene.codecs.simpletext;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.simpletext;
+
 
 import java.io.IOException;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Map;
@@ -26,8 +25,6 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 
 import org.apache.lucene.codecs.TermVectorsReader;
-import org.apache.lucene.index.DocsAndPositionsEnum;
-import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.Fields;
 import org.apache.lucene.index.IndexFileNames;
@@ -40,9 +37,7 @@ import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
-import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.ArrayUtil;
-import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefBuilder;
 import org.apache.lucene.util.CharsRef;
@@ -244,7 +239,7 @@ public class SimpleTextTermVectorsReader extends TermVectorsReader {
     return scratchUTF16.toString();
   }
 
-  private class SimpleTVFields extends Fields {
+  private static class SimpleTVFields extends Fields {
     private final SortedMap<String,SimpleTVTerms> fields;
 
     SimpleTVFields(SortedMap<String,SimpleTVTerms> fields) {
@@ -400,8 +395,6 @@ public class SimpleTextTermVectorsReader extends TermVectorsReader {
           SimpleTVPostingsEnum e = new SimpleTVPostingsEnum();
           e.reset(postings.positions, postings.startOffsets, postings.endOffsets, postings.payloads);
           return e;
-        } else if (PostingsEnum.featureRequested(flags, DocsAndPositionsEnum.OLD_NULL_SEMANTICS)) {
-          return null;
         }
       }
 
@@ -572,11 +565,6 @@ public class SimpleTextTermVectorsReader extends TermVectorsReader {
     return BASE_RAM_BYTES_USED + RamUsageEstimator.sizeOf(offsets);
   }
 
-  @Override
-  public Collection<Accountable> getChildResources() {
-    return Collections.emptyList();
-  }
-  
   @Override
   public String toString() {
     return getClass().getSimpleName();

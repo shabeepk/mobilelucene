@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,10 +14,10 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
-
-import org.apache.lucene.search.spans.Spans;
 
 /**
  * This abstract class defines methods to iterate over a set of non-decreasing
@@ -63,7 +61,7 @@ public abstract class DocIdSetIterator {
 
   /** A {@link DocIdSetIterator} that matches all documents up to
    *  {@code maxDoc - 1}. */
-  public static final DocIdSetIterator all(final int maxDoc) {
+  public static final DocIdSetIterator all(int maxDoc) {
     return new DocIdSetIterator() {
       int doc = -1;
 

@@ -1,5 +1,3 @@
-package org.apache.lucene.facet;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.facet;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.facet;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -30,7 +29,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.lucene.document.BinaryDocValuesField;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
-import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.SortedSetDocValuesField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetField;
@@ -107,12 +105,12 @@ public class FacetsConfig {
    *
    *  @return The default configuration to be used for dimensions that 
    *  are not yet set in the {@link FacetsConfig} */
-  protected DimConfig getDefaultDimConfig(){
+  protected DimConfig getDefaultDimConfig() {
     return DEFAULT_DIM_CONFIG;
   }
   
   /** Get the current configuration for a dimension. */
-  public synchronized DimConfig getDimConfig(String dimName) {
+  public DimConfig getDimConfig(String dimName) {
     DimConfig ft = fieldTypes.get(dimName);
     if (ft == null) {
       ft = getDefaultDimConfig();
@@ -210,7 +208,7 @@ public class FacetsConfig {
 
     Set<String> seenDims = new HashSet<>();
 
-    for (IndexableField field : doc.getFields()) {
+    for (IndexableField field : doc) {
       if (field.fieldType() == FacetField.TYPE) {
         FacetField facetField = (FacetField) field;
         FacetsConfig.DimConfig dimConfig = getDimConfig(facetField.dim);

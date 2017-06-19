@@ -1,5 +1,3 @@
-package org.apache.lucene.search.join;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.join;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.join;
 
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.NumericDocValues;
@@ -46,7 +45,7 @@ public class BlockJoinSelector {
 
   /** Return a {@link Bits} instance that returns true if, and only if, any of
    *  the children of the given parent document has a value. */
-  public static Bits wrap(final Bits docsWithValue, final BitSet parents, final BitSet children) {
+  public static Bits wrap(final Bits docsWithValue, BitSet parents, BitSet children) {
     return new Bits() {
 
       @Override
@@ -96,7 +95,7 @@ public class BlockJoinSelector {
   /** Wraps the provided {@link SortedDocValues} in order to only select
    *  one value per parent among its {@code children} using the configured
    *  {@code selection} type. */
-  public static SortedDocValues wrap(final SortedDocValues values, final Type selection, final BitSet parents, final BitSet children) {
+  public static SortedDocValues wrap(final SortedDocValues values, Type selection, BitSet parents, BitSet children) {
     return new SortedDocValues() {
 
       @Override
@@ -165,7 +164,7 @@ public class BlockJoinSelector {
   /** Wraps the provided {@link NumericDocValues} in order to only select
    *  one value per parent among its {@code children} using the configured
    *  {@code selection} type. */
-  public static NumericDocValues wrap(final NumericDocValues values, final Bits docsWithValue, final Type selection, final BitSet parents, final BitSet children) {
+  public static NumericDocValues wrap(final NumericDocValues values, Bits docsWithValue, Type selection, BitSet parents, BitSet children) {
     return new NumericDocValues() {
 
       @Override

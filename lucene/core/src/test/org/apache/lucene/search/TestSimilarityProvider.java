@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,17 +14,18 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import org.apache.lucene.analysis.MockAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
-import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.FieldInvertState;
 import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.MultiDocValues;
 import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.index.RandomIndexWriter;
-import org.apache.lucene.index.SlowCompositeReaderWrapper;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.similarities.PerFieldSimilarityWrapper;
 import org.apache.lucene.search.similarities.Similarity;
@@ -75,10 +74,9 @@ public class TestSimilarityProvider extends LuceneTestCase {
   public void testBasics() throws Exception {
     // sanity check of norms writer
     // TODO: generalize
-    LeafReader slow = SlowCompositeReaderWrapper.wrap(reader);
-    NumericDocValues fooNorms = slow.getNormValues("foo");
-    NumericDocValues barNorms = slow.getNormValues("bar");
-    for (int i = 0; i < slow.maxDoc(); i++) {
+    NumericDocValues fooNorms = MultiDocValues.getNormValues(reader, "foo");
+    NumericDocValues barNorms = MultiDocValues.getNormValues(reader, "bar");
+    for (int i = 0; i < reader.maxDoc(); i++) {
       assertFalse(fooNorms.get(i) == barNorms.get(i));
     }
     
@@ -90,10 +88,14 @@ public class TestSimilarityProvider extends LuceneTestCase {
     assertTrue(foodocs.scoreDocs[0].score < bardocs.scoreDocs[0].score);
   }
   
-  private class ExampleSimilarityProvider extends PerFieldSimilarityWrapper {
-    private Similarity sim1 = new Sim1();
-    private Similarity sim2 = new Sim2();
+  private static class ExampleSimilarityProvider extends PerFieldSimilarityWrapper {
+    private final Similarity sim1 = new Sim1();
+    private final Similarity sim2 = new Sim2();
     
+    public ExampleSimilarityProvider() {
+      super(new Sim1());
+    }
+
     @Override
     public Similarity get(String field) {
       if (field.equals("foo")) {
@@ -104,7 +106,7 @@ public class TestSimilarityProvider extends LuceneTestCase {
     }
   }
   
-  private class Sim1 extends TFIDFSimilarity {
+  private static class Sim1 extends TFIDFSimilarity {
     
     @Override
     public long encodeNormValue(float f) {
@@ -142,7 +144,7 @@ public class TestSimilarityProvider extends LuceneTestCase {
     }
 
     @Override
-    public float idf(long docFreq, long numDocs) {
+    public float idf(long docFreq, long docCount) {
       return 1f;
     }
 
@@ -152,7 +154,7 @@ public class TestSimilarityProvider extends LuceneTestCase {
     }
   }
   
-  private class Sim2 extends TFIDFSimilarity {
+  private static class Sim2 extends TFIDFSimilarity {
     
     @Override
     public long encodeNormValue(float f) {
@@ -190,7 +192,7 @@ public class TestSimilarityProvider extends LuceneTestCase {
     }
 
     @Override
-    public float idf(long docFreq, long numDocs) {
+    public float idf(long docFreq, long docCount) {
       return 10f;
     }
 

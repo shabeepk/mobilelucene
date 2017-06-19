@@ -1,5 +1,3 @@
-package org.apache.lucene.search.suggest;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.suggest;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.suggest;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -240,7 +239,7 @@ public class DocumentDictionary implements Dictionary {
      * or if it's indexed as {@link NumericDocValues} (using <code>docId</code>) for the document.
      * If no value is found, then the weight is 0.
      */
-    protected long getWeight(Document doc, int docId) {
+    protected long getWeight(Document doc, int docId) throws IOException {
       IndexableField weight = doc.getField(weightField);
       if (weight != null) { // found weight as stored
         return (weight.numericValue() != null) ? weight.numericValue().longValue() : 0;

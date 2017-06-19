@@ -1,10 +1,10 @@
-package org.apache.lucene.index;
-/**
- * Copyright 2006 The Apache Software Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -14,6 +14,7 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
 
 import java.io.IOException;
 import java.util.Random;
@@ -27,12 +28,9 @@ import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexWriterConfig.OpenMode;
 import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.MockDirectoryWrapper;
 import org.apache.lucene.util.LuceneTestCase;
 
-
-public class TestIndexWriterMerging extends LuceneTestCase
-{
+public class TestIndexWriterMerging extends LuceneTestCase {
 
   /**
    * Tests that index merging (specifically addIndexes(Directory...)) doesn't
@@ -310,7 +308,7 @@ public class TestIndexWriterMerging extends LuceneTestCase
   
   // Just intercepts all merges & verifies that we are never
   // merging a segment with >= 20 (maxMergeDocs) docs
-  private class MyMergeScheduler extends MergeScheduler {
+  private static class MyMergeScheduler extends MergeScheduler {
     @Override
     synchronized public void merge(IndexWriter writer, MergeTrigger trigger, boolean newMergesFound) throws IOException {
 
@@ -360,10 +358,6 @@ public class TestIndexWriterMerging extends LuceneTestCase
   @Slow
   public void testNoWaitClose() throws Throwable {
     Directory directory = newDirectory();
-
-    if (directory instanceof MockDirectoryWrapper) {
-      ((MockDirectoryWrapper) directory).setPreventDoubleWrite(false);
-    }
 
     final Document doc = new Document();
     FieldType customType = new FieldType(TextField.TYPE_NOT_STORED);

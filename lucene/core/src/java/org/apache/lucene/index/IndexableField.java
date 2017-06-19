@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,14 +14,15 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
 
-import java.io.IOException;
+
 import java.io.Reader;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.search.similarities.DefaultSimilarity; // javadocs
-import org.apache.lucene.search.similarities.Similarity; // javadocs
+import org.apache.lucene.search.similarities.ClassicSimilarity;
+import org.apache.lucene.search.similarities.Similarity;
 import org.apache.lucene.util.BytesRef;
 
 // TODO: how to handle versioning here...?
@@ -41,7 +40,23 @@ public interface IndexableField {
   /** {@link IndexableFieldType} describing the properties
    * of this field. */
   public IndexableFieldType fieldType();
-  
+
+  /**
+   * Creates the TokenStream used for indexing this field.  If appropriate,
+   * implementations should use the given Analyzer to create the TokenStreams.
+   *
+   * @param analyzer Analyzer that should be used to create the TokenStreams from
+   * @param reuse TokenStream for a previous instance of this field <b>name</b>. This allows
+   *              custom field types (like StringField and NumericField) that do not use
+   *              the analyzer to still have good performance. Note: the passed-in type
+   *              may be inappropriate, for example if you mix up different types of Fields
+   *              for the same field name. So it's the responsibility of the implementation to
+   *              check.
+   * @return TokenStream value for indexing the document.  Should always return
+   *         a non-null value if the field is to be indexed
+   */
+  public TokenStream tokenStream(Analyzer analyzer, TokenStream reuse);
+
   /** 
    * Returns the field's index-time boost.
    * <p>
@@ -51,7 +66,7 @@ public interface IndexableField {
    * <p>The boost is used to compute the norm factor for the field.  By
    * default, in the {@link Similarity#computeNorm(FieldInvertState)} method, 
    * the boost value is multiplied by the length normalization factor and then
-   * rounded by {@link DefaultSimilarity#encodeNormValue(float)} before it is stored in the
+   * rounded by {@link ClassicSimilarity#encodeNormValue(float)} before it is stored in the
    * index.  One should attempt to ensure that this product does not overflow
    * the range of that encoding.
    * <p>
@@ -60,8 +75,12 @@ public interface IndexableField {
    * omits normalization values ({@link IndexableFieldType#omitNorms()} returns true).
    *
    * @see Similarity#computeNorm(FieldInvertState)
-   * @see DefaultSimilarity#encodeNormValue(float)
+   * @see ClassicSimilarity#encodeNormValue(float)
+   * @deprecated Index-time boosts are deprecated, please index index-time scoring
+   *             factors into a doc value field and combine them with the score at
+   *             query time using eg. FunctionScoreQuery.
    */
+  @Deprecated
   public float boost();
 
   /** Non-null if this field has a binary value */
@@ -75,21 +94,4 @@ public interface IndexableField {
 
   /** Non-null if this field has a numeric value */
   public Number numericValue();
-
-  /**
-   * Creates the TokenStream used for indexing this field.  If appropriate,
-   * implementations should use the given Analyzer to create the TokenStreams.
-   *
-   * @param analyzer Analyzer that should be used to create the TokenStreams from
-   * @param reuse TokenStream for a previous instance of this field <b>name</b>. This allows
-   *              custom field types (like StringField and NumericField) that do not use
-   *              the analyzer to still have good performance. Note: the passed-in type
-   *              may be inappropriate, for example if you mix up different types of Fields
-   *              for the same field name. So its the responsibility of the implementation to
-   *              check.
-   * @return TokenStream value for indexing the document.  Should always return
-   *         a non-null value if the field is to be indexed
-   * @throws IOException Can be thrown while creating the TokenStream
-   */
-  public TokenStream tokenStream(Analyzer analyzer, TokenStream reuse) throws IOException;
 }

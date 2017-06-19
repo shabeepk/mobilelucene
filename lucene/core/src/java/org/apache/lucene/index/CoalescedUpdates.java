@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -32,8 +32,8 @@ import org.apache.lucene.util.BytesRef;
 class CoalescedUpdates {
   final Map<Query,Integer> queries = new HashMap<>();
   final List<PrefixCodedTerms> terms = new ArrayList<>();
-  final List<NumericDocValuesUpdate> numericDVUpdates = new ArrayList<>();
-  final List<BinaryDocValuesUpdate> binaryDVUpdates = new ArrayList<>();
+  final List<List<DocValuesUpdate>> numericDVUpdates = new ArrayList<>();
+  final List<List<DocValuesUpdate>> binaryDVUpdates = new ArrayList<>();
   long totalTermCount;
   
   @Override
@@ -53,17 +53,21 @@ class CoalescedUpdates {
       final Query query = in.queries[queryIdx];
       queries.put(query, BufferedUpdates.MAX_INT);
     }
-    
+
+    List<DocValuesUpdate> numericPacket = new ArrayList<>();
+    numericDVUpdates.add(numericPacket);
     for (NumericDocValuesUpdate nu : in.numericDVUpdates) {
       NumericDocValuesUpdate clone = new NumericDocValuesUpdate(nu.term, nu.field, (Long) nu.value);
       clone.docIDUpto = Integer.MAX_VALUE;
-      numericDVUpdates.add(clone);
+      numericPacket.add(clone);
     }
     
+    List<DocValuesUpdate> binaryPacket = new ArrayList<>();
+    binaryDVUpdates.add(binaryPacket);
     for (BinaryDocValuesUpdate bu : in.binaryDVUpdates) {
       BinaryDocValuesUpdate clone = new BinaryDocValuesUpdate(bu.term, bu.field, (BytesRef) bu.value);
       clone.docIDUpto = Integer.MAX_VALUE;
-      binaryDVUpdates.add(clone);
+      binaryPacket.add(clone);
     }
   }
 

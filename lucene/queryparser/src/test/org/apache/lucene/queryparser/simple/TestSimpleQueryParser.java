@@ -1,5 +1,3 @@
-package org.apache.lucene.queryparser.simple;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.queryparser.simple;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queryparser.simple;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -27,6 +26,7 @@ import org.apache.lucene.analysis.MockTokenizer;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.FuzzyQuery;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.MatchNoDocsQuery;
@@ -35,7 +35,6 @@ import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.util.LuceneTestCase;
-import org.apache.lucene.util.TestUtil;
 import org.apache.lucene.util.TestUtil;
 import org.apache.lucene.util.automaton.LevenshteinAutomata;
 
@@ -89,7 +88,7 @@ public class TestSimpleQueryParser extends LuceneTestCase {
     Query expected = new FuzzyQuery(new Term("field", "foobar"), 2);
 
     assertEquals(expected, parse("foobar~2"));
-    assertEquals(regular, parse("foobar~"));
+    assertEquals(expected, parse("foobar~"));
     assertEquals(regular, parse("foobar~a"));
     assertEquals(regular, parse("foobar~1a"));
 
@@ -480,10 +479,10 @@ public class TestSimpleQueryParser extends LuceneTestCase {
     BooleanQuery.Builder expected = new BooleanQuery.Builder();
     expected.setDisableCoord(true);
     Query field0 = new TermQuery(new Term("field0", "foo"));
-    field0.setBoost(5f);
+    field0 = new BoostQuery(field0, 5f);
     expected.add(field0, Occur.SHOULD);
     Query field1 = new TermQuery(new Term("field1", "foo"));
-    field1.setBoost(10f);
+    field1 = new BoostQuery(field1, 10f);
     expected.add(field1, Occur.SHOULD);
 
     Analyzer analyzer = new MockAnalyzer(random());
@@ -501,20 +500,20 @@ public class TestSimpleQueryParser extends LuceneTestCase {
     BooleanQuery.Builder foo = new BooleanQuery.Builder();
     foo.setDisableCoord(true);
     Query field0 = new TermQuery(new Term("field0", "foo"));
-    field0.setBoost(5f);
+    field0 = new BoostQuery(field0, 5f);
     foo.add(field0, Occur.SHOULD);
     Query field1 = new TermQuery(new Term("field1", "foo"));
-    field1.setBoost(10f);
+    field1 = new BoostQuery(field1, 10f);
     foo.add(field1, Occur.SHOULD);
     expected.add(foo.build(), Occur.SHOULD);
 
     BooleanQuery.Builder bar = new BooleanQuery.Builder();
     bar.setDisableCoord(true);
     field0 = new TermQuery(new Term("field0", "bar"));
-    field0.setBoost(5f);
+    field0 = new BoostQuery(field0, 5f);
     bar.add(field0, Occur.SHOULD);
     field1 = new TermQuery(new Term("field1", "bar"));
-    field1.setBoost(10f);
+    field1 = new BoostQuery(field1, 10f);
     bar.add(field1, Occur.SHOULD);
     expected.add(bar.build(), Occur.SHOULD);
 
@@ -626,5 +625,12 @@ public class TestSimpleQueryParser extends LuceneTestCase {
       parse(sb.toString()); // no exception
       parseKeyword(sb.toString(), TestUtil.nextInt(random(), 0, 1024)); // no exception
     }
+  }
+
+  public void testStarBecomesMatchAll() throws Exception {
+    Query q = parse("*");
+    assertEquals(q, new MatchAllDocsQuery());
+    q = parse(" *   ");
+    assertEquals(q, new MatchAllDocsQuery());
   }
 }

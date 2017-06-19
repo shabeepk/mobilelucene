@@ -1,9 +1,3 @@
-package org.apache.lucene.document;
-
-import org.apache.lucene.index.IndexReader; // javadocs
-import org.apache.lucene.search.IndexSearcher; // javadocs
-import org.apache.lucene.util.BytesRef;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -20,11 +14,16 @@ import org.apache.lucene.util.BytesRef;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.document;
+
+import org.apache.lucene.index.IndexReader; // javadocs
+import org.apache.lucene.search.IndexSearcher; // javadocs
+import org.apache.lucene.util.BytesRef;
 
 /** A field whose value is stored so that {@link
- *  IndexSearcher#doc} and {@link IndexReader#document} will
+ *  IndexSearcher#doc} and {@link IndexReader#document IndexReader.document()} will
  *  return the field and its value. */
-public final class StoredField extends Field {
+public class StoredField extends Field {
 
   /**
    * Type for a stored-only field.
@@ -36,6 +35,31 @@ public final class StoredField extends Field {
     TYPE.freeze();
   }
 
+  /**
+   * Expert: allows you to customize the {@link
+   * FieldType}.
+   * @param name field name
+   * @param type custom {@link FieldType} for this field
+   * @throws IllegalArgumentException if the field name is null.
+   */
+  protected StoredField(String name, FieldType type) {
+    super(name, type);
+  }
+  
+  /**
+   * Expert: allows you to customize the {@link
+   * FieldType}.
+   * <p>NOTE: the provided byte[] is not copied so be sure
+   * not to change it until you're done with this field.
+   * @param name field name
+   * @param bytes byte array pointing to binary content (not copied)
+   * @param type custom {@link FieldType} for this field
+   * @throws IllegalArgumentException if the field name is null.
+   */
+  public StoredField(String name, BytesRef bytes, FieldType type) {
+    super(name, bytes, type);
+  }
+  
   /**
    * Create a stored-only field with the given binary value.
    * <p>NOTE: the provided byte[] is not copied so be sure
@@ -82,6 +106,18 @@ public final class StoredField extends Field {
    */
   public StoredField(String name, String value) {
     super(name, value, TYPE);
+  }
+  
+  /**
+   * Expert: allows you to customize the {@link
+   * FieldType}.
+   * @param name field name
+   * @param value string value
+   * @param type custom {@link FieldType} for this field
+   * @throws IllegalArgumentException if the field name or value is null.
+   */
+  public StoredField(String name, String value, FieldType type) {
+    super(name, value, type);
   }
 
   // TODO: not great but maybe not a big problem?

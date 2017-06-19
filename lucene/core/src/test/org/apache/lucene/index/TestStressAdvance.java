@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -74,7 +74,7 @@ public class TestStressAdvance extends LuceneTestCase {
           bDocIDs.add(docID);
         }
       }
-      final TermsEnum te = getOnlySegmentReader(r).fields().terms("field").iterator();
+      final TermsEnum te = getOnlyLeafReader(r).fields().terms("field").iterator();
       
       PostingsEnum de = null;
       for(int iter2=0;iter2<10;iter2++) {

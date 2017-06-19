@@ -1,26 +1,3 @@
-package org.apache.lucene.classification;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
-import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.index.LeafReader;
-import org.apache.lucene.index.MultiFields;
-import org.apache.lucene.index.Term;
-import org.apache.lucene.index.Terms;
-import org.apache.lucene.index.TermsEnum;
-import org.apache.lucene.search.BooleanClause;
-import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.Query;
-import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.search.TotalHitCountCollector;
-import org.apache.lucene.util.BytesRef;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -37,7 +14,27 @@ import org.apache.lucene.util.BytesRef;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.classification;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.MultiFields;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.index.Terms;
+import org.apache.lucene.index.TermsEnum;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.TotalHitCountCollector;
+import org.apache.lucene.util.BytesRef;
 
 /**
  * A simplistic Lucene based NaiveBayes classifier, with caching feature, see
@@ -49,87 +46,49 @@ import org.apache.lucene.util.BytesRef;
  */
 public class CachingNaiveBayesClassifier extends SimpleNaiveBayesClassifier {
   //for caching classes this will be the classification class list
-  private ArrayList<BytesRef> cclasses = new ArrayList<>();
+  private final ArrayList<BytesRef> cclasses = new ArrayList<>();
   // it's a term-inmap style map, where the inmap contains class-hit pairs to the
   // upper term
-  private Map<String, Map<BytesRef, Integer>> termCClassHitCache = new HashMap<>();
+  private final Map<String, Map<BytesRef, Integer>> termCClassHitCache = new HashMap<>();
   // the term frequency in classes
-  private Map<BytesRef, Double> classTermFreq = new HashMap<>();
+  private final Map<BytesRef, Double> classTermFreq = new HashMap<>();
   private boolean justCachedTerms;
   private int docsWithClassSize;
 
   /**
-   * Creates a new NaiveBayes classifier with inside caching. Note that you must
-   * call {@link #train(org.apache.lucene.index.LeafReader, String, String, Analyzer) train()} before
-   * you can classify any documents. If you want less memory usage you could
-   * call {@link #reInitCache(int, boolean) reInitCache()}.
+   * Creates a new NaiveBayes classifier with inside caching. If you want less memory usage you could call
+   * {@link #reInitCache(int, boolean) reInitCache()}.
+   *
+   * @param indexReader     the reader on the index to be used for classification
+   * @param analyzer       an {@link Analyzer} used to analyze unseen text
+   * @param query          a {@link Query} to eventually filter the docs used for training the classifier, or {@code null}
+   *                       if all the indexed docs should be used
+   * @param classFieldName the name of the field used as the output for the classifier
+   * @param textFieldNames the name of the fields used as the inputs for the classifier
    */
-  public CachingNaiveBayesClassifier() {
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void train(LeafReader leafReader, String textFieldName, String classFieldName, Analyzer analyzer) throws IOException {
-    train(leafReader, textFieldName, classFieldName, analyzer, null);
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void train(LeafReader leafReader, String textFieldName, String classFieldName, Analyzer analyzer, Query query) throws IOException {
-    train(leafReader, new String[]{textFieldName}, classFieldName, analyzer, query);
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void train(LeafReader leafReader, String[] textFieldNames, String classFieldName, Analyzer analyzer, Query query) throws IOException {
-    super.train(leafReader, textFieldNames, classFieldName, analyzer, query);
+  public CachingNaiveBayesClassifier(IndexReader indexReader, Analyzer analyzer, Query query, String classFieldName, String... textFieldNames) {
+    super(indexReader, analyzer, query, classFieldName, textFieldNames);
     // building the cache
-    reInitCache(0, true);
+    try {
+      reInitCache(0, true);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
-  private List<ClassificationResult<BytesRef>> assignClassNormalizedList(String inputDocument) throws IOException {
-    if (leafReader == null) {
-      throw new IOException("You must first call Classifier#train");
-    }
 
-    String[] tokenizedDoc = tokenizeDoc(inputDocument);
+  protected List<ClassificationResult<BytesRef>> assignClassNormalizedList(String inputDocument) throws IOException {
+    String[] tokenizedText = tokenize(inputDocument);
 
-    List<ClassificationResult<BytesRef>> dataList = calculateLogLikelihood(tokenizedDoc);
+    List<ClassificationResult<BytesRef>> assignedClasses = calculateLogLikelihood(tokenizedText);
 
     // normalization
     // The values transforms to a 0-1 range
-    ArrayList<ClassificationResult<BytesRef>> returnList = new ArrayList<>();
-    if (!dataList.isEmpty()) {
-      Collections.sort(dataList);
-      // this is a negative number closest to 0 = a
-      double smax = dataList.get(0).getScore();
-
-      double sumLog = 0;
-      // log(sum(exp(x_n-a)))
-      for (ClassificationResult<BytesRef> cr : dataList) {
-        // getScore-smax <=0 (both negative, smax is the smallest abs()
-        sumLog += Math.exp(cr.getScore() - smax);
-      }
-      // loga=a+log(sum(exp(x_n-a))) = log(sum(exp(x_n)))
-      double loga = smax;
-      loga += Math.log(sumLog);
-
-      // 1/sum*x = exp(log(x))*1/sum = exp(log(x)-log(sum))
-      for (ClassificationResult<BytesRef> cr : dataList) {
-        returnList.add(new ClassificationResult<>(cr.getAssignedClass(), Math.exp(cr.getScore() - loga)));
-      }
-    }
-
-    return returnList;
+    ArrayList<ClassificationResult<BytesRef>> asignedClassesNorm = super.normClassificationResults(assignedClasses);
+    return asignedClassesNorm;
   }
 
-  private List<ClassificationResult<BytesRef>> calculateLogLikelihood(String[] tokenizedDoc) throws IOException {
+  private List<ClassificationResult<BytesRef>> calculateLogLikelihood(String[] tokenizedText) throws IOException {
     // initialize the return List
     ArrayList<ClassificationResult<BytesRef>> ret = new ArrayList<>();
     for (BytesRef cclass : cclasses) {
@@ -137,7 +96,7 @@ public class CachingNaiveBayesClassifier extends SimpleNaiveBayesClassifier {
       ret.add(cr);
     }
     // for each word
-    for (String word : tokenizedDoc) {
+    for (String word : tokenizedText) {
       // search with text:word for all class:c
       Map<BytesRef, Integer> hitsInClasses = getWordFreqForClassess(word);
       // for each class
@@ -158,12 +117,22 @@ public class CachingNaiveBayesClassifier extends SimpleNaiveBayesClassifier {
         double wordProbability = num / den;
 
         // modify the value in the result list item
+        int removeIdx = -1;
+        int i = 0;
         for (ClassificationResult<BytesRef> cr : ret) {
           if (cr.getAssignedClass().equals(cclass)) {
-            cr.setScore(cr.getScore() + Math.log(wordProbability));
+            removeIdx = i;
             break;
           }
+          i++;
         }
+
+        if (removeIdx >= 0) {
+          ClassificationResult<BytesRef> toRemove = ret.get(removeIdx);
+          ret.add(new ClassificationResult<>(toRemove.getAssignedClass(), toRemove.getScore() + Math.log(wordProbability)));
+          ret.remove(removeIdx);
+        }
+
       }
     }
 
@@ -207,7 +176,7 @@ public class CachingNaiveBayesClassifier extends SimpleNaiveBayesClassifier {
         }
       }
       if (insertPoint != null) {
-        // threadsafe and concurent write
+        // threadsafe and concurrent write
         termCClassHitCache.put(word, searched);
       }
     }
@@ -241,7 +210,7 @@ public class CachingNaiveBayesClassifier extends SimpleNaiveBayesClassifier {
     // build the cache for the word
     Map<String, Long> frequencyMap = new HashMap<>();
     for (String textFieldName : textFieldNames) {
-      TermsEnum termsEnum = leafReader.terms(textFieldName).iterator();
+      TermsEnum termsEnum = MultiFields.getTerms(indexReader, textFieldName).iterator();
       while (termsEnum.next() != null) {
         BytesRef term = termsEnum.term();
         String termText = term.utf8ToString();
@@ -258,7 +227,7 @@ public class CachingNaiveBayesClassifier extends SimpleNaiveBayesClassifier {
     }
 
     // fill the class list
-    Terms terms = MultiFields.getTerms(leafReader, classFieldName);
+    Terms terms = MultiFields.getTerms(indexReader, classFieldName);
     TermsEnum termsEnum = terms.iterator();
     while ((termsEnum.next()) != null) {
       cclasses.add(BytesRef.deepCopyOf(termsEnum.term()));
@@ -267,11 +236,11 @@ public class CachingNaiveBayesClassifier extends SimpleNaiveBayesClassifier {
     for (BytesRef cclass : cclasses) {
       double avgNumberOfUniqueTerms = 0;
       for (String textFieldName : textFieldNames) {
-        terms = MultiFields.getTerms(leafReader, textFieldName);
+        terms = MultiFields.getTerms(indexReader, textFieldName);
         long numPostings = terms.getSumDocFreq(); // number of term/doc pairs
         avgNumberOfUniqueTerms += numPostings / (double) terms.getDocCount();
       }
-      int docsWithC = leafReader.docFreq(new Term(classFieldName, cclass));
+      int docsWithC = indexReader.docFreq(new Term(classFieldName, cclass));
       classTermFreq.put(cclass, avgNumberOfUniqueTerms * docsWithC);
     }
   }

@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,11 +14,11 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
+
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
 
 import org.apache.lucene.store.DataInput;
 import org.apache.lucene.store.DataOutput;
@@ -135,11 +133,6 @@ public final class PagedBytes implements Accountable {
         size += RamUsageEstimator.sizeOf(blocks[blocks.length - 1]);
       }
       return size;
-    }
-    
-    @Override
-    public Collection<Accountable> getChildResources() {
-      return Collections.emptyList();
     }
 
     @Override
@@ -257,11 +250,6 @@ public final class PagedBytes implements Accountable {
       size += RamUsageEstimator.sizeOf(currentBlock);
     }
     return size;
-  }
-  
-  @Override
-  public Collection<Accountable> getChildResources() {
-    return Collections.emptyList();
   }
 
   /** Copy bytes in, writing the length as a 1 or 2 byte

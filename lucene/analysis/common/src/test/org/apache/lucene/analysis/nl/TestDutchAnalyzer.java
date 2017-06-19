@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.nl;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,14 +14,15 @@ package org.apache.lucene.analysis.nl;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.nl;
+
 
 import java.io.IOException;
 
-import org.apache.lucene.analysis.BaseTokenStreamTestCase;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.util.CharArrayMap;
-import org.apache.lucene.analysis.util.CharArraySet;
-import org.apache.lucene.util.Version;
+import org.apache.lucene.analysis.BaseTokenStreamTestCase;
+import org.apache.lucene.analysis.CharArrayMap;
+import org.apache.lucene.analysis.CharArraySet;
 
 /**
  * Test the Dutch Stem Filter, which only modifies the term text.
@@ -180,11 +179,5 @@ public class TestDutchAnalyzer extends BaseTokenStreamTestCase {
     checkRandomData(random(), analyzer, 1000*RANDOM_MULTIPLIER);
     analyzer.close();
   }
-
-  public void testBackcompat40() throws IOException {
-    DutchAnalyzer a = new DutchAnalyzer();
-    a.setVersion(Version.LUCENE_4_6_1);
-    // this is just a test to see the correct unicode version is being used, not actually testing hebrew
-    assertAnalyzesTo(a, "א\"א", new String[] {"א", "א"});
-  }
+  
 }

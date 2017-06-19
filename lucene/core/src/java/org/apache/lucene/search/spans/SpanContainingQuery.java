@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spans;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search.spans;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spans;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -25,29 +25,21 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.TermContext;
 import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.util.Bits;
 
-/** Keep matches that contain another Spans. */
-public class SpanContainingQuery extends SpanContainQuery {
+/** Keep matches that contain another SpanScorer. */
+public final class SpanContainingQuery extends SpanContainQuery {
   /** Construct a SpanContainingQuery matching spans from <code>big</code>
    * that contain at least one spans from <code>little</code>.
    * This query has the boost of <code>big</code>.
    * <code>big</code> and <code>little</code> must be in the same field.
    */
   public SpanContainingQuery(SpanQuery big, SpanQuery little) {
-    super(big, little, big.getBoost());
+    super(big, little);
   }
 
   @Override
   public String toString(String field) {
     return toString(field, "SpanContaining");
-  }
-
-  @Override
-  public SpanContainingQuery clone() {
-    return new SpanContainingQuery(
-          (SpanQuery) big.clone(),
-          (SpanQuery) little.clone());
   }
 
   @Override

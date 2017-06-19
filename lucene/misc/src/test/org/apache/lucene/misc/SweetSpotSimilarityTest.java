@@ -1,4 +1,3 @@
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -15,16 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.lucene.misc;
 
-import org.apache.lucene.search.similarities.DefaultSimilarity;
+import org.apache.lucene.search.similarities.ClassicSimilarity;
 import org.apache.lucene.search.similarities.PerFieldSimilarityWrapper;
 import org.apache.lucene.search.similarities.Similarity;
 import org.apache.lucene.search.similarities.TFIDFSimilarity;
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.index.FieldInvertState;
-
 
 /**
  * Test of the SweetSpotSimilarity
@@ -44,7 +41,7 @@ public class SweetSpotSimilarityTest extends LuceneTestCase {
     final SweetSpotSimilarity ss = new SweetSpotSimilarity();
     ss.setLengthNormFactors(1,1,0.5f,true);
 
-    Similarity d = new DefaultSimilarity();
+    Similarity d = new ClassicSimilarity();
     Similarity s = ss;
 
 
@@ -94,7 +91,7 @@ public class SweetSpotSimilarityTest extends LuceneTestCase {
     final SweetSpotSimilarity ssB = new SweetSpotSimilarity();
     ssB.setLengthNormFactors(5,8,0.1f, false);
     
-    Similarity sp = new PerFieldSimilarityWrapper() {
+    Similarity sp = new PerFieldSimilarityWrapper(ss) {
       @Override
       public Similarity get(String field) {
         if (field.equals("bar"))
@@ -200,7 +197,7 @@ public class SweetSpotSimilarityTest extends LuceneTestCase {
   
     SweetSpotSimilarity ss = new SweetSpotSimilarity();
 
-    TFIDFSimilarity d = new DefaultSimilarity();
+    TFIDFSimilarity d = new ClassicSimilarity();
     TFIDFSimilarity s = ss;
     
     // tf equal

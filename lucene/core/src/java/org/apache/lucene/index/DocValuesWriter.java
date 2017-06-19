@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,12 +14,16 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 
 import org.apache.lucene.codecs.DocValuesConsumer;
+import org.apache.lucene.search.SortField;
 
 abstract class DocValuesWriter {
   abstract void finish(int numDoc);
-  abstract void flush(SegmentWriteState state, DocValuesConsumer consumer) throws IOException;
+  abstract void flush(SegmentWriteState state, Sorter.DocMap sortMap, DocValuesConsumer consumer) throws IOException;
+  abstract Sorter.DocComparator getDocComparator(int numDoc, SortField sortField) throws IOException;
 }

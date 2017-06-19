@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 
@@ -60,7 +60,13 @@ public class MappedMultiFields extends FilterFields {
 
     @Override
     public TermsEnum iterator() throws IOException {
-      return new MappedMultiTermsEnum(field, mergeState, (MultiTermsEnum) in.iterator());
+      TermsEnum iterator = in.iterator();
+      if (iterator == TermsEnum.EMPTY) {
+        // LUCENE-6826
+        return TermsEnum.EMPTY;
+      } else {
+        return new MappedMultiTermsEnum(field, mergeState, (MultiTermsEnum) iterator);
+      }
     }
 
     @Override

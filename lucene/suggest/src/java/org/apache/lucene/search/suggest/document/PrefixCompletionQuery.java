@@ -1,5 +1,3 @@
-package org.apache.lucene.search.suggest.document;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.suggest.document;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.suggest.document;
 
 import java.io.IOException;
 
@@ -70,5 +69,22 @@ public class PrefixCompletionQuery extends CompletionQuery {
   public Weight createWeight(IndexSearcher searcher, boolean needsScores) throws IOException {
     CompletionTokenStream stream = (CompletionTokenStream) analyzer.tokenStream(getField(), getTerm().text());
     return new CompletionWeight(this, stream.toAutomaton());
+  }
+
+  /**
+   * Gets the analyzer used to analyze the prefix.
+   */
+  public Analyzer getAnalyzer() {
+    return analyzer;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public int hashCode() {
+    throw new UnsupportedOperationException();
   }
 }

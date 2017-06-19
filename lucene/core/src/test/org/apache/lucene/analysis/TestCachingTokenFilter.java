@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.analysis;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis;
+
 
 
 import java.io.IOException;
@@ -40,7 +40,7 @@ public class TestCachingTokenFilter extends BaseTokenStreamTestCase {
     Directory dir = newDirectory();
     RandomIndexWriter writer = new RandomIndexWriter(random(), dir);
     Document doc = new Document();
-    final AtomicInteger resetCount = new AtomicInteger(0);
+    AtomicInteger resetCount = new AtomicInteger(0);
     TokenStream stream = new TokenStream() {
       private int index = 0;
       private CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
@@ -121,12 +121,10 @@ public class TestCachingTokenFilter extends BaseTokenStreamTestCase {
     final TokenStream input = analyzer.tokenStream("field", "abc");
     CachingTokenFilter buffer = new CachingTokenFilter(input);
     buffer.reset();//ok
-    try {
+    IllegalStateException e = expectThrows(IllegalStateException.class, () -> {
       buffer.reset();//bad (this used to work which we don't want)
-      fail("didn't get expected exception");
-    } catch (IllegalStateException e) {
-      assertEquals("double reset()", e.getMessage());
-    }
+    });
+    assertEquals("double reset()", e.getMessage());
   }
   
   private void checkTokens(TokenStream stream) throws IOException {

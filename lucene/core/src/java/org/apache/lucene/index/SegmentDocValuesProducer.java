@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -33,7 +33,6 @@ import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.Accountables;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.RamUsageEstimator;
-import org.apache.lucene.util.Version;
 
 /** Encapsulates multiple producers when there are docvalues updates as one producer */
 // TODO: try to clean up close? no-op?
@@ -59,64 +58,27 @@ class SegmentDocValuesProducer extends DocValuesProducer {
   SegmentDocValuesProducer(SegmentCommitInfo si, Directory dir, FieldInfos coreInfos, FieldInfos allInfos, SegmentDocValues segDocValues) throws IOException {
     boolean success = false;
     try {
-      Version ver = si.info.getVersion();
-      if (ver != null && ver.onOrAfter(Version.LUCENE_4_9_0)) {
-        DocValuesProducer baseProducer = null;
-        for (FieldInfo fi : allInfos) {
-          if (fi.getDocValuesType() == DocValuesType.NONE) {
-            continue;
-          }
-          long docValuesGen = fi.getDocValuesGen();
-          if (docValuesGen == -1) {
-            if (baseProducer == null) {
-              // the base producer gets the original fieldinfos it wrote
-              baseProducer = segDocValues.getDocValuesProducer(docValuesGen, si, dir, coreInfos);
-              dvGens.add(docValuesGen);
-              dvProducers.add(baseProducer);
-            }
-            dvProducersByField.put(fi.name, baseProducer);
-          } else {
-            assert !dvGens.contains(docValuesGen);
-            // otherwise, producer sees only the one fieldinfo it wrote
-            final DocValuesProducer dvp = segDocValues.getDocValuesProducer(docValuesGen, si, dir, new FieldInfos(new FieldInfo[] { fi }));
+      DocValuesProducer baseProducer = null;
+      for (FieldInfo fi : allInfos) {
+        if (fi.getDocValuesType() == DocValuesType.NONE) {
+          continue;
+        }
+        long docValuesGen = fi.getDocValuesGen();
+        if (docValuesGen == -1) {
+          if (baseProducer == null) {
+            // the base producer gets the original fieldinfos it wrote
+            baseProducer = segDocValues.getDocValuesProducer(docValuesGen, si, dir, coreInfos);
             dvGens.add(docValuesGen);
-            dvProducers.add(dvp);
-            dvProducersByField.put(fi.name, dvp);
+            dvProducers.add(baseProducer);
           }
-        }
-      } else {
-        // For pre-4.9 indexes, especially with doc-values updates, multiple
-        // FieldInfos could belong to the same dvGen. Therefore need to make sure
-        // we initialize each DocValuesProducer once per gen.
-        Map<Long,List<FieldInfo>> genInfos = new HashMap<>();
-        for (FieldInfo fi : allInfos) {
-          if (fi.getDocValuesType() == DocValuesType.NONE) {
-            continue;
-          }
-          List<FieldInfo> genFieldInfos = genInfos.get(fi.getDocValuesGen());
-          if (genFieldInfos == null) {
-            genFieldInfos = new ArrayList<>();
-            genInfos.put(fi.getDocValuesGen(), genFieldInfos);
-          }
-          genFieldInfos.add(fi);
-        }
-      
-        for (Map.Entry<Long,List<FieldInfo>> e : genInfos.entrySet()) {
-          long docValuesGen = e.getKey();
-          List<FieldInfo> infos = e.getValue();
-          final DocValuesProducer dvp;
-          if (docValuesGen == -1) {
-            // we need to send all FieldInfos to gen=-1, but later we need to
-            // record the DVP only for the "true" gen=-1 fields (not updated)
-            dvp = segDocValues.getDocValuesProducer(docValuesGen, si, dir, coreInfos);
-          } else {
-            dvp = segDocValues.getDocValuesProducer(docValuesGen, si, dir, new FieldInfos(infos.toArray(new FieldInfo[infos.size()])));
-          }
+          dvProducersByField.put(fi.name, baseProducer);
+        } else {
+          assert !dvGens.contains(docValuesGen);
+          // otherwise, producer sees only the one fieldinfo it wrote
+          final DocValuesProducer dvp = segDocValues.getDocValuesProducer(docValuesGen, si, dir, new FieldInfos(new FieldInfo[] { fi }));
           dvGens.add(docValuesGen);
           dvProducers.add(dvp);
-          for (FieldInfo fi : infos) {
-            dvProducersByField.put(fi.name, dvp);
-          }
+          dvProducersByField.put(fi.name, dvp);
         }
       }
       success = true;
@@ -199,7 +161,7 @@ class SegmentDocValuesProducer extends DocValuesProducer {
 
   @Override
   public Collection<Accountable> getChildResources() {
-    List<Accountable> resources = new ArrayList<>();
+    final List<Accountable> resources = new ArrayList<>(dvProducers.size());
     for (Accountable producer : dvProducers) {
       resources.add(Accountables.namedAccountable("delegate", producer));
     }

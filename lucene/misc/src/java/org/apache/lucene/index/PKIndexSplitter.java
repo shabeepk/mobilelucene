@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,15 +14,16 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
 
 import java.io.IOException;
 import java.util.List;
 
 import org.apache.lucene.index.IndexWriterConfig.OpenMode;
 import org.apache.lucene.search.DocIdSetIterator;
-import org.apache.lucene.search.Filter;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.TermRangeQuery;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.store.Directory;
@@ -52,16 +51,7 @@ public class PKIndexSplitter {
   public PKIndexSplitter(Directory input, Directory dir1, Directory dir2, Query docsInFirstIndex) {
     this(input, dir1, dir2, docsInFirstIndex, newDefaultConfig(), newDefaultConfig());
   }
-
-  /**
-   * Split an index based on a {@link Filter}. All documents that match the filter
-   * are sent to dir1, remaining ones to dir2.
-   */
-  // exists for bw compat of method signatures
-  public PKIndexSplitter(Directory input, Directory dir1, Directory dir2, Filter docsInFirstIndex) {
-    this(input, dir1, dir2, (Query) docsInFirstIndex);
-  }
-
+  
   private static IndexWriterConfig newDefaultConfig() {
     return new IndexWriterConfig(null).setOpenMode(OpenMode.CREATE);
   }
@@ -75,13 +65,7 @@ public class PKIndexSplitter {
     this.config1 = config1;
     this.config2 = config2;
   }
-
-  //exists for bw compat of method signatures
-  public PKIndexSplitter(Directory input, Directory dir1, 
-      Directory dir2, Filter docsInFirstIndex, IndexWriterConfig config1, IndexWriterConfig config2) {
-    this(input, dir1, dir2, (Query) docsInFirstIndex, config1, config2);
-  }
-
+  
   /**
    * Split an index based on a  given primary key term 
    * and a 'middle' term.  If the middle term is present, it's
@@ -150,9 +134,9 @@ public class PKIndexSplitter {
       final int maxDoc = in.maxDoc();
       final FixedBitSet bits = new FixedBitSet(maxDoc);
       // ignore livedocs here, as we filter them later:
-      final DocIdSetIterator preserveIt = preserveWeight.scorer(context);
-      if (preserveIt != null) {
-        bits.or(preserveIt);
+      final Scorer preverveScorer = preserveWeight.scorer(context);
+      if (preverveScorer != null) {
+        bits.or(preverveScorer.iterator());
       }
       if (negateFilter) {
         bits.flip(0, maxDoc);

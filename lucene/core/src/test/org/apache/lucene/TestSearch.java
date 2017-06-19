@@ -1,5 +1,3 @@
-package org.apache.lucene;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,27 +14,28 @@ package org.apache.lucene;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene;
 
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 
-import org.apache.lucene.util.LuceneTestCase;
-import org.apache.lucene.store.*;
-import org.apache.lucene.document.*;
 import org.apache.lucene.analysis.*;
+import org.apache.lucene.document.*;
 import org.apache.lucene.index.*;
 import org.apache.lucene.search.*;
+import org.apache.lucene.store.*;
+import org.apache.lucene.util.LuceneTestCase;
 
 /** JUnit adaptation of an older test case SearchTest. */
 public class TestSearch extends LuceneTestCase {
 
   public void testNegativeQueryBoost() throws Exception {
-    Query q = new TermQuery(new Term("foo", "bar"));
-    q.setBoost(-42f);
-    assertEquals(-42f, q.getBoost(), 0.0f);
+    BoostQuery q = new BoostQuery(new TermQuery(new Term("foo", "bar")), -42f);
+    assertEquals(-42f, q.getBoost(), 0f);
 
     Directory directory = newDirectory();
     try {
@@ -58,8 +57,8 @@ public class TestSearch extends LuceneTestCase {
         
         ScoreDoc[] hits = searcher.search(q, 1000).scoreDocs;
         assertEquals(1, hits.length);
-        assertTrue("score is not negative: " + hits[0].score,
-                   hits[0].score < 0);
+        assertTrue("score is positive: " + hits[0].score,
+                   hits[0].score <= 0);
 
         Explanation explain = searcher.explain(q, hits[0].doc);
         assertEquals("score doesn't match explanation",
@@ -126,7 +125,6 @@ public class TestSearch extends LuceneTestCase {
       for (int j = 0; j < docs.length; j++) {
         Document d = new Document();
         d.add(newTextField("contents", docs[j], Field.Store.YES));
-        d.add(new IntField("id", j, Field.Store.NO));
         d.add(new NumericDocValuesField("id", j));
         writer.addDocument(d);
       }

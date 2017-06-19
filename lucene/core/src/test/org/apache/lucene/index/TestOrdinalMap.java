@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -83,13 +83,12 @@ public class TestOrdinalMap extends LuceneTestCase {
     }
     iw.commit();
     DirectoryReader r = iw.getReader();
-    LeafReader ar = SlowCompositeReaderWrapper.wrap(r);
-    SortedDocValues sdv = ar.getSortedDocValues("sdv");
+    SortedDocValues sdv = MultiDocValues.getSortedValues(r, "sdv");
     if (sdv instanceof MultiSortedDocValues) {
       OrdinalMap map = ((MultiSortedDocValues) sdv).mapping;
       assertEquals(RamUsageTester.sizeOf(map, ORDINAL_MAP_ACCUMULATOR), map.ramBytesUsed());
     }
-    SortedSetDocValues ssdv = ar.getSortedSetDocValues("ssdv");
+    SortedSetDocValues ssdv = MultiDocValues.getSortedSetValues(r, "ssdv");
     if (ssdv instanceof MultiSortedSetDocValues) {
       OrdinalMap map = ((MultiSortedSetDocValues) ssdv).mapping;
       assertEquals(RamUsageTester.sizeOf(map, ORDINAL_MAP_ACCUMULATOR), map.ramBytesUsed());

@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
+
 
 import java.io.IOException;
 import java.util.BitSet;
@@ -38,7 +38,6 @@ public class TestNotDocIdSet extends BaseDocIdSetTestCase<NotDocIdSet> {
       throws IOException {
     super.assertEquals(numBits, ds1, ds2);
     final Bits bits2 = ds2.bits();
-    assertTrue(ds2.isCacheable()); // since we wrapped a FixedBitSet
     assertNotNull(bits2); // since we wrapped a FixedBitSet
     assertEquals(numBits, bits2.length());
     for (int i = 0; i < numBits; ++i) {

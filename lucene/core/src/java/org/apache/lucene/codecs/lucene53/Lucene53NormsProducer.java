@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.lucene53;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,13 +14,13 @@ package org.apache.lucene.codecs.lucene53;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.lucene53;
+
 
 import static org.apache.lucene.codecs.lucene53.Lucene53NormsFormat.VERSION_CURRENT;
 import static org.apache.lucene.codecs.lucene53.Lucene53NormsFormat.VERSION_START;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -37,7 +35,6 @@ import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.RandomAccessInput;
-import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.IOUtils;
 
 /**
@@ -127,7 +124,7 @@ class Lucene53NormsProducer extends NormsProducer {
       };
     }
 
-    final RandomAccessInput slice;
+    RandomAccessInput slice;
     synchronized (data) {
       switch (entry.bytesPerValue) {
         case 1: 
@@ -192,11 +189,6 @@ class Lucene53NormsProducer extends NormsProducer {
   @Override
   public long ramBytesUsed() {
     return 64L * norms.size(); // good enough
-  }
-
-  @Override
-  public Collection<Accountable> getChildResources() {
-    return Collections.emptyList();
   }
 
   @Override

@@ -33,7 +33,7 @@
  * <h2>Search Basics</h2>
  * <p>
  * Lucene offers a wide variety of {@link org.apache.lucene.search.Query} implementations, most of which are in
- * this package, its subpackages ({@link org.apache.lucene.search.spans spans}, {@link org.apache.lucene.search.payloads payloads}),
+ * this package, its subpackage ({@link org.apache.lucene.search.spans spans},
  * or the <a href="{@docRoot}/../queries/overview-summary.html">queries module</a>. These implementations can be combined in a wide 
  * variety of ways to provide complex querying capabilities along with information about where matches took place in the document 
  * collection. The <a href="#query">Query Classes</a> section below highlights some of the more important Query classes. For details 
@@ -160,22 +160,22 @@
  *     and an upper
  *     {@link org.apache.lucene.index.Term Term}
  *     according to {@link org.apache.lucene.util.BytesRef#compareTo BytesRef.compareTo()}. It is not intended
- *     for numerical ranges; use {@link org.apache.lucene.search.NumericRangeQuery NumericRangeQuery} instead.
+ *     for numerical ranges; use {@link org.apache.lucene.search.PointRangeQuery PointRangeQuery} instead.
  * 
  *     For example, one could find all documents
  *     that have terms beginning with the letters <tt>a</tt> through <tt>c</tt>.
  * 
  * <h3>
- *     {@link org.apache.lucene.search.NumericRangeQuery NumericRangeQuery}
+ *     {@link org.apache.lucene.search.PointRangeQuery PointRangeQuery}
  * </h3>
  * 
  * <p>The
- *     {@link org.apache.lucene.search.NumericRangeQuery NumericRangeQuery}
+ *     {@link org.apache.lucene.search.PointRangeQuery PointRangeQuery}
  *     matches all documents that occur in a numeric range.
- *     For NumericRangeQuery to work, you must index the values
- *     using a one of the numeric fields ({@link org.apache.lucene.document.IntField IntField},
- *     {@link org.apache.lucene.document.LongField LongField}, {@link org.apache.lucene.document.FloatField FloatField},
- *     or {@link org.apache.lucene.document.DoubleField DoubleField}).
+ *     For PointRangeQuery to work, you must index the values
+ *     using a one of the numeric fields ({@link org.apache.lucene.document.IntPoint IntPoint},
+ *     {@link org.apache.lucene.document.LongPoint LongPoint}, {@link org.apache.lucene.document.FloatPoint FloatPoint},
+ *     or {@link org.apache.lucene.document.DoublePoint DoublePoint}).
  * 
  * <h3>
  *     {@link org.apache.lucene.search.PrefixQuery PrefixQuery},
@@ -202,7 +202,7 @@
  * <h3>
  *     {@link org.apache.lucene.search.FuzzyQuery FuzzyQuery}
  * </h3>
- * 
+ *
  * <p>A
  *     {@link org.apache.lucene.search.FuzzyQuery FuzzyQuery}
  *     matches documents that contain terms similar to the specified term. Similarity is
@@ -226,7 +226,7 @@
  *    <a href="http://en.wikipedia.org/wiki/Information_retrieval#Model_types">models</a>, including:
  *    <ul>
  *      <li><a href="http://en.wikipedia.org/wiki/Vector_Space_Model">Vector Space Model (VSM)</a></li>
- *      <li><a href="http://en.wikipedia.org/wiki/Probabilistic_relevance_model">Probablistic Models</a> such as 
+ *      <li><a href="http://en.wikipedia.org/wiki/Probabilistic_relevance_model">Probabilistic Models</a> such as 
  *          <a href="http://en.wikipedia.org/wiki/Probabilistic_relevance_model_(BM25)">Okapi BM25</a> and
  *          <a href="http://en.wikipedia.org/wiki/Divergence-from-randomness_model">DFR</a></li>
  *      <li><a href="http://en.wikipedia.org/wiki/Language_model">Language models</a></li>
@@ -274,8 +274,8 @@
  *       <li><b>Index-time boost</b> by calling
  *        {@link org.apache.lucene.document.Field#setBoost(float) Field.setBoost()} before a document is 
  *        added to the index.</li>
- *       <li><b>Query-time boost</b> by setting a boost on a query clause, calling
- *        {@link org.apache.lucene.search.Query#setBoost(float) Query.setBoost()}.</li>
+ *       <li><b>Query-time boost</b> by applying a boost to a query by wrapping with
+ *       {@link org.apache.lucene.search.BoostQuery}.</li>
  *    </ul>    
  * <p>Indexing time boosts are pre-processed for storage efficiency and written to
  *    storage for a field as follows:
@@ -366,7 +366,7 @@
  *             <li>{@link org.apache.lucene.search.Query#rewrite(org.apache.lucene.index.IndexReader) rewrite(IndexReader reader)} &mdash; Rewrites queries into primitive queries. Primitive queries are:
  *                 {@link org.apache.lucene.search.TermQuery TermQuery},
  *                 {@link org.apache.lucene.search.BooleanQuery BooleanQuery}, <span
- *                     >and other queries that implement {@link org.apache.lucene.search.Query#createWeight(IndexSearcher,boolean) createWeight(IndexSearcher searcher,boolean)}</span></li>
+ *                     >and other queries that implement {@link org.apache.lucene.search.Query#createWeight(IndexSearcher,boolean) createWeight(IndexSearcher searcher,boolean,float)}</span></li>
  *         </ol>
  * <a name="weightClass"></a>
  * <h3>The Weight Interface</h3>
@@ -389,10 +389,10 @@
  *                 For example, with {@link org.apache.lucene.search.similarities.TFIDFSimilarity Lucene's classic vector-space formula}, this
  *                 is implemented as the sum of squared weights: <code>(idf * boost)<sup>2</sup></code></li>
  *             <li>
- *                 {@link org.apache.lucene.search.Weight#normalize(float,float) normalize(float norm, float topLevelBoost)} &mdash; 
+ *                 {@link org.apache.lucene.search.Weight#normalize(float,float) normalize(float norm, float boost)} &mdash; 
  *                 Performs query normalization: 
  *                 <ul>
- *                 <li><code>topLevelBoost</code>: A query-boost factor from any wrapping queries that should be multiplied into every
+ *                 <li><code>boost</code>: A query-boost factor from any wrapping queries that should be multiplied into every
  *                 document's score. For example, a TermQuery that is wrapped within a BooleanQuery with a boost of <code>5</code> would
  *                 receive this value at this time. This allows the TermQuery (the leaf node in this case) to compute this up-front
  *                 a single time (e.g. by multiplying into the IDF), rather than for every document.</li> 
@@ -427,13 +427,14 @@
  *     <p>The
  *         {@link org.apache.lucene.search.Scorer Scorer}
  *         abstract class provides common scoring functionality for all Scorer implementations and
- *         is the heart of the Lucene scoring process. The Scorer defines the following abstract (some of them are not
- *         yet abstract, but will be in future versions and should be considered as such now) methods which
- *         must be implemented (some of them inherited from {@link org.apache.lucene.search.DocIdSetIterator DocIdSetIterator}):
+ *         is the heart of the Lucene scoring process. The Scorer defines the following methods which
+ *         must be implemented:
  *         <ol>
  *             <li>
- *                 {@link org.apache.lucene.search.Scorer#nextDoc nextDoc()} &mdash; Advances to the next
- *                 document that matches this Query, returning true if and only if there is another document that matches.</li>
+ *                 {@link org.apache.lucene.search.Scorer#iterator iterator()} &mdash; Return a
+ *                 {@link org.apache.lucene.search.DocIdSetIterator DocIdSetIterator} that can iterate over all
+ *                 document that matches this Query.
+ *             </li>
  *             <li>
  *                 {@link org.apache.lucene.search.Scorer#docID docID()} &mdash; Returns the id of the
  *                 {@link org.apache.lucene.document.Document Document} that contains the match.
@@ -449,13 +450,6 @@
  *                 for the current document. This value can be determined in any appropriate way for an application. For instance, the
  *                 {@link org.apache.lucene.search.TermScorer TermScorer} simply defers to the term frequency from the inverted index:
  *                 {@link org.apache.lucene.index.PostingsEnum#freq PostingsEnum.freq()}.
- *             </li>
- *             <li>
- *                 {@link org.apache.lucene.search.Scorer#advance advance()} &mdash; Skip ahead in
- *                 the document matches to the document whose id is greater than
- *                 or equal to the passed in value. In many instances, advance can be
- *                 implemented more efficiently than simply looping through all the matching documents until
- *                 the target document is identified.
  *             </li>
  *             <li>
  *                 {@link org.apache.lucene.search.Scorer#getChildren getChildren()} &mdash; Returns any child subscorers
@@ -500,8 +494,6 @@
  *           Weight object is an internal representation of the Query that allows the Query 
  *           to be reused by the IndexSearcher.</li>
  *       <li>The IndexSearcher that initiated the call.</li>     
- *       <li>A {@link org.apache.lucene.search.Filter Filter} for limiting the result set.
- *           Note, the Filter may be null.</li>                   
  *       <li>A {@link org.apache.lucene.search.Sort Sort} object for specifying how to sort
  *           the results if the standard score-based sort method is not desired.</li>                   
  *   </ol>       
@@ -509,8 +501,7 @@
  *    we call one of the search methods of the IndexSearcher, passing in the
  *    {@link org.apache.lucene.search.Weight Weight} object created by
  *    {@link org.apache.lucene.search.IndexSearcher#createNormalizedWeight(org.apache.lucene.search.Query,boolean)
- *     IndexSearcher.createNormalizedWeight(Query,boolean)}, 
- *    {@link org.apache.lucene.search.Filter Filter} and the number of results we want.
+ *     IndexSearcher.createNormalizedWeight(Query,boolean)} and the number of results we want.
  *    This method returns a {@link org.apache.lucene.search.TopDocs TopDocs} object,
  *    which is an internal collection of search results. The IndexSearcher creates
  *    a {@link org.apache.lucene.search.TopScoreDocCollector TopScoreDocCollector} and
@@ -534,7 +525,7 @@
  * <p>Assuming a BooleanScorer2, we first initialize the Coordinator, which is used to apply the coord() 
  *   factor. We then get a internal Scorer based on the required, optional and prohibited parts of the query.
  *   Using this internal Scorer, the BooleanScorer2 then proceeds into a while loop based on the 
- *   {@link org.apache.lucene.search.Scorer#nextDoc Scorer.nextDoc()} method. The nextDoc() method advances 
+ *   {@link org.apache.lucene.search.DocIdSetIterator#nextDoc DocIdSetIterator.nextDoc()} method. The nextDoc() method advances 
  *   to the next document matching the query. This is an abstract method in the Scorer class and is thus 
  *   overridden by all derived  implementations. If you have a simple OR query your internal Scorer is most 
  *   likely a DisjunctionSumScorer, which essentially combines the scorers from the sub scorers of the OR'd terms.

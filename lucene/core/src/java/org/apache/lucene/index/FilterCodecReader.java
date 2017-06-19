@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,14 +14,21 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
 
-import org.lukhnos.portmobile.util.Objects;
+
+import java.io.IOException;
+import java.util.Collection;
+import java.util.Objects;
 
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.NormsProducer;
+import org.apache.lucene.codecs.PointsReader;
 import org.apache.lucene.codecs.StoredFieldsReader;
 import org.apache.lucene.codecs.TermVectorsReader;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.Bits;
 
 /** 
@@ -31,7 +36,7 @@ import org.apache.lucene.util.Bits;
  * uses as its basic source of data, possibly transforming the data along the
  * way or providing additional functionality.
  */
-public class FilterCodecReader extends CodecReader {
+public abstract class FilterCodecReader extends CodecReader {
   /** 
    * The underlying CodecReader instance. 
    */
@@ -81,6 +86,16 @@ public class FilterCodecReader extends CodecReader {
   }
 
   @Override
+  public PointsReader getPointsReader() {
+    return in.getPointsReader();
+  }
+
+  @Override
+  public PointValues getPointValues() {
+    return in.getPointValues();
+  }
+
+  @Override
   public int numDocs() {
     return in.numDocs();
   }
@@ -88,6 +103,11 @@ public class FilterCodecReader extends CodecReader {
   @Override
   public int maxDoc() {
     return in.maxDoc();
+  }
+
+  @Override
+  public Sort getIndexSort() {
+    return in.getIndexSort();
   }
 
   @Override
@@ -99,4 +119,25 @@ public class FilterCodecReader extends CodecReader {
   public void removeCoreClosedListener(CoreClosedListener listener) {
     in.removeCoreClosedListener(listener);
   }
+
+  @Override
+  protected void doClose() throws IOException {
+    in.doClose();
+  }
+
+  @Override
+  public long ramBytesUsed() {
+    return in.ramBytesUsed();
+  }
+
+  @Override
+  public Collection<Accountable> getChildResources() {
+    return in.getChildResources();
+  }
+
+  @Override
+  public void checkIntegrity() throws IOException {
+    in.checkIntegrity();
+  }
+
 }

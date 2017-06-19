@@ -1,5 +1,3 @@
-package org.apache.lucene.util.fst;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.util.fst;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util.fst;
+
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -68,8 +68,8 @@ import org.apache.lucene.util.LuceneTestCase.Slow;
 import org.apache.lucene.util.LuceneTestCase.SuppressCodecs;
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.util.TestUtil;
-import org.apache.lucene.util.automaton.CompiledAutomaton;
 import org.apache.lucene.util.automaton.Automaton;
+import org.apache.lucene.util.automaton.CompiledAutomaton;
 import org.apache.lucene.util.automaton.RegExp;
 import org.apache.lucene.util.fst.BytesRefFSTEnum.InputOutput;
 import org.apache.lucene.util.fst.FST.Arc;
@@ -92,8 +92,6 @@ public class TestFSTs extends LuceneTestCase {
   public void setUp() throws Exception {
     super.setUp();
     dir = newMockDirectory();
-    dir.setPreventDoubleWrite(false);
-    dir.setEnableVirusScanner(false);
   }
 
   @Override
@@ -231,7 +229,7 @@ public class TestFSTs extends LuceneTestCase {
         final long value = lastOutput + TestUtil.nextInt(random(), 1, 1000);
         lastOutput = value;
         pairs.add(new FSTTester.InputOutput<>(terms[idx],
-                                                                         outputs.newPair((long) idx, value)));
+                                              outputs.newPair((long) idx, value)));
       }
       new FSTTester<>(random(), dir, inputMode, pairs, outputs, false).doTest(true);
     }
@@ -311,7 +309,7 @@ public class TestFSTs extends LuceneTestCase {
   // file, up until a doc limit
   public void testRealTerms() throws Exception {
 
-    final LineFileDocs docs = new LineFileDocs(random(), true);
+    final LineFileDocs docs = new LineFileDocs(random());
     final int numDocs = TEST_NIGHTLY ? atLeast(1000) : atLeast(100);
     MockAnalyzer analyzer = new MockAnalyzer(random());
     analyzer.setMaxTokenLength(TestUtil.nextInt(random(), 1, IndexWriter.MAX_TERM_LENGTH));
@@ -326,7 +324,7 @@ public class TestFSTs extends LuceneTestCase {
       writer.addDocument(doc);
       docCount++;
     }
-    IndexReader r = DirectoryReader.open(writer, true);
+    IndexReader r = DirectoryReader.open(writer);
     writer.close();
     final PositiveIntOutputs outputs = PositiveIntOutputs.getSingleton();
 
@@ -632,10 +630,10 @@ public class TestFSTs extends LuceneTestCase {
     int idx = 0;
     while (idx < args.length) {
       if (args[idx].equals("-prune")) {
-        prune = Integer.valueOf(args[1 + idx]);
+        prune = Integer.parseInt(args[1 + idx]);
         idx++;
       } else if (args[idx].equals("-limit")) {
-        limit = Integer.valueOf(args[1 + idx]);
+        limit = Integer.parseInt(args[1 + idx]);
         idx++;
       } else if (args[idx].equals("-utf8")) {
         inputMode = 0;
@@ -1469,7 +1467,7 @@ public class TestFSTs extends LuceneTestCase {
   }
 
   // used by slowcompletor
-  class TwoLongs {
+  static class TwoLongs {
     long a;
     long b;
 

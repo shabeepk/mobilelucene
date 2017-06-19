@@ -1,4 +1,3 @@
-package org.apache.lucene.analysis.payloads;
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -15,16 +14,13 @@ package org.apache.lucene.analysis.payloads;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.payloads;
 
 import org.apache.lucene.analysis.BaseTokenStreamTestCase;
-import org.apache.lucene.analysis.MockTokenizer;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.PayloadAttribute;
 import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.LuceneTestCase;
-
-import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 
 public class DelimitedPayloadTokenFilterTest extends BaseTokenStreamTestCase {

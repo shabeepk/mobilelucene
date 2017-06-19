@@ -1,5 +1,3 @@
-package org.apache.lucene.sandbox.queries;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.sandbox.queries;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.sandbox.queries;
 
 import java.io.IOException;
 
@@ -27,7 +26,6 @@ import org.apache.lucene.search.BooleanQuery; // javadocs
 import org.apache.lucene.search.FuzzyQuery; // javadocs
 import org.apache.lucene.search.MultiTermQuery;
 import org.apache.lucene.util.AttributeSource;
-import org.apache.lucene.util.ToStringUtils;
 import org.apache.lucene.util.automaton.LevenshteinAutomata;
 
 /** Implements the classic fuzzy search query. The similarity measurement
@@ -166,7 +164,6 @@ public class SlowFuzzyQuery extends MultiTermQuery {
     buffer.append(term.text());
     buffer.append('~');
     buffer.append(Float.toString(minimumSimilarity));
-    buffer.append(ToStringUtils.boost(getBoost()));
     return buffer.toString();
   }
   

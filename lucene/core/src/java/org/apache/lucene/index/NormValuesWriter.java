@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -64,7 +64,7 @@ class NormValuesWriter {
   public void finish(int maxDoc) {
   }
 
-  public void flush(SegmentWriteState state, NormsConsumer normsConsumer) throws IOException {
+  public void flush(SegmentWriteState state, Sorter.DocMap sortMap, NormsConsumer normsConsumer) throws IOException {
 
     final int maxDoc = state.segmentInfo.maxDoc();
     final PackedLongValues values = pending.build();
@@ -73,7 +73,11 @@ class NormValuesWriter {
                                new Iterable<Number>() {
                                  @Override
                                  public Iterator<Number> iterator() {
-                                   return new NumericIterator(maxDoc, values);
+                                   if (sortMap == null) {
+                                      return new NumericIterator(maxDoc, values);
+                                   } else {
+                                      return new SortingNumericIterator(maxDoc, values, sortMap);
+                                   }
                                  }
                                });
   }
@@ -84,13 +88,13 @@ class NormValuesWriter {
     final int size;
     final int maxDoc;
     int upto;
-    
+
     NumericIterator(int maxDoc, PackedLongValues values) {
       this.maxDoc = maxDoc;
       this.iter = values.iterator();
       this.size = (int) values.size();
     }
-    
+
     @Override
     public boolean hasNext() {
       return upto < maxDoc;
@@ -104,6 +108,48 @@ class NormValuesWriter {
       Long value;
       if (upto < size) {
         value = iter.next();
+      } else {
+        value = MISSING;
+      }
+      upto++;
+      return value;
+    }
+
+    @Override
+    public void remove() {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  // sort the values we have in ram according to the provided sort map
+  private static class SortingNumericIterator implements Iterator<Number> {
+    final PackedLongValues values;
+    final Sorter.DocMap sortMap;
+    final int size;
+    final int maxDoc;
+    int upto;
+
+    SortingNumericIterator(int maxDoc, PackedLongValues values, Sorter.DocMap sortMap) {
+      this.maxDoc = maxDoc;
+      this.values = values;
+      this.size = (int) values.size();
+      this.sortMap = sortMap;
+    }
+
+    @Override
+    public boolean hasNext() {
+      return upto < maxDoc;
+    }
+
+    @Override
+    public Number next() {
+      if (!hasNext()) {
+        throw new NoSuchElementException();
+      }
+      Long value;
+      int oldUpto = sortMap.newToOld(upto);
+      if (oldUpto < size) {
+        value = values.get(oldUpto);
       } else {
         value = MISSING;
       }

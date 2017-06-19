@@ -1,5 +1,3 @@
-package org.apache.lucene.queries.function;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,15 +14,23 @@ package org.apache.lucene.queries.function;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queries.function;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.search.DoubleValues;
+import org.apache.lucene.search.DoubleValuesSource;
 import org.apache.lucene.search.FieldComparator;
 import org.apache.lucene.search.FieldComparatorSource;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.LongValues;
+import org.apache.lucene.search.LongValuesSource;
+import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.SimpleFieldComparator;
 import org.apache.lucene.search.SortField;
 
@@ -77,6 +83,110 @@ public abstract class ValueSource {
     return context;
   }
 
+  private static class FakeScorer extends Scorer {
+
+    int current = -1;
+    float score = 0;
+
+    FakeScorer() {
+      super(null);
+    }
+
+    @Override
+    public int docID() {
+      return current;
+    }
+
+    @Override
+    public float score() throws IOException {
+      return score;
+    }
+
+    @Override
+    public int freq() throws IOException {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public DocIdSetIterator iterator() {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  /**
+   * Expose this ValueSource as a LongValuesSource
+   */
+  public LongValuesSource asLongValuesSource() {
+    return new LongValuesSource() {
+      @Override
+      public LongValues getValues(LeafReaderContext ctx, DoubleValues scores) throws IOException {
+        Map context = new IdentityHashMap<>();
+        FakeScorer scorer = new FakeScorer();
+        context.put("scorer", scorer);
+        final FunctionValues fv = ValueSource.this.getValues(context, ctx);
+        return new LongValues() {
+
+          @Override
+          public long longValue() throws IOException {
+            return fv.longVal(scorer.current);
+          }
+
+          @Override
+          public boolean advanceExact(int doc) throws IOException {
+            scorer.current = doc;
+            if (scores != null && scores.advanceExact(doc))
+              scorer.score = (float) scores.doubleValue();
+            else
+              scorer.score = 0;
+            return fv.exists(doc);
+          }
+        };
+      }
+
+      @Override
+      public boolean needsScores() {
+        return false;
+      }
+    };
+  }
+
+  /**
+   * Expose this ValueSource as a DoubleValuesSource
+   */
+  public DoubleValuesSource asDoubleValuesSource() {
+    return new DoubleValuesSource() {
+      @Override
+      public DoubleValues getValues(LeafReaderContext ctx, DoubleValues scores) throws IOException {
+        Map context = new HashMap<>();
+        FakeScorer scorer = new FakeScorer();
+        context.put("scorer", scorer);
+        FunctionValues fv = ValueSource.this.getValues(context, ctx);
+        return new DoubleValues() {
+
+          @Override
+          public double doubleValue() throws IOException {
+            return fv.doubleVal(scorer.current);
+          }
+
+          @Override
+          public boolean advanceExact(int doc) throws IOException {
+            scorer.current = doc;
+            if (scores != null && scores.advanceExact(doc)) {
+              scorer.score = (float) scores.doubleValue();
+            }
+            else
+              scorer.score = 0;
+            return fv.exists(doc);
+          }
+        };
+      }
+
+      @Override
+      public boolean needsScores() {
+        return true;  // be on the safe side
+      }
+    };
+  }
 
   //
   // Sorting by function
@@ -117,7 +227,7 @@ public abstract class ValueSource {
 
     @Override
     public FieldComparator<Double> newComparator(String fieldname, int numHits,
-                                         int sortPos, boolean reversed) throws IOException {
+                                         int sortPos, boolean reversed) {
       return new ValueSourceComparator(context, numHits);
     }
   }

@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.blocktree;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.codecs.blocktree;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.blocktree;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -107,8 +107,11 @@ public final class BlockTreeTermsReader extends FieldsProducer {
    *  this field did write any auto-prefix terms. */
   public static final int VERSION_AUTO_PREFIX_TERMS_COND = 2;
 
+  /** Auto-prefix terms have been superseded by points. */
+  public static final int VERSION_AUTO_PREFIX_TERMS_REMOVED = 3;
+
   /** Current terms format. */
-  public static final int VERSION_CURRENT = VERSION_AUTO_PREFIX_TERMS_COND;
+  public static final int VERSION_CURRENT = VERSION_AUTO_PREFIX_TERMS_REMOVED;
 
   /** Extension of terms index file */
   static final String TERMS_INDEX_EXTENSION = "tip";
@@ -150,15 +153,15 @@ public final class BlockTreeTermsReader extends FieldsProducer {
       termsIn = state.directory.openInput(termsName, state.context);
       version = CodecUtil.checkIndexHeader(termsIn, TERMS_CODEC_NAME, VERSION_START, VERSION_CURRENT, state.segmentInfo.getId(), state.segmentSuffix);
 
-      if (version < VERSION_AUTO_PREFIX_TERMS) {
-        // Old (pre-5.2.0) index, no auto-prefix terms:
+      if (version < VERSION_AUTO_PREFIX_TERMS || version >= VERSION_AUTO_PREFIX_TERMS_REMOVED) {
+        // Old (pre-5.2.0) or recent (6.2.0+) index, no auto-prefix terms:
         this.anyAutoPrefixTerms = false;
       } else if (version == VERSION_AUTO_PREFIX_TERMS) {
         // 5.2.x index, might have auto-prefix terms:
         this.anyAutoPrefixTerms = true;
       } else {
         // 5.3.x index, we record up front if we may have written any auto-prefix terms:
-        assert version >= VERSION_AUTO_PREFIX_TERMS_COND;
+        assert version == VERSION_AUTO_PREFIX_TERMS_COND;
         byte b = termsIn.readByte();
         if (b == 0) {
           this.anyAutoPrefixTerms = false;

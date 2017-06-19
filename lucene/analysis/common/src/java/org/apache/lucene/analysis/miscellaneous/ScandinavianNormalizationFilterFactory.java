@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.miscellaneous;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,8 +14,12 @@ package org.apache.lucene.analysis.miscellaneous;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.miscellaneous;
+
 
 import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.util.AbstractAnalysisFactory;
+import org.apache.lucene.analysis.util.MultiTermAwareComponent;
 import org.apache.lucene.analysis.util.TokenFilterFactory;
 
 import java.util.Map;
@@ -32,7 +34,8 @@ import java.util.Map;
  *   &lt;/analyzer&gt;
  * &lt;/fieldType&gt;</pre>
  */
-public class ScandinavianNormalizationFilterFactory extends TokenFilterFactory {
+public class ScandinavianNormalizationFilterFactory extends TokenFilterFactory
+    implements MultiTermAwareComponent {
 
   public ScandinavianNormalizationFilterFactory(Map<String, String> args) {
     super(args);
@@ -44,5 +47,10 @@ public class ScandinavianNormalizationFilterFactory extends TokenFilterFactory {
   @Override
   public ScandinavianNormalizationFilter create(TokenStream input) {
     return new ScandinavianNormalizationFilter(input);
+  }
+
+  @Override
+  public AbstractAnalysisFactory getMultiTermComponent() {
+    return this;
   }
 }

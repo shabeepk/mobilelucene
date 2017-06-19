@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spell;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.spell;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spell;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -38,6 +37,7 @@ import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
@@ -417,8 +417,7 @@ public class SpellChecker implements java.io.Closeable {
    */
   private static void add(BooleanQuery.Builder q, String name, String value, float boost) {
     Query tq = new TermQuery(new Term(name, value));
-    tq.setBoost(boost);
-    q.add(new BooleanClause(tq, BooleanClause.Occur.SHOULD));
+    q.add(new BooleanClause(new BoostQuery(tq, boost), BooleanClause.Occur.SHOULD));
   }
 
   /**

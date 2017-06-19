@@ -1,5 +1,3 @@
-package org.apache.lucene.search.suggest.fst;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,19 +14,22 @@ package org.apache.lucene.search.suggest.fst;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.suggest.fst;
 
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-import org.apache.lucene.search.suggest.Lookup.LookupResult;
 import org.apache.lucene.search.suggest.*;
+import org.apache.lucene.search.suggest.Lookup.LookupResult;
 import org.apache.lucene.search.suggest.fst.FSTCompletion.Completion;
+import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.*;
 
 /**
  * Unit tests for {@link FSTCompletion}.
  */
 public class FSTCompletionTest extends LuceneTestCase {
+
   public static Input tf(String t, int v) {
     return new Input(t, v);
   }
@@ -155,7 +156,8 @@ public class FSTCompletionTest extends LuceneTestCase {
   }
 
   public void testLargeInputConstantWeights() throws Exception {
-    FSTCompletionLookup lookup = new FSTCompletionLookup(10, true);
+    Directory tempDir = getDirectory();
+    FSTCompletionLookup lookup = new FSTCompletionLookup(tempDir, "fst", 10, true);
     
     Random r = random();
     List<Input> keys = new ArrayList<>();
@@ -175,12 +177,14 @@ public class FSTCompletionTest extends LuceneTestCase {
       }
       previous = current;
     }
+    tempDir.close();
   }  
 
   public void testMultilingualInput() throws Exception {
     List<Input> input = LookupBenchmarkTest.readTop50KWiki();
 
-    FSTCompletionLookup lookup = new FSTCompletionLookup();
+    Directory tempDir = getDirectory();
+    FSTCompletionLookup lookup = new FSTCompletionLookup(tempDir, "fst");
     lookup.build(new InputArrayIterator(input));
     assertEquals(input.size(), lookup.getCount());
     for (Input tf : input) {
@@ -192,6 +196,7 @@ public class FSTCompletionTest extends LuceneTestCase {
     assertEquals(5, result.size());
     assertTrue(result.get(0).key.toString().equals("wit"));  // exact match.
     assertTrue(result.get(1).key.toString().equals("with")); // highest count.
+    tempDir.close();
   }
 
   public void testEmptyInput() throws Exception {
@@ -207,7 +212,8 @@ public class FSTCompletionTest extends LuceneTestCase {
       freqs.add(new Input("" + rnd.nextLong(), weight));
     }
 
-    FSTCompletionLookup lookup = new FSTCompletionLookup();
+    Directory tempDir = getDirectory();
+    FSTCompletionLookup lookup = new FSTCompletionLookup(tempDir, "fst");
     lookup.build(new InputArrayIterator(freqs.toArray(new Input[freqs.size()])));
 
     for (Input tf : freqs) {
@@ -219,6 +225,7 @@ public class FSTCompletionTest extends LuceneTestCase {
         }
       }
     }
+    tempDir.close();
   }
 
   private CharSequence stringToCharSequence(String prefix) {
@@ -261,5 +268,9 @@ public class FSTCompletionTest extends LuceneTestCase {
     for (String s : result)
       len = Math.max(len, s.length());
     return len;
+  }
+
+  private Directory getDirectory() {     
+    return newDirectory();
   }
 }

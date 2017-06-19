@@ -1,5 +1,3 @@
-package org.apache.lucene.search.grouping.function;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,11 +14,12 @@ package org.apache.lucene.search.grouping.function;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.grouping.function;
 
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.queries.function.FunctionValues;
 import org.apache.lucene.queries.function.ValueSource;
-import org.apache.lucene.search.grouping.AbstractAllGroupsCollector;
+import org.apache.lucene.search.grouping.AllGroupsCollector;
 import org.apache.lucene.util.mutable.MutableValue;
 
 import java.io.IOException;
@@ -40,7 +39,7 @@ import java.util.TreeSet;
  *
  * @lucene.experimental
  */
-public class FunctionAllGroupsCollector extends AbstractAllGroupsCollector<MutableValue> {
+public class FunctionAllGroupsCollector extends AllGroupsCollector<MutableValue> {
 
   private final Map<?, ?> vsContext;
   private final ValueSource groupBy;
@@ -79,9 +78,5 @@ public class FunctionAllGroupsCollector extends AbstractAllGroupsCollector<Mutab
     filler = values.getValueFiller();
     mval = filler.getValue();
   }
-  
-  @Override
-  public boolean needsScores() {
-    return true; // TODO, maybe we don't?
-  }
+
 }

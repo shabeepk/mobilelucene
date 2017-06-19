@@ -1,3 +1,19 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.lucene.facet.taxonomy.directory;
 
 import java.io.IOException;
@@ -32,22 +48,6 @@ import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.TestUtil;
 import org.junit.Test;
 
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 
 public class TestDirectoryTaxonomyWriter extends FacetTestCase {
 
@@ -94,7 +94,7 @@ public class TestDirectoryTaxonomyWriter extends FacetTestCase {
     taxoWriter.addCategory(new FacetLabel("b"));
     Map<String, String> userCommitData = new HashMap<>();
     userCommitData.put("testing", "1 2 3");
-    taxoWriter.setCommitData(userCommitData);
+    taxoWriter.setLiveCommitData(userCommitData.entrySet());
     taxoWriter.close();
     DirectoryReader r = DirectoryReader.open(dir);
     assertEquals("2 categories plus root should have been committed to the underlying directory", 3, r.numDocs());
@@ -109,14 +109,22 @@ public class TestDirectoryTaxonomyWriter extends FacetTestCase {
     // that the taxonomy index has been recreated.
     taxoWriter = new DirectoryTaxonomyWriter(dir, OpenMode.CREATE_OR_APPEND, NO_OP_CACHE);
     taxoWriter.addCategory(new FacetLabel("c")); // add a category so that commit will happen
-    taxoWriter.setCommitData(new HashMap<String, String>(){{
+    taxoWriter.setLiveCommitData(new HashMap<String, String>(){{
       put("just", "data");
-    }});
+    }}.entrySet());
     taxoWriter.commit();
     
     // verify taxoWriter.getCommitData()
+    Map<String,String> data = new HashMap<>();
+    Iterable<Map.Entry<String,String>> iter = taxoWriter.getLiveCommitData();
+    if (iter != null) {
+      for(Map.Entry<String,String> ent : iter) {
+        data.put(ent.getKey(), ent.getValue());
+      }
+    }
+    
     assertNotNull(DirectoryTaxonomyWriter.INDEX_EPOCH
-        + " not found in taoxWriter.commitData", taxoWriter.getCommitData().get(DirectoryTaxonomyWriter.INDEX_EPOCH));
+        + " not found in taoxWriter.commitData", data.get(DirectoryTaxonomyWriter.INDEX_EPOCH));
     taxoWriter.close();
     
     r = DirectoryReader.open(dir);
@@ -134,13 +142,11 @@ public class TestDirectoryTaxonomyWriter extends FacetTestCase {
     DirectoryTaxonomyWriter dtw = new DirectoryTaxonomyWriter(dir);
     dtw.addCategory(new FacetLabel("a"));
     dtw.rollback();
-    try {
+    // should not have succeeded to add a category following rollback.
+    expectThrows(AlreadyClosedException.class, () -> {
       dtw.addCategory(new FacetLabel("a"));
-      fail("should not have succeeded to add a category following rollback.");
-    } catch (AlreadyClosedException e) {
-      // expected
-    }
-    
+    });
+
     dir.close();
   }
   
@@ -162,20 +168,19 @@ public class TestDirectoryTaxonomyWriter extends FacetTestCase {
     Directory dir = newDirectory();
     DirectoryTaxonomyWriter dtw = new DirectoryTaxonomyWriter(dir);
     dtw.close();
-    try {
+    // should not succeed to add a category following close.
+    expectThrows(AlreadyClosedException.class, () -> {
       dtw.addCategory(new FacetLabel("a"));
-      fail("should not have succeeded to add a category following close.");
-    } catch (AlreadyClosedException e) {
-      // expected
-    }
+    });
+
     dir.close();
   }
 
   private void touchTaxo(DirectoryTaxonomyWriter taxoWriter, FacetLabel cp) throws IOException {
     taxoWriter.addCategory(cp);
-    taxoWriter.setCommitData(new HashMap<String, String>(){{
+    taxoWriter.setLiveCommitData(new HashMap<String, String>(){{
       put("just", "data");
-    }});
+    }}.entrySet());
     taxoWriter.commit();
   }
   

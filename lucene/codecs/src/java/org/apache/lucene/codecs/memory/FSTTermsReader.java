@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.memory;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.codecs.memory;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.memory;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -250,6 +250,9 @@ public class FSTTermsReader extends FieldsProducer {
 
     @Override
     public TermsEnum intersect(CompiledAutomaton compiled, BytesRef startTerm) throws IOException {
+      if (compiled.type != CompiledAutomaton.AUTOMATON_TYPE.NORMAL) {
+        throw new IllegalArgumentException("please use CompiledAutomaton.getTermsEnum instead");
+      }
       return new IntersectTermsEnum(compiled, startTerm);
     }
 
@@ -602,7 +605,7 @@ public class FSTTermsReader extends FieldsProducer {
       /** Load frame for start arc(node) on fst */
       Frame loadFirstFrame(Frame frame) throws IOException {
         frame.fstArc = fst.getFirstArc(frame.fstArc);
-        frame.fsaState = fsa.getInitialState();
+        frame.fsaState = 0;
         return frame;
       }
 

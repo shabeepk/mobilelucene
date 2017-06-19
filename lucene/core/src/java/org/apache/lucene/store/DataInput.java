@@ -1,5 +1,3 @@
-package org.apache.lucene.store;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,9 +14,11 @@ package org.apache.lucene.store;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.store;
+
 
 import java.io.IOException;
-import org.lukhnos.portmobile.charset.StandardCharsets;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -286,7 +286,7 @@ public abstract class DataInput implements Cloneable {
     } else if (count == 1) {
       return Collections.singletonMap(readString(), readString());
     } else {
-      Map<String,String> map = count > 10 ? new HashMap<String,String>() : new TreeMap<String,String>();
+      Map<String,String> map = count > 10 ? new HashMap<>() : new TreeMap<>();
       for (int i = 0; i < count; i++) {
         final String key = readString();
         final String val = readString();
@@ -323,7 +323,7 @@ public abstract class DataInput implements Cloneable {
     } else if (count == 1) {
       return Collections.singleton(readString());
     } else {
-      Set<String> set = count > 10 ? new HashSet<String>() : new TreeSet<String>();
+      Set<String> set = count > 10 ? new HashSet<>() : new TreeSet<>();
       for (int i = 0; i < count; i++) {
         set.add(readString());
       }

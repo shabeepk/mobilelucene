@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.ja;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,18 +14,19 @@ package org.apache.lucene.analysis.ja;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.ja;
+
 
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.util.CharArraySet;
 import org.apache.lucene.analysis.util.ResourceLoader;
 import org.apache.lucene.analysis.util.ResourceLoaderAware;
 import org.apache.lucene.analysis.util.TokenFilterFactory;
-import org.apache.lucene.util.Version;
 
 /**
  * Factory for {@link org.apache.lucene.analysis.ja.JapanesePartOfSpeechStopFilter}.
@@ -44,23 +43,11 @@ import org.apache.lucene.util.Version;
 public class JapanesePartOfSpeechStopFilterFactory extends TokenFilterFactory implements ResourceLoaderAware {
   private final String stopTagFiles;
   private Set<String> stopTags;
-  private boolean enablePositionIncrements;
 
   /** Creates a new JapanesePartOfSpeechStopFilterFactory */
   public JapanesePartOfSpeechStopFilterFactory(Map<String,String> args) {
     super(args);
     stopTagFiles = get(args, "tags");
-
-    if (luceneMatchVersion.onOrAfter(Version.LUCENE_5_0_0) == false) {
-      boolean defaultValue = luceneMatchVersion.onOrAfter(Version.LUCENE_4_4_0);
-      enablePositionIncrements = getBoolean(args, "enablePositionIncrements", defaultValue);
-      if (enablePositionIncrements == false && luceneMatchVersion.onOrAfter(Version.LUCENE_4_4_0)) {
-        throw new IllegalArgumentException("enablePositionIncrements=false is not supported anymore as of Lucene 4.4");
-      }
-    } else if (args.containsKey("enablePositionIncrements")) {
-      throw new IllegalArgumentException("enablePositionIncrements is not a valid option as of Lucene 5.0");
-    }
-
     if (!args.isEmpty()) {
       throw new IllegalArgumentException("Unknown parameters: " + args);
     }
@@ -83,11 +70,8 @@ public class JapanesePartOfSpeechStopFilterFactory extends TokenFilterFactory im
   public TokenStream create(TokenStream stream) {
     // if stoptags is null, it means the file is empty
     if (stopTags != null) {
-      if (luceneMatchVersion.onOrAfter(Version.LUCENE_4_4_0)) {
-        return new JapanesePartOfSpeechStopFilter(stream, stopTags);
-      } else {
-        return new Lucene43JapanesePartOfSpeechStopFilter(enablePositionIncrements, stream, stopTags);
-      }
+      final TokenStream filter = new JapanesePartOfSpeechStopFilter(stream, stopTags);
+      return filter;
     } else {
       return stream;
     }

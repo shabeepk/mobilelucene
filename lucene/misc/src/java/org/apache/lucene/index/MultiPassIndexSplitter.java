@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,11 +14,12 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
 
 import java.io.IOException;
-import org.lukhnos.portmobile.file.Files;
-import org.lukhnos.portmobile.file.Path;
-import org.lukhnos.portmobile.file.Paths;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,7 +29,6 @@ import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.FixedBitSet;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.SuppressForbidden;
-import org.apache.lucene.util.Version;
 
 /**
  * This tool splits input index into multiple equal parts. The method employed

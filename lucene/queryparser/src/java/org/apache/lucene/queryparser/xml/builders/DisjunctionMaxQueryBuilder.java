@@ -1,4 +1,3 @@
-package org.apache.lucene.queryparser.xml.builders;
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -15,10 +14,14 @@ package org.apache.lucene.queryparser.xml.builders;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queryparser.xml.builders;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.lucene.queryparser.xml.DOMUtils;
 import org.apache.lucene.queryparser.xml.ParserException;
 import org.apache.lucene.queryparser.xml.QueryBuilder;
+import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.DisjunctionMaxQuery;
 import org.apache.lucene.search.Query;
 import org.w3c.dom.Element;
@@ -43,19 +46,24 @@ public class DisjunctionMaxQueryBuilder implements QueryBuilder {
   @Override
   public Query getQuery(Element e) throws ParserException {
     float tieBreaker = DOMUtils.getAttribute(e, "tieBreaker", 0.0f); 
-    DisjunctionMaxQuery dq = new DisjunctionMaxQuery(tieBreaker);
-    dq.setBoost(DOMUtils.getAttribute(e, "boost", 1.0f));
 
+    List<Query> disjuncts = new ArrayList<>();
     NodeList nl = e.getChildNodes();
-    for (int i = 0; i < nl.getLength(); i++) {
+    final int nlLen = nl.getLength();
+    for (int i = 0; i < nlLen; i++) {
       Node node = nl.item(i);
       if (node instanceof Element) { // all elements are disjuncts.
         Element queryElem = (Element) node;
         Query q = factory.getQuery(queryElem);
-        dq.add(q);
+        disjuncts.add(q);
       }
     }
 
-    return dq;
+    Query q = new DisjunctionMaxQuery(disjuncts, tieBreaker);
+    float boost = DOMUtils.getAttribute(e, "boost", 1.0f);
+    if (boost != 1f) {
+      q = new BoostQuery(q, boost);
+    }
+    return q;
   }
 }

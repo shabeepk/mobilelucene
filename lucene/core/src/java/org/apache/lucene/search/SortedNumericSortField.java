@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 
@@ -82,6 +82,11 @@ public class SortedNumericSortField extends SortField {
     this.selector = selector;
     this.type = type;
   }
+
+  /** Returns the numeric type in use for this sort */
+  public SortField.Type getNumericType() {
+    return type;
+  }
   
   /** Returns the selector in use for this sort */
   public SortedNumericSelector.Type getSelector() {
@@ -131,7 +136,7 @@ public class SortedNumericSortField extends SortField {
   }
   
   @Override
-  public FieldComparator<?> getComparator(int numHits, int sortPos) throws IOException {
+  public FieldComparator<?> getComparator(int numHits, int sortPos) {
     switch(type) {
       case INT:
         return new FieldComparator.IntComparator(numHits, getField(), (Integer) missingValue) {

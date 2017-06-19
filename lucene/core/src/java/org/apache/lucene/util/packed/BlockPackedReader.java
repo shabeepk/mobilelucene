@@ -1,5 +1,3 @@
-package org.apache.lucene.util.packed;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.util.packed;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util.packed;
+
 
 import static org.apache.lucene.util.BitUtil.zigZagDecode;
 import static org.apache.lucene.util.packed.AbstractBlockPackedWriter.BPV_SHIFT;
@@ -27,9 +27,8 @@ import static org.apache.lucene.util.packed.PackedInts.checkBlockSize;
 import static org.apache.lucene.util.packed.PackedInts.numBlocks;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Collections;
 
+import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.LongValues;
@@ -60,7 +59,7 @@ public final class BlockPackedReader extends LongValues implements Accountable {
       final int bitsPerValue = token >>> BPV_SHIFT;
       sumBPV += bitsPerValue;
       if (bitsPerValue > 64) {
-        throw new IOException("Corrupted");
+        throw new CorruptIndexException("Corrupted Block#" + i, in);
       }
       if ((token & MIN_VALUE_EQUALS_0) == 0) {
         if (minValues == null) {
@@ -100,11 +99,6 @@ public final class BlockPackedReader extends LongValues implements Accountable {
       size += reader.ramBytesUsed();
     }
     return size;
-  }
-
-  @Override
-  public Collection<Accountable> getChildResources() {
-    return Collections.emptyList();
   }
   
   @Override

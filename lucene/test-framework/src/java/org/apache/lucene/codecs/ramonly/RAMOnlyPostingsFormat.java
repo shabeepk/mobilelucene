@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.ramonly;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.codecs.ramonly;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.ramonly;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -128,11 +127,6 @@ public final class RAMOnlyPostingsFormat extends PostingsFormat {
     }
 
     @Override
-    public Collection<Accountable> getChildResources() {
-      return Collections.emptyList();
-    }
-
-    @Override
     public long size() {
       return termToDocs.size();
     }
@@ -194,11 +188,6 @@ public final class RAMOnlyPostingsFormat extends PostingsFormat {
       }
       return sizeInBytes;
     }
-
-    @Override
-    public Collection<Accountable> getChildResources() {
-      return Collections.emptyList();
-    }
   }
 
   static class RAMDoc implements Accountable {
@@ -222,11 +211,6 @@ public final class RAMOnlyPostingsFormat extends PostingsFormat {
         }
       }
       return sizeInBytes;
-    }
-    
-    @Override
-    public Collection<Accountable> getChildResources() {
-      return Collections.emptyList();
     }
   }
 

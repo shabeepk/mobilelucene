@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.eu;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,23 +14,23 @@ package org.apache.lucene.analysis.eu;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.eu;
+
 
 import java.io.IOException;
 import java.io.Reader;
 
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.core.LowerCaseFilter;
-import org.apache.lucene.analysis.core.StopFilter;
-import org.apache.lucene.analysis.miscellaneous.SetKeywordMarkerFilter;
+import org.apache.lucene.analysis.CharArraySet;
+import org.apache.lucene.analysis.LowerCaseFilter;
+import org.apache.lucene.analysis.StopFilter;
+import org.apache.lucene.analysis.StopwordAnalyzerBase;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.Tokenizer;
+import org.apache.lucene.analysis.miscellaneous.SetKeywordMarkerFilter;
 import org.apache.lucene.analysis.snowball.SnowballFilter;
 import org.apache.lucene.analysis.standard.StandardFilter;
 import org.apache.lucene.analysis.standard.StandardTokenizer;
-import org.apache.lucene.analysis.standard.std40.StandardTokenizer40;
-import org.apache.lucene.analysis.util.CharArraySet;
-import org.apache.lucene.analysis.util.StopwordAnalyzerBase;
-import org.apache.lucene.util.Version;
 import org.tartarus.snowball.ext.BasqueStemmer;
 
 /**
@@ -114,12 +112,7 @@ public final class BasqueAnalyzer extends StopwordAnalyzerBase {
    */
   @Override
   protected TokenStreamComponents createComponents(String fieldName) {
-    final Tokenizer source;
-    if (getVersion().onOrAfter(Version.LUCENE_4_7_0)) {
-      source = new StandardTokenizer();
-    } else {
-      source = new StandardTokenizer40();
-    }
+    final Tokenizer source = new StandardTokenizer();
     TokenStream result = new StandardFilter(source);
     result = new LowerCaseFilter(result);
     result = new StopFilter(result, stopwords);
@@ -127,5 +120,12 @@ public final class BasqueAnalyzer extends StopwordAnalyzerBase {
       result = new SetKeywordMarkerFilter(result, stemExclusionSet);
     result = new SnowballFilter(result, new BasqueStemmer());
     return new TokenStreamComponents(source, result);
+  }
+
+  @Override
+  protected TokenStream normalize(String fieldName, TokenStream in) {
+    TokenStream result = new StandardFilter(in);
+    result = new LowerCaseFilter(result);
+    return result;
   }
 }

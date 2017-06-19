@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.analysis;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis;
 
 import java.io.Reader;
 import java.io.StringReader;
@@ -316,7 +315,7 @@ public class TestMockAnalyzer extends BaseTokenStreamTestCase {
     doc.add(new Field("f", "a", ft));
     doc.add(new Field("f", "a", ft));
     writer.addDocument(doc);
-    final LeafReader reader = getOnlySegmentReader(writer.getReader());
+    final LeafReader reader = getOnlyLeafReader(writer.getReader());
     final Fields fields = reader.getTermVectors(0);
     final Terms terms = fields.terms("f");
     final TermsEnum te = terms.iterator();

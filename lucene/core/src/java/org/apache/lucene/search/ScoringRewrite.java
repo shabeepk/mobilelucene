@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
 
 import java.io.IOException;
 
@@ -59,7 +58,8 @@ public abstract class ScoringRewrite<B> extends TermCollectingRewrite<B> {
       builder.setDisableCoord(true);
       return builder;
     }
-    
+
+    @Override
     protected Query build(BooleanQuery.Builder builder) {
       return builder.build();
     }
@@ -68,8 +68,7 @@ public abstract class ScoringRewrite<B> extends TermCollectingRewrite<B> {
     protected void addClause(BooleanQuery.Builder topLevel, Term term, int docCount,
         float boost, TermContext states) {
       final TermQuery tq = new TermQuery(term, states);
-      tq.setBoost(boost);
-      topLevel.add(tq, BooleanClause.Occur.SHOULD);
+      topLevel.add(new BoostQuery(tq, boost), BooleanClause.Occur.SHOULD);
     }
     
     @Override
@@ -94,9 +93,7 @@ public abstract class ScoringRewrite<B> extends TermCollectingRewrite<B> {
     public Query rewrite(IndexReader reader, MultiTermQuery query) throws IOException {
       final Query bq = SCORING_BOOLEAN_REWRITE.rewrite(reader, query);
       // strip the scores off
-      final Query result = new ConstantScoreQuery(bq);
-      result.setBoost(query.getBoost());
-      return result;
+      return new ConstantScoreQuery(bq);
     }
   };
 
@@ -112,14 +109,14 @@ public abstract class ScoringRewrite<B> extends TermCollectingRewrite<B> {
     
     final int size = col.terms.size();
     if (size > 0) {
-      final int sort[] = col.terms.sort(BytesRef.getUTF8SortedAsUnicodeComparator());
+      final int sort[] = col.terms.sort();
       final float[] boost = col.array.boost;
       final TermContext[] termStates = col.array.termState;
       for (int i = 0; i < size; i++) {
         final int pos = sort[i];
         final Term term = new Term(query.getField(), col.terms.get(pos, new BytesRef()));
-        assert termStates[pos].hasOnlyRealTerms() == false || reader.docFreq(term) == termStates[pos].docFreq();
-        addClause(builder, term, termStates[pos].docFreq(), query.getBoost() * boost[pos], termStates[pos]);
+        assert reader.docFreq(term) == termStates[pos].docFreq();
+        addClause(builder, term, termStates[pos].docFreq(), boost[pos], termStates[pos]);
       }
     }
     return build(builder);
@@ -170,7 +167,7 @@ public abstract class ScoringRewrite<B> extends TermCollectingRewrite<B> {
     @Override
     public int[] init() {
       final int[] ord = super.init();
-      boost = new float[ArrayUtil.oversize(ord.length, RamUsageEstimator.NUM_BYTES_FLOAT)];
+      boost = new float[ArrayUtil.oversize(ord.length, Float.BYTES)];
       termState = new TermContext[ArrayUtil.oversize(ord.length, RamUsageEstimator.NUM_BYTES_OBJECT_REF)];
       assert termState.length >= ord.length && boost.length >= ord.length;
       return ord;

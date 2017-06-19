@@ -1,11 +1,10 @@
-package org.apache.lucene.uninverting;
-
-/**
- * Copyright 2009 The Apache Software Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,16 +14,17 @@ package org.apache.lucene.uninverting;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.uninverting;
 
 import java.io.IOException;
 
 import org.apache.lucene.analysis.MockAnalyzer;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.document.DoubleField;
+import org.apache.lucene.document.LegacyDoubleField;
 import org.apache.lucene.document.Field;
-import org.apache.lucene.document.FloatField;
-import org.apache.lucene.document.IntField;
-import org.apache.lucene.document.LongField;
+import org.apache.lucene.document.LegacyFloatField;
+import org.apache.lucene.document.LegacyIntField;
+import org.apache.lucene.document.LegacyLongField;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
@@ -59,10 +59,10 @@ public class TestFieldCacheSanityChecker extends LuceneTestCase {
     float theFloat = Float.MAX_VALUE;
     for (int i = 0; i < NUM_DOCS; i++){
       Document doc = new Document();
-      doc.add(new LongField("theLong", theLong--, Field.Store.NO));
-      doc.add(new DoubleField("theDouble", theDouble--, Field.Store.NO));
-      doc.add(new IntField("theInt", theInt--, Field.Store.NO));
-      doc.add(new FloatField("theFloat", theFloat--, Field.Store.NO));
+      doc.add(new LegacyLongField("theLong", theLong--, Field.Store.NO));
+      doc.add(new LegacyDoubleField("theDouble", theDouble--, Field.Store.NO));
+      doc.add(new LegacyIntField("theInt", theInt--, Field.Store.NO));
+      doc.add(new LegacyFloatField("theFloat", theFloat--, Field.Store.NO));
       if (0 == i % 3) {
         wA.addDocument(doc);
       } else {
@@ -94,11 +94,11 @@ public class TestFieldCacheSanityChecker extends LuceneTestCase {
     FieldCache cache = FieldCache.DEFAULT;
     cache.purgeAllCaches();
 
-    cache.getNumerics(readerA, "theDouble", FieldCache.NUMERIC_UTILS_DOUBLE_PARSER, false);
-    cache.getNumerics(readerAclone, "theDouble", FieldCache.NUMERIC_UTILS_DOUBLE_PARSER, false);
-    cache.getNumerics(readerB, "theDouble", FieldCache.NUMERIC_UTILS_DOUBLE_PARSER, false);
+    cache.getNumerics(readerA, "theDouble", FieldCache.LEGACY_DOUBLE_PARSER, false);
+    cache.getNumerics(readerAclone, "theDouble", FieldCache.LEGACY_DOUBLE_PARSER, false);
+    cache.getNumerics(readerB, "theDouble", FieldCache.LEGACY_DOUBLE_PARSER, false);
 
-    cache.getNumerics(readerX, "theInt", FieldCache.NUMERIC_UTILS_INT_PARSER, false);
+    cache.getNumerics(readerX, "theInt", FieldCache.LEGACY_INT_PARSER, false);
 
     // // // 
 
@@ -117,7 +117,7 @@ public class TestFieldCacheSanityChecker extends LuceneTestCase {
     FieldCache cache = FieldCache.DEFAULT;
     cache.purgeAllCaches();
 
-    cache.getNumerics(readerX, "theInt", FieldCache.NUMERIC_UTILS_INT_PARSER, false);
+    cache.getNumerics(readerX, "theInt", FieldCache.LEGACY_INT_PARSER, false);
     cache.getTerms(readerX, "theInt", false);
 
     // // // 

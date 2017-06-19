@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -291,7 +291,7 @@ public abstract class ReferenceManager<G> implements Closeable {
    */
   public void addListener(RefreshListener listener) {
     if (listener == null) {
-      throw new NullPointerException("Listener cannot be null");
+      throw new NullPointerException("Listener must not be null");
     }
     refreshListeners.add(listener);
   }
@@ -301,7 +301,7 @@ public abstract class ReferenceManager<G> implements Closeable {
    */
   public void removeListener(RefreshListener listener) {
     if (listener == null) {
-      throw new NullPointerException("Listener cannot be null");
+      throw new NullPointerException("Listener must not be null");
     }
     refreshListeners.remove(listener);
   }

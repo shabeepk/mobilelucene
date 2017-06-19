@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.memory;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.codecs.memory;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.memory;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -31,7 +30,6 @@ import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.PostingsFormat;
 import org.apache.lucene.codecs.TermStats;
 import org.apache.lucene.index.CorruptIndexException;
-import org.apache.lucene.index.DocsAndPositionsEnum;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
@@ -51,12 +49,10 @@ import org.apache.lucene.store.RAMOutputStream;
 import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.Accountables;
 import org.apache.lucene.util.ArrayUtil;
-import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.FixedBitSet;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.IntsRefBuilder;
-import org.apache.lucene.util.RamUsageEstimator;
 import org.apache.lucene.util.fst.Builder;
 import org.apache.lucene.util.fst.ByteSequenceOutputs;
 import org.apache.lucene.util.fst.BytesRefFSTEnum;
@@ -115,15 +111,11 @@ public final class MemoryPostingsFormat extends PostingsFormat {
     private final FieldInfo field;
     private final Builder<BytesRef> builder;
     private final ByteSequenceOutputs outputs = ByteSequenceOutputs.getSingleton();
-    private final boolean doPackFST;
-    private final float acceptableOverheadRatio;
     private int termCount;
 
     public TermsWriter(IndexOutput out, FieldInfo field, boolean doPackFST, float acceptableOverheadRatio) {
       this.out = out;
       this.field = field;
-      this.doPackFST = doPackFST;
-      this.acceptableOverheadRatio = acceptableOverheadRatio;
       builder = new Builder<>(FST.INPUT_TYPE.BYTE1, 0, 0, true, true, Integer.MAX_VALUE, outputs, doPackFST, acceptableOverheadRatio, true, 15);
     }
 
@@ -795,13 +787,6 @@ public final class MemoryPostingsFormat extends PostingsFormat {
     
     @Override
     public PostingsEnum postings(PostingsEnum reuse, int flags) {
-      
-      if (PostingsEnum.featureRequested(flags, DocsAndPositionsEnum.OLD_NULL_SEMANTICS)) {
-        if (field.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS) < 0) {
-          // Positions were not indexed:
-          return null;
-        }
-      }
 
       // TODO: the logic of which enum impl to choose should be refactored to be simpler...
       boolean hasPositions = field.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS) >= 0;
@@ -1024,7 +1009,7 @@ public final class MemoryPostingsFormat extends PostingsFormat {
       public long ramBytesUsed() {
         long sizeInBytes = 0;
         for(Map.Entry<String,TermsReader> entry: fields.entrySet()) {
-          sizeInBytes += (entry.getKey().length() * RamUsageEstimator.NUM_BYTES_CHAR);
+          sizeInBytes += (entry.getKey().length() * Character.BYTES);
           sizeInBytes += entry.getValue().ramBytesUsed();
         }
         return sizeInBytes;

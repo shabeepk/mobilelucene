@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.simpletext;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.codecs.simpletext;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.simpletext;
+
 
 import java.io.IOException;
 
@@ -34,7 +34,7 @@ import org.apache.lucene.index.SegmentWriteState;
  *  any text editor, and even edit it to alter your index.
  *
  *  @lucene.experimental */
-public final class SimpleTextPostingsFormat extends PostingsFormat {
+final class SimpleTextPostingsFormat extends PostingsFormat {
   
   public SimpleTextPostingsFormat() {
     super("SimpleText");

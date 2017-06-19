@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,8 +14,8 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
 
-import java.io.IOException;
 
 /**
  * Provides a {@link FieldComparator} for custom field sorting.
@@ -33,9 +31,7 @@ public abstract class FieldComparatorSource {
    * @param fieldname
    *          Name of the field to create comparator for.
    * @return FieldComparator.
-   * @throws IOException
-   *           If an error occurs reading the index.
    */
-  public abstract FieldComparator<?> newComparator(String fieldname, int numHits, int sortPos, boolean reversed)
-      throws IOException;
+  public abstract FieldComparator<?> newComparator(String fieldname, int numHits, int sortPos, boolean reversed);
+
 }

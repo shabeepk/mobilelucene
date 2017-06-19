@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.standard;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -17,20 +15,15 @@ package org.apache.lucene.analysis.standard;
  * limitations under the License.
  */
 
-/*
-
-WARNING: if you change ClassicTokenizerImpl.jflex and need to regenerate
-      the tokenizer, only use the trunk version of JFlex 1.5 at the moment!
-
-*/
+package org.apache.lucene.analysis.standard;
 
 import java.io.Reader;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 
-@SuppressWarnings("fallthrough")
 /**
  * This class implements the classic lucene StandardTokenizer up until 3.0 
  */
+@SuppressWarnings("fallthrough")
 %%
 
 %class ClassicTokenizerImpl

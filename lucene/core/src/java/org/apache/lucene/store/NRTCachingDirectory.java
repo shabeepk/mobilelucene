@@ -1,5 +1,3 @@
-package org.apache.lucene.store;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,8 +14,12 @@ package org.apache.lucene.store;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.store;
 
+
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.NoSuchFileException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -99,12 +101,11 @@ public class NRTCachingDirectory extends FilterDirectory implements Accountable 
       files.add(f);
     }
     for(String f : in.listAll()) {
-      if (!files.add(f)) {
-        throw new IllegalStateException("file: " + in + " appears both in delegate and in cache: " +
-                                        "cache=" + Arrays.toString(cache.listAll()) + ",delegate=" + Arrays.toString(in.listAll()));
-      }
+      files.add(f);
     }
-    return files.toArray(new String[files.size()]);
+    String[] result = files.toArray(new String[files.size()]);
+    Arrays.sort(result);
+    return result;
   }
 
   @Override
@@ -169,12 +170,13 @@ public class NRTCachingDirectory extends FilterDirectory implements Accountable 
   }
 
   @Override
-  public void renameFile(String source, String dest) throws IOException {
-    // NOTE: uncache is unnecessary for lucene's usage, as we always sync() before renaming.
+  public void rename(String source, String dest) throws IOException {
     unCache(source);
-    in.renameFile(source, dest);
+    if (cache.fileNameExists(dest)) {
+      throw new IllegalArgumentException("target file " + dest + " already exists");
+    }
+    in.rename(source, dest);
   }
-
 
   @Override
   public synchronized IndexInput openInput(String name, IOContext context) throws IOException {
@@ -232,6 +234,65 @@ public class NRTCachingDirectory extends FilterDirectory implements Accountable 
     return (bytes <= maxMergeSizeBytes) && (bytes + cache.ramBytesUsed()) <= maxCachedBytes;
   }
 
+  @Override
+  public IndexOutput createTempOutput(String prefix, String suffix, IOContext context) throws IOException {
+    if (VERBOSE) {
+      System.out.println("nrtdir.createTempOutput prefix=" + prefix + " suffix=" + suffix);
+    }
+    Set<String> toDelete = new HashSet<>();
+
+    // This is very ugly/messy/dangerous (can in some disastrous case maybe create too many temp files), but I don't know of a cleaner way:
+    boolean success = false;
+
+    Directory first;
+    Directory second;
+    if (doCacheWrite(prefix, context)) {
+      first = cache;
+      second = in;
+    } else {
+      first = in;
+      second = cache;
+    }
+
+    IndexOutput out = null;
+    try {
+      while (true) {
+        out = first.createTempOutput(prefix, suffix, context);
+        String name = out.getName();
+        toDelete.add(name);
+        if (slowFileExists(second, name)) {
+          out.close();
+        } else {
+          toDelete.remove(name);
+          success = true;
+          break;
+        }
+      }
+    } finally {
+      if (success) {
+        IOUtils.deleteFiles(first, toDelete);
+      } else {
+        IOUtils.closeWhileHandlingException(out);
+        IOUtils.deleteFilesIgnoringExceptions(first, toDelete);
+      }
+    }
+
+    return out;
+  }
+
+  /** Returns true if the file exists
+   *  (can be opened), false if it cannot be opened, and
+   *  (unlike Java's File.exists) throws IOException if
+   *  there's some unexpected error. */
+  static boolean slowFileExists(Directory dir, String fileName) throws IOException {
+    try {
+      dir.openInput(fileName, IOContext.DEFAULT).close();
+      return true;
+    } catch (NoSuchFileException | FileNotFoundException e) {
+      return false;
+    }
+  }
+
   private final Object uncacheLock = new Object();
 
   private void unCache(String fileName) throws IOException {
@@ -245,6 +306,8 @@ public class NRTCachingDirectory extends FilterDirectory implements Accountable 
         // Another thread beat us...
         return;
       }
+      assert slowFileExists(in, fileName) == false: "fileName=" + fileName + " exists both in cache and in delegate";
+
       final IOContext context = IOContext.DEFAULT;
       final IndexOutput out = in.createOutput(fileName, context);
       IndexInput in = null;

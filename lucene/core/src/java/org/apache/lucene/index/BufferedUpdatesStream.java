@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,11 +14,12 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -31,6 +30,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.util.Accountable;
@@ -119,11 +119,6 @@ class BufferedUpdatesStream implements Accountable {
   @Override
   public long ramBytesUsed() {
     return bytesUsed.get();
-  }
-  
-  @Override
-  public Collection<Accountable> getChildResources() {
-    return Collections.emptyList();
   }
 
   public static class ApplyDeletesResult {
@@ -233,14 +228,19 @@ class BufferedUpdatesStream implements Accountable {
           assert pool.infoIsLive(info);
           int delCount = 0;
           final DocValuesFieldUpdates.Container dvUpdates = new DocValuesFieldUpdates.Container();
-          if (coalescedUpdates != null) {
-            delCount += applyQueryDeletes(coalescedUpdates.queriesIterable(), segState);
-            applyDocValuesUpdates(coalescedUpdates.numericDVUpdates, segState, dvUpdates);
-            applyDocValuesUpdates(coalescedUpdates.binaryDVUpdates, segState, dvUpdates);
-          }
+
+          // first apply segment-private deletes/updates
           delCount += applyQueryDeletes(packet.queriesIterable(), segState);
           applyDocValuesUpdates(Arrays.asList(packet.numericDVUpdates), segState, dvUpdates);
           applyDocValuesUpdates(Arrays.asList(packet.binaryDVUpdates), segState, dvUpdates);
+
+          // ... then coalesced deletes/updates, so that if there is an update that appears in both, the coalesced updates (carried from
+          // updates ahead of the segment-privates ones) win:
+          if (coalescedUpdates != null) {
+            delCount += applyQueryDeletes(coalescedUpdates.queriesIterable(), segState);
+            applyDocValuesUpdatesList(coalescedUpdates.numericDVUpdates, segState, dvUpdates);
+            applyDocValuesUpdatesList(coalescedUpdates.binaryDVUpdates, segState, dvUpdates);
+          }
           if (dvUpdates.any()) {
             segState.rld.writeFieldUpdates(info.info.dir, dvUpdates);
           }
@@ -266,8 +266,8 @@ class BufferedUpdatesStream implements Accountable {
             int delCount = 0;
             delCount += applyQueryDeletes(coalescedUpdates.queriesIterable(), segState);
             DocValuesFieldUpdates.Container dvUpdates = new DocValuesFieldUpdates.Container();
-            applyDocValuesUpdates(coalescedUpdates.numericDVUpdates, segState, dvUpdates);
-            applyDocValuesUpdates(coalescedUpdates.binaryDVUpdates, segState, dvUpdates);
+            applyDocValuesUpdatesList(coalescedUpdates.numericDVUpdates, segState, dvUpdates);
+            applyDocValuesUpdatesList(coalescedUpdates.binaryDVUpdates, segState, dvUpdates);
             if (dvUpdates.any()) {
               segState.rld.writeFieldUpdates(info.info.dir, dvUpdates);
             }
@@ -456,15 +456,16 @@ class BufferedUpdatesStream implements Accountable {
       try {
         segStates[j].finish(pool);
       } catch (Throwable th) {
-        if (firstExc != null) {
+        if (firstExc == null) {
           firstExc = th;
         }
       }
     }
 
     if (success) {
-      // Does nothing if firstExc is null:
-      IOUtils.reThrow(firstExc);
+      if (firstExc != null) {
+        throw IOUtils.rethrowAlways(firstExc);
+      }
     }
 
     if (infoStream.isEnabled("BD")) {
@@ -604,8 +605,17 @@ class BufferedUpdatesStream implements Accountable {
     return delTermVisitedCount;
   }
 
+  private synchronized void applyDocValuesUpdatesList(List<List<DocValuesUpdate>> updates, 
+      SegmentState segState, DocValuesFieldUpdates.Container dvUpdatesContainer) throws IOException {
+    // we walk backwards through the segments, appending deletion packets to the coalesced updates, so we must apply the packets in reverse
+    // so that newer packets override older ones:
+    for(int idx=updates.size()-1;idx>=0;idx--) {
+      applyDocValuesUpdates(updates.get(idx), segState, dvUpdatesContainer);
+    }
+  }
+
   // DocValues updates
-  private synchronized void applyDocValuesUpdates(Iterable<? extends DocValuesUpdate> updates, 
+  private synchronized void applyDocValuesUpdates(List<DocValuesUpdate> updates, 
       SegmentState segState, DocValuesFieldUpdates.Container dvUpdatesContainer) throws IOException {
     Fields fields = segState.reader.fields();
 
@@ -696,8 +706,9 @@ class BufferedUpdatesStream implements Accountable {
       final IndexSearcher searcher = new IndexSearcher(readerContext.reader());
       searcher.setQueryCache(null);
       final Weight weight = searcher.createNormalizedWeight(query, false);
-      final DocIdSetIterator it = weight.scorer(readerContext);
-      if (it != null) {
+      final Scorer scorer = weight.scorer(readerContext);
+      if (scorer != null) {
+        final DocIdSetIterator it = scorer.iterator();
         final Bits liveDocs = readerContext.reader().getLiveDocs();
         while (true)  {
           int doc = it.nextDoc();

@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spans;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search.spans;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spans;
+
 
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause.Occur;
@@ -453,5 +453,17 @@ public class TestSpanSearchEquivalence extends SearchEquivalenceTestBase {
     Query q1 = spanQuery(new SpanWithinQuery(nearQuery, termQuery));
     Query q2 = spanQuery(new SpanContainingQuery(nearQuery, termQuery));
     assertSameSet(q1, q2);
+  }
+
+  public void testSpanBoostQuerySimplification() throws Exception {
+    float b1 = random().nextFloat() * 10;
+    float b2 = random().nextFloat() * 10;
+    Term term = randomTerm();
+
+    Query q1 = new SpanBoostQuery(new SpanBoostQuery(new SpanTermQuery(term), b2), b1);
+    // Use AssertingQuery to prevent BoostQuery from merging inner and outer boosts
+    Query q2 = new SpanBoostQuery(new AssertingSpanQuery(new SpanBoostQuery(new SpanTermQuery(term), b2)), b1);
+
+    assertSameScores(q1, q2);
   }
 }

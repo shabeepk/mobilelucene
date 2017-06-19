@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.hunspell;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,13 +14,15 @@ package org.apache.lucene.analysis.hunspell;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.hunspell;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.apache.lucene.analysis.util.CharArraySet;
+import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.store.ByteArrayDataInput;
 import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.BytesRef;
@@ -266,11 +266,11 @@ final class Stemmer {
 
   // some state for traversing FSTs
   final FST.BytesReader prefixReaders[] = new FST.BytesReader[3];
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"unchecked","rawtypes"})
   final FST.Arc<IntsRef> prefixArcs[] = new FST.Arc[3];
   
   final FST.BytesReader suffixReaders[] = new FST.BytesReader[3];
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"unchecked","rawtypes"})
   final FST.Arc<IntsRef> suffixArcs[] = new FST.Arc[3];
 
   
@@ -474,7 +474,7 @@ final class Stemmer {
   private boolean checkCondition(int condition, char c1[], int c1off, int c1len, char c2[], int c2off, int c2len) {
     if (condition != 0) {
       CharacterRunAutomaton pattern = dictionary.patterns.get(condition);
-      int state = pattern.getInitialState();
+      int state = 0;
       for (int i = c1off; i < c1off + c1len; i++) {
         state = pattern.step(state, c1[i]);
         if (state == -1) {

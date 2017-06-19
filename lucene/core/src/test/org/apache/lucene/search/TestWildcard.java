@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import org.apache.lucene.document.Field;
 import org.apache.lucene.store.Directory;
@@ -70,22 +70,16 @@ public class TestWildcard extends LuceneTestCase {
       assertMatches(searcher, wq, 1);
 
       wq.setRewriteMethod(MultiTermQuery.SCORING_BOOLEAN_REWRITE);
-      wq.setBoost(0.1F);
       Query q = searcher.rewrite(wq);
       assertTrue(q instanceof TermQuery);
-      assertEquals(q.getBoost(), wq.getBoost(), 0);
       
       wq.setRewriteMethod(MultiTermQuery.CONSTANT_SCORE_REWRITE);
-      wq.setBoost(0.2F);
       q = searcher.rewrite(wq);
       assertTrue(q instanceof MultiTermQueryConstantScoreWrapper);
-      assertEquals(q.getBoost(), wq.getBoost(), 0.1);
       
       wq.setRewriteMethod(MultiTermQuery.CONSTANT_SCORE_BOOLEAN_REWRITE);
-      wq.setBoost(0.4F);
       q = searcher.rewrite(wq);
       assertTrue(q instanceof ConstantScoreQuery);
-      assertEquals(q.getBoost(), wq.getBoost(), 0.1);
       reader.close();
       indexStore.close();
   }
@@ -102,8 +96,7 @@ public class TestWildcard extends LuceneTestCase {
     wq.setRewriteMethod(MultiTermQuery.SCORING_BOOLEAN_REWRITE);
     assertMatches(searcher, wq, 0);
     Query q = searcher.rewrite(wq);
-    assertTrue(q instanceof BooleanQuery);
-    assertEquals(0, ((BooleanQuery) q).clauses().size());
+    assertTrue(q instanceof MatchNoDocsQuery);
     reader.close();
     indexStore.close();
   }

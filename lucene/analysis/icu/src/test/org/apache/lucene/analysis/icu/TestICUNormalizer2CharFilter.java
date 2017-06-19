@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.icu;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.analysis.icu;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.icu;
+
 
 import java.io.IOException;
 import java.io.Reader;
@@ -105,7 +105,7 @@ public class TestICUNormalizer2CharFilter extends BaseTokenStreamTestCase {
     );
   }
 
-  public void doTestMode(final Normalizer2 normalizer, int maxLength, int iterations, final int bufferSize) throws IOException {
+  public void doTestMode(final Normalizer2 normalizer, int maxLength, int iterations, int bufferSize) throws IOException {
     Analyzer a = new Analyzer() {
       @Override
       protected TokenStreamComponents createComponents(String fieldName) {

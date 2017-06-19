@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,19 +14,21 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
 import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.IndexReaderContext;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.TermContext;
 import org.apache.lucene.index.TermState;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.util.ArrayUtil;
-import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.InPlaceMergeSorter;
 
 /**
@@ -92,7 +92,7 @@ public final class BlendedTermQuery extends Query {
       terms = ArrayUtil.grow(terms, numTerms + 1);
       boosts = ArrayUtil.grow(boosts, numTerms + 1);
       contexts = ArrayUtil.grow(contexts, numTerms + 1);
-      terms[numTerms] = new Term(term.field(), BytesRef.deepCopyOf(term.bytes()));
+      terms[numTerms] = term;
       boosts[numTerms] = boost;
       contexts[numTerms] = context;
       numTerms += 1;
@@ -189,7 +189,7 @@ public final class BlendedTermQuery extends Query {
   private final TermContext[] contexts;
   private final RewriteMethod rewriteMethod;
 
-  private BlendedTermQuery(final Term[] terms, final float[] boosts, final TermContext[] contexts,
+  private BlendedTermQuery(Term[] terms, float[] boosts, TermContext[] contexts,
       RewriteMethod rewriteMethod) {
     assert terms.length == boosts.length;
     assert terms.length == contexts.length;
@@ -224,20 +224,21 @@ public final class BlendedTermQuery extends Query {
   }
 
   @Override
-  public boolean equals(Object obj) {
-    if (super.equals(obj) == false) {
-      return false;
-    }
-    BlendedTermQuery that = (BlendedTermQuery) obj;
-    return Arrays.equals(terms, that.terms)
-        && Arrays.equals(contexts, that.contexts)
-        && Arrays.equals(boosts, that.boosts)
-        && rewriteMethod.equals(that.rewriteMethod);
+  public boolean equals(Object other) {
+    return sameClassAs(other) &&
+           equalsTo(getClass().cast(other));
+  }
+  
+  private boolean equalsTo(BlendedTermQuery other) {
+    return Arrays.equals(terms, other.terms) && 
+           Arrays.equals(contexts, other.contexts) && 
+           Arrays.equals(boosts, other.boosts) && 
+           rewriteMethod.equals(other.rewriteMethod);
   }
 
   @Override
   public int hashCode() {
-    int h = super.hashCode();
+    int h = classHash();
     h = 31 * h + Arrays.hashCode(terms);
     h = 31 * h + Arrays.hashCode(contexts);
     h = 31 * h + Arrays.hashCode(boosts);
@@ -252,8 +253,10 @@ public final class BlendedTermQuery extends Query {
       if (i != 0) {
         builder.append(" ");
       }
-      TermQuery termQuery = new TermQuery(terms[i]);
-      termQuery.setBoost(boosts[i]);
+      Query termQuery = new TermQuery(terms[i]);
+      if (boosts[i] != 1f) {
+        termQuery = new BoostQuery(termQuery, boosts[i]);
+      }
       builder.append(termQuery.toString(field));
     }
     builder.append(")");
@@ -264,7 +267,7 @@ public final class BlendedTermQuery extends Query {
   public final Query rewrite(IndexReader reader) throws IOException {
     final TermContext[] contexts = Arrays.copyOf(this.contexts, this.contexts.length);
     for (int i = 0; i < contexts.length; ++i) {
-      if (contexts[i] == null || contexts[i].topReaderContext != reader.getContext()) {
+      if (contexts[i] == null || contexts[i].wasBuiltFor(reader.getContext()) == false) {
         contexts[i] = TermContext.build(reader.getContext(), terms[i]);
       }
     }
@@ -284,28 +287,29 @@ public final class BlendedTermQuery extends Query {
     }
 
     for (int i = 0; i < contexts.length; ++i) {
-      contexts[i] = adjustFrequencies(contexts[i], df, ttf);
+      contexts[i] = adjustFrequencies(reader.getContext(), contexts[i], df, ttf);
     }
 
-    TermQuery[] termQueries = new TermQuery[terms.length];
+    Query[] termQueries = new Query[terms.length];
     for (int i = 0; i < terms.length; ++i) {
       termQueries[i] = new TermQuery(terms[i], contexts[i]);
-      termQueries[i].setBoost(boosts[i]);
+      if (boosts[i] != 1f) {
+        termQueries[i] = new BoostQuery(termQueries[i], boosts[i]);
+      }
     }
-    Query rewritten = rewriteMethod.rewrite(termQueries);
-    rewritten.setBoost(getBoost());
-    return rewritten;
+    return rewriteMethod.rewrite(termQueries);
   }
 
-  private static TermContext adjustFrequencies(TermContext ctx, int artificialDf, long artificialTtf) {
-    List<LeafReaderContext> leaves = ctx.topReaderContext.leaves();
+  private static TermContext adjustFrequencies(IndexReaderContext readerContext,
+      TermContext ctx, int artificialDf, long artificialTtf) {
+    List<LeafReaderContext> leaves = readerContext.leaves();
     final int len;
     if (leaves == null) {
       len = 1;
     } else {
       len = leaves.size();
     }
-    TermContext newCtx = new TermContext(ctx.topReaderContext);
+    TermContext newCtx = new TermContext(readerContext);
     for (int i = 0; i < len; ++i) {
       TermState termState = ctx.get(i);
       if (termState == null) {

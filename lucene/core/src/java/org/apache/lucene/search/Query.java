@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 
@@ -33,7 +33,7 @@ import org.apache.lucene.index.IndexReader;
     <li> {@link FuzzyQuery}
     <li> {@link RegexpQuery}
     <li> {@link TermRangeQuery}
-    <li> {@link NumericRangeQuery}
+    <li> {@link PointRangeQuery}
     <li> {@link ConstantScoreQuery}
     <li> {@link DisjunctionMaxQuery}
     <li> {@link MatchAllDocsQuery}
@@ -41,20 +41,7 @@ import org.apache.lucene.index.IndexReader;
     <p>See also the family of {@link org.apache.lucene.search.spans Span Queries}
        and additional queries available in the <a href="{@docRoot}/../queries/overview-summary.html">Queries module</a>
 */
-public abstract class Query implements Cloneable {
-  private float boost = 1.0f;                     // query boost factor
-
-  /** Sets the boost for this query clause to <code>b</code>.  Documents
-   * matching this clause will (in addition to the normal weightings) have
-   * their score multiplied by <code>b</code>.
-   */
-  public void setBoost(float b) { boost = b; }
-
-  /** Gets the boost for this clause.  Documents matching
-   * this clause will (in addition to the normal weightings) have their score
-   * multiplied by <code>b</code>.   The boost is 1.0 by default.
-   */
-  public float getBoost() { return boost; }
+public abstract class Query {
 
   /** Prints a query to a string, with <code>field</code> assumed to be the 
    * default field and omitted.
@@ -87,32 +74,50 @@ public abstract class Query implements Cloneable {
     return this;
   }
 
-  /** Returns a clone of this query. */
+  /**
+   * Override and implement query instance equivalence properly in a subclass. 
+   * This is required so that {@link QueryCache} works properly.
+   * 
+   * Typically a query will be equal to another only if it's an instance of 
+   * the same class and its document-filtering properties are identical that other
+   * instance. Utility methods are provided for certain repetitive code. 
+   * 
+   * @see #sameClassAs(Object)
+   * @see #classHash()
+   */
   @Override
-  public Query clone() {
-    try {
-      return (Query)super.clone();
-    } catch (CloneNotSupportedException e) {
-      throw new RuntimeException("Clone not supported: " + e.getMessage());
-    }
+  public abstract boolean equals(Object obj);
+
+  /**
+   * Override and implement query hash code properly in a subclass. 
+   * This is required so that {@link QueryCache} works properly.
+   * 
+   * @see #equals(Object)
+   */
+  @Override
+  public abstract int hashCode();
+
+  /**
+   * Utility method to check whether <code>other</code> is not null and is exactly 
+   * of the same class as this object's class.
+   * 
+   * When this method is used in an implementation of {@link #equals(Object)},
+   * consider using {@link #classHash()} in the implementation
+   * of {@link #hashCode} to differentiate different class
+   */
+  protected final boolean sameClassAs(Object other) {
+    return other != null && getClass() == other.getClass();
   }
 
-  @Override
-  public int hashCode() {
-    return Float.floatToIntBits(getBoost()) ^ getClass().hashCode();
-  }
+  private final int CLASS_NAME_HASH = getClass().getName().hashCode();
 
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj)
-      return true;
-    if (obj == null)
-      return false;
-    if (getClass() != obj.getClass())
-      return false;
-    Query other = (Query) obj;
-    if (Float.floatToIntBits(boost) != Float.floatToIntBits(other.boost))
-      return false;
-    return true;
+  /**
+   * Provides a constant integer for a given class, derived from the name of the class.
+   * The rationale for not using just {@link Class#hashCode()} is that classes may be
+   * assigned different hash codes for each execution and we want hashes to be possibly
+   * consistent to facilitate debugging.    
+   */
+  protected final int classHash() {
+    return CLASS_NAME_HASH;
   }
 }

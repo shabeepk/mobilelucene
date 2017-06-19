@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.compressing;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.codecs.compressing;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.compressing;
+
 
 import static org.apache.lucene.codecs.compressing.CompressingStoredFieldsWriter.BYTE_ARR;
 import static org.apache.lucene.codecs.compressing.CompressingStoredFieldsWriter.CODEC_SFX_DAT;
@@ -304,7 +304,7 @@ public final class CompressingStoredFieldsReader extends StoredFieldsReader {
   }
 
   /**
-   * Reads a long in a variable-length format.  Reads between one and
+   * Reads a long in a variable-length format.  Reads between one andCorePropLo
    * nine bytes. Small values typically take fewer bytes.
    */
   static long readTLong(DataInput in) throws IOException {
@@ -595,6 +595,9 @@ public final class CompressingStoredFieldsReader extends StoredFieldsReader {
           readField(doc.in, visitor, fieldInfo, bits);
           break;
         case NO:
+          if (fieldIDX == doc.numStoredFields - 1) {// don't skipField on last field value; treat like STOP
+            return;
+          }
           skipField(doc.in, bits);
           break;
         case STOP:

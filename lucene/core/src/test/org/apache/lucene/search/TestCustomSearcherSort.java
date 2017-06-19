@@ -1,11 +1,10 @@
-package org.apache.lucene.search;
-
-/**
- * Copyright 2005 The Apache Software Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -15,6 +14,7 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
 
 import java.io.IOException;
 import java.util.Calendar;
@@ -183,7 +183,7 @@ public class TestCustomSearcherSort extends LuceneTestCase {
     if (VERBOSE) System.out.println(message);
   }
   
-  public class CustomSearcher extends IndexSearcher {
+  public static class CustomSearcher extends IndexSearcher {
     private int switcher;
     
     public CustomSearcher(IndexReader r, int switcher) {
@@ -212,7 +212,7 @@ public class TestCustomSearcherSort extends LuceneTestCase {
     }
   }
   
-  private class RandomGen {
+  private static class RandomGen {
     RandomGen(Random random) {
       this.random = random;
       base.set(1980, 1, 1);

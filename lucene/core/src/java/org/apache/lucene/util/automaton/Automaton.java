@@ -1,5 +1,3 @@
-package org.apache.lucene.util.automaton;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,14 +14,14 @@ package org.apache.lucene.util.automaton;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util.automaton;
+
 
 //import java.io.IOException;
 //import java.io.PrintWriter;
 
 import java.util.Arrays;
 import java.util.BitSet;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -32,9 +30,6 @@ import org.apache.lucene.util.ArrayUtil;
 import org.apache.lucene.util.InPlaceMergeSorter;
 import org.apache.lucene.util.RamUsageEstimator;
 import org.apache.lucene.util.Sorter;
-
-// Extra imports by portmobile.
-import org.lukhnos.portmobile.j2objc.annotations.WeakOuter;
 
 
 
@@ -362,20 +357,19 @@ public class Automaton implements Accountable {
   }
 
   private void growStates() {
-    if (nextState+2 >= states.length) {
+    if (nextState+2 > states.length) {
       states = ArrayUtil.grow(states, nextState+2);
     }
   }
 
   private void growTransitions() {
-    if (nextTransition+3 >= transitions.length) {
+    if (nextTransition+3 > transitions.length) {
       transitions = ArrayUtil.grow(transitions, nextTransition+3);
     }
   }
 
   /** Sorts transitions by dest, ascending, then min label ascending, then max label ascending */
-  @WeakOuter
-  class DestMinMaxSorter extends InPlaceMergeSorter {
+  private final Sorter destMinMaxSorter = new InPlaceMergeSorter() {
 
       private void swapOne(int i, int j) {
         int x = transitions[i];
@@ -426,12 +420,10 @@ public class Automaton implements Accountable {
 
         return 0;
       }
-  }
-  private final Sorter destMinMaxSorter = new DestMinMaxSorter();
+    };
 
   /** Sorts transitions by min label, ascending, then max label ascending, then dest ascending */
-  @WeakOuter
-  class MinMaxDestSorter extends InPlaceMergeSorter {
+  private final Sorter minMaxDestSorter = new InPlaceMergeSorter() {
 
       private void swapOne(int i, int j) {
         int x = transitions[i];
@@ -482,8 +474,7 @@ public class Automaton implements Accountable {
 
         return 0;
       }
-  }
-  private final Sorter minMaxDestSorter = new MinMaxDestSorter();
+    };
 
   /** Initialize the provided Transition to iterate through all transitions
    *  leaving the specified state.  You must call {@link #getNextTransition} to
@@ -588,14 +579,15 @@ public class Automaton implements Accountable {
   /** Returns the dot (graphviz) representation of this automaton.
    *  This is extremely useful for visualizing the automaton. */
   public String toDot() {
-    // TODO: breadth first search so we can see get layered output...
+    // TODO: breadth first search so we can get layered output...
 
     StringBuilder b = new StringBuilder();
     b.append("digraph Automaton {\n");
     b.append("  rankdir = LR\n");
+    b.append("  node [width=0.2, height=0.2, fontsize=8]\n");
     final int numStates = getNumStates();
     if (numStates > 0) {
-      b.append("  initial [shape=plaintext,label=\"0\"]\n");
+      b.append("  initial [shape=plaintext,label=\"\"]\n");
       b.append("  initial -> 0\n");
     }
 
@@ -752,8 +744,7 @@ public class Automaton implements Accountable {
 
     /** Sorts transitions first then min label ascending, then
      *  max label ascending, then dest ascending */
-    @WeakOuter
-    class OurSorter extends InPlaceMergeSorter {
+    private final Sorter sorter = new InPlaceMergeSorter() {
 
         private void swapOne(int i, int j) {
           int x = transitions[i];
@@ -814,8 +805,7 @@ public class Automaton implements Accountable {
 
           return 0;
         }
-    }
-    private final Sorter sorter = new OurSorter();
+      };
 
     /** Compiles all added states and transitions into a new {@code Automaton}
      *  and returns it. */
@@ -904,12 +894,7 @@ public class Automaton implements Accountable {
     return RamUsageEstimator.NUM_BYTES_OBJECT_HEADER + RamUsageEstimator.sizeOf(states) + RamUsageEstimator.sizeOf(transitions) +
       RamUsageEstimator.NUM_BYTES_OBJECT_HEADER + (isAccept.size() / 8) + RamUsageEstimator.NUM_BYTES_OBJECT_REF +
       2 * RamUsageEstimator.NUM_BYTES_OBJECT_REF +
-      3 * RamUsageEstimator.NUM_BYTES_INT +
-      RamUsageEstimator.NUM_BYTES_BOOLEAN;
-  }
-
-  @Override
-  public Collection<Accountable> getChildResources() {
-    return Collections.emptyList();
+      3 * Integer.BYTES +
+      1;
   }
 }

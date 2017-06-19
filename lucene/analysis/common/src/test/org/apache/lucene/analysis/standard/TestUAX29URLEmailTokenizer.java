@@ -1,25 +1,3 @@
-package org.apache.lucene.analysis.standard;
-
-import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.BaseTokenStreamTestCase;
-import org.apache.lucene.analysis.TokenFilter;
-import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.Tokenizer;
-import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
-import org.apache.lucene.util.IOUtils;
-import org.apache.lucene.util.TestUtil;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.StringReader;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Random;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -36,6 +14,30 @@ import java.util.Random;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.standard;
+
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.BaseTokenStreamTestCase;
+import org.apache.lucene.analysis.TokenFilter;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.Tokenizer;
+import org.apache.lucene.analysis.standard.UAX29URLEmailTokenizer;
+import org.apache.lucene.analysis.standard.WordBreakTestUnicode_6_3_0;
+import org.apache.lucene.analysis.tokenattributes.TypeAttribute;
+import org.apache.lucene.util.IOUtils;
+import org.apache.lucene.util.TestUtil;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Random;
+
 
 public class TestUAX29URLEmailTokenizer extends BaseTokenStreamTestCase {
 
@@ -103,7 +105,7 @@ public class TestUAX29URLEmailTokenizer extends BaseTokenStreamTestCase {
       @Override
       protected TokenStreamComponents createComponents(String fieldName) {
         UAX29URLEmailTokenizer tokenizer = new UAX29URLEmailTokenizer(newAttributeFactory());
-        tokenizer.setMaxTokenLength(Integer.MAX_VALUE);  // Tokenize arbitrary length URLs
+        tokenizer.setMaxTokenLength(UAX29URLEmailTokenizer.MAX_TOKEN_LENGTH_LIMIT);  // Tokenize arbitrary length URLs
         TokenFilter filter = new URLFilter(tokenizer);
         return new TokenStreamComponents(tokenizer, filter);
       }
@@ -125,7 +127,7 @@ public class TestUAX29URLEmailTokenizer extends BaseTokenStreamTestCase {
   }
 
   /** Passes through tokens with type "<URL>" and blocks all other types. */
-  private class URLFilter extends TokenFilter {
+  private static class URLFilter extends TokenFilter {
     private final TypeAttribute typeAtt = addAttribute(TypeAttribute.class);
     public URLFilter(TokenStream in) {
       super(in);
@@ -144,7 +146,7 @@ public class TestUAX29URLEmailTokenizer extends BaseTokenStreamTestCase {
   }
   
   /** Passes through tokens with type "<EMAIL>" and blocks all other types. */
-  private class EmailFilter extends TokenFilter {
+  private static class EmailFilter extends TokenFilter {
     private final TypeAttribute typeAtt = addAttribute(TypeAttribute.class);
     public EmailFilter(TokenStream in) {
       super(in);

@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
 
 import java.io.IOException;
 import java.util.Random;
@@ -23,7 +22,7 @@ import java.util.Random;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.util.Bits;
 
-import com.carrotsearch.randomizedtesting.generators.RandomInts;
+import com.carrotsearch.randomizedtesting.generators.RandomNumbers;
 
 /** Wraps a Scorer with additional checks */
 final class AssertingBulkScorer extends BulkScorer {
@@ -83,7 +82,7 @@ final class AssertingBulkScorer extends BulkScorer {
       assert next == DocIdSetIterator.NO_MORE_DOCS;
       return DocIdSetIterator.NO_MORE_DOCS;
     } else {
-      return RandomInts.randomIntBetween(random, max, next);
+      return RandomNumbers.randomIntBetween(random, max, next);
     }
   }
 

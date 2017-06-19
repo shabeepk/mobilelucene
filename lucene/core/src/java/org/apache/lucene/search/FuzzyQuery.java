@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 
@@ -24,7 +24,6 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.util.AttributeSource;
-import org.apache.lucene.util.ToStringUtils;
 import org.apache.lucene.util.automaton.LevenshteinAutomata;
 
 /** Implements the fuzzy search query. The similarity measurement
@@ -32,7 +31,7 @@ import org.apache.lucene.util.automaton.LevenshteinAutomata;
  * though you can explicitly choose classic Levenshtein by passing <code>false</code>
  * to the <code>transpositions</code> parameter.
  * 
- * <p>This query uses {@link MultiTermQuery.TopTermsScoringBooleanQueryRewrite}
+ * <p>This query uses {@link MultiTermQuery.TopTermsBlendedFreqScoringRewrite}
  * as default. So terms will be collected and scored according to their
  * edit distance. Only the top terms are used for building the {@link BooleanQuery}.
  * It is not recommended to change the rewrite mode for fuzzy queries.
@@ -172,7 +171,6 @@ public class FuzzyQuery extends MultiTermQuery {
     buffer.append(term.text());
     buffer.append('~');
     buffer.append(Integer.toString(maxEdits));
-    buffer.append(ToStringUtils.boost(getBoost()));
     return buffer.toString();
   }
   

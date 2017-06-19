@@ -1,23 +1,21 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with this
- * work for additional information regarding copyright ownership. The ASF
- * licenses this file to You under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- * 
- * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
+package org.apache.lucene.index;
 
-import java.lang.reflect.Field;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -30,8 +28,6 @@ import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.util.BytesRefBuilder;
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.util.ThreadInterruptedException;
-
-
 
 /**
  * Unit test for {@link DocumentsWriterDeleteQueue}
@@ -47,8 +43,8 @@ public class TestDocumentsWriterDeleteQueue extends LuceneTestCase {
     }
     DeleteSlice slice1 = queue.newSlice();
     DeleteSlice slice2 = queue.newSlice();
-    BufferedUpdates bd1 = new BufferedUpdates();
-    BufferedUpdates bd2 = new BufferedUpdates();
+    BufferedUpdates bd1 = new BufferedUpdates("bd1");
+    BufferedUpdates bd2 = new BufferedUpdates("bd2");
     int last1 = 0;
     int last2 = 0;
     Set<Term> uniqueValues = new HashSet<>();
@@ -149,10 +145,7 @@ public class TestDocumentsWriterDeleteQueue extends LuceneTestCase {
       NoSuchFieldException, IllegalArgumentException, IllegalAccessException,
       InterruptedException {
     final DocumentsWriterDeleteQueue queue = new DocumentsWriterDeleteQueue();
-    Field field = DocumentsWriterDeleteQueue.class
-        .getDeclaredField("globalBufferLock");
-    field.setAccessible(true);
-    ReentrantLock lock = (ReentrantLock) field.get(queue);
+    ReentrantLock lock = queue.globalBufferLock;
     lock.lock();
     Thread t = new Thread() {
       @Override
@@ -232,7 +225,7 @@ public class TestDocumentsWriterDeleteQueue extends LuceneTestCase {
       this.index = index;
       this.ids = ids;
       this.slice = queue.newSlice();
-      deletes = new BufferedUpdates();
+      deletes = new BufferedUpdates("deletes");
       this.latch = latch;
     }
 

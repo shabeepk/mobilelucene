@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -44,9 +43,9 @@ import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.RandomIndexWriter;
 import org.apache.lucene.index.Term;
+import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.store.Directory;
-import org.apache.lucene.util.BitDocIdSet;
-import org.apache.lucene.util.Bits;
+import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.FixedBitSet;
 import org.apache.lucene.util.IOUtils;
@@ -297,7 +296,6 @@ public class TestTermAutomatonQuery extends LuceneTestCase {
           while (scorer instanceof AssertingScorer) {
             scorer = ((AssertingScorer) scorer).getIn();
           }
-          assert scorer instanceof TermAutomatonScorer;
         }
 
         @Override
@@ -356,12 +354,9 @@ public class TestTermAutomatonQuery extends LuceneTestCase {
     q.setAccept(s2, true);
     q.addAnyTransition(s0, s1);
     q.addTransition(s1, s2, "b");
-    try {
+    expectThrows(IllegalStateException.class, () -> {
       q.finish();
-      fail("did not hit expected exception");
-    } catch (IllegalStateException ise) {
-      // expected
-    }
+    });
   }
 
   public void testInvalidTrailWithAny() throws Exception {
@@ -372,12 +367,9 @@ public class TestTermAutomatonQuery extends LuceneTestCase {
     q.setAccept(s2, true);
     q.addTransition(s0, s1, "b");
     q.addAnyTransition(s1, s2);
-    try {
+    expectThrows(IllegalStateException.class, () -> {
       q.finish();
-      fail("did not hit expected exception");
-    } catch (IllegalStateException ise) {
-      // expected
-    }
+    });
   }
   
   public void testAnyFromTokenStream() throws Exception {
@@ -527,15 +519,15 @@ public class TestTermAutomatonQuery extends LuceneTestCase {
           }
         }
         String string = sb.toString();
-        MultiPhraseQuery mpq = new MultiPhraseQuery();
+        MultiPhraseQuery.Builder mpqb = new MultiPhraseQuery.Builder();
         for(int j=0;j<string.length();j++) {
           if (string.charAt(j) == '*') {
-            mpq.add(allTerms);
+            mpqb.add(allTerms);
           } else {
-            mpq.add(new Term("field", ""+string.charAt(j)));
+            mpqb.add(new Term("field", ""+string.charAt(j)));
           }
         }
-        bq.add(mpq, BooleanClause.Occur.SHOULD);
+        bq.add(mpqb.build(), BooleanClause.Occur.SHOULD);
         strings.add(new BytesRef(string));
       }
 
@@ -583,9 +575,15 @@ public class TestTermAutomatonQuery extends LuceneTestCase {
         if (VERBOSE) {
           System.out.println("  use random filter");
         }
-        RandomFilter filter = new RandomFilter(random().nextLong(), random().nextFloat());
-        q1 = new FilteredQuery(q1, filter);
-        q2 = new FilteredQuery(q2, filter);
+        RandomQuery filter = new RandomQuery(random().nextLong(), random().nextFloat());
+        q1 = new BooleanQuery.Builder()
+            .add(q1, Occur.MUST)
+            .add(filter, Occur.FILTER)
+            .build();
+        q2 = new BooleanQuery.Builder()
+            .add(q2, Occur.MUST)
+            .add(filter, Occur.FILTER)
+            .build();
       }
 
       TopDocs hits1 = s.search(q1, numDocs);
@@ -623,29 +621,33 @@ public class TestTermAutomatonQuery extends LuceneTestCase {
     return result;
   }
 
-  private static class RandomFilter extends Filter {
+  private static class RandomQuery extends Query {
     private final long seed;
     private float density;
 
     // density should be 0.0 ... 1.0
-    public RandomFilter(long seed, float density) {
+    public RandomQuery(long seed, float density) {
       this.seed = seed;
       this.density = density;
     }
 
     @Override
-    public DocIdSet getDocIdSet(LeafReaderContext context, Bits acceptDocs) throws IOException {
-      int maxDoc = context.reader().maxDoc();
-      FixedBitSet bits = new FixedBitSet(maxDoc);
-      Random random = new Random(seed ^ context.docBase);
-      for(int docID=0;docID<maxDoc;docID++) {
-        if (random.nextFloat() <= density && (acceptDocs == null || acceptDocs.get(docID))) {
-          bits.set(docID);
-          //System.out.println("  acc id=" + idSource.getInt(docID) + " docID=" + docID);
+    public Weight createWeight(IndexSearcher searcher, boolean needsScores) throws IOException {
+      return new ConstantScoreWeight(this) {
+        @Override
+        public Scorer scorer(LeafReaderContext context) throws IOException {
+          int maxDoc = context.reader().maxDoc();
+          FixedBitSet bits = new FixedBitSet(maxDoc);
+          Random random = new Random(seed ^ context.docBase);
+          for(int docID=0;docID<maxDoc;docID++) {
+            if (random.nextFloat() <= density) {
+              bits.set(docID);
+              //System.out.println("  acc id=" + idSource.getInt(docID) + " docID=" + docID);
+            }
+          }
+          return new ConstantScoreScorer(this, score(), new BitSetIterator(bits, bits.approximateCardinality()));
         }
-      }
-
-      return new BitDocIdSet(bits);
+      };
     }
 
     @Override
@@ -654,17 +656,19 @@ public class TestTermAutomatonQuery extends LuceneTestCase {
     }
 
     @Override
-    public boolean equals(Object obj) {
-      if (super.equals(obj) == false) {
-        return false;
-      }
-      RandomFilter other = (RandomFilter) obj;
-      return seed == other.seed && density == other.density;
+    public boolean equals(Object other) {
+      return sameClassAs(other) &&
+             equalsTo(getClass().cast(other));
+    }
+
+    private boolean equalsTo(RandomQuery other) {
+      return seed == other.seed &&  
+             density == other.density;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(super.hashCode(), seed, density);
+      return classHash() ^ Objects.hash(seed, density);
     }
   }
 
@@ -678,7 +682,7 @@ public class TestTermAutomatonQuery extends LuceneTestCase {
     w.addDocument(doc);
 
     doc = new Document();
-    doc.add(newTextField("field", "comes here", Field.Store.NO));
+    doc.add(newTextField("field", "comes foo", Field.Store.NO));
     w.addDocument(doc);
     IndexReader r = w.getReader();
     IndexSearcher s = newSearcher(r);
@@ -686,9 +690,11 @@ public class TestTermAutomatonQuery extends LuceneTestCase {
     TermAutomatonQuery q = new TermAutomatonQuery("field");
     int init = q.createState();
     int s1 = q.createState();
+    int s2 = q.createState();
     q.addTransition(init, s1, "here");
-    q.addTransition(s1, init, "comes");
-    q.setAccept(init, true);
+    q.addTransition(s1, s2, "comes");
+    q.addTransition(s2, s1, "here");
+    q.setAccept(s1, true);
     q.finish();
 
     assertEquals(1, s.search(q, 1).totalHits);
@@ -774,8 +780,186 @@ public class TestTermAutomatonQuery extends LuceneTestCase {
     // System.out.println("DOT: " + q.toDot());
     assertEquals(0, s.search(q, 1).totalHits);
 
-    w.close();
-    r.close();
-    dir.close();
+    IOUtils.close(w, r, dir);
+  }
+
+  public void testEmptyString() throws Exception {
+    TermAutomatonQuery q = new TermAutomatonQuery("field");
+    int initState = q.createState();
+    q.setAccept(initState, true);
+    try {
+      q.finish();
+      fail("did not hit exc");
+    } catch (IllegalStateException ise) {
+      // expected
+    }
+  }
+
+  public void testRewriteNoMatch() throws Exception {
+    TermAutomatonQuery q = new TermAutomatonQuery("field");
+    int initState = q.createState();
+    q.finish();
+    
+    Directory dir = newDirectory();
+    RandomIndexWriter w = new RandomIndexWriter(random(), dir);
+    Document doc = new Document();
+    doc.add(newTextField("field", "x y z", Field.Store.NO));
+    w.addDocument(doc);
+
+    IndexReader r = w.getReader();
+    assertTrue(q.rewrite(r) instanceof MatchNoDocsQuery);
+    IOUtils.close(w, r, dir);
+  }
+
+  public void testRewriteTerm() throws Exception {
+    TermAutomatonQuery q = new TermAutomatonQuery("field");
+    int initState = q.createState();
+    int s1 = q.createState();
+    q.addTransition(initState, s1, "foo");
+    q.setAccept(s1, true);
+    q.finish();
+    
+    Directory dir = newDirectory();
+    RandomIndexWriter w = new RandomIndexWriter(random(), dir);
+    Document doc = new Document();
+    doc.add(newTextField("field", "x y z", Field.Store.NO));
+    w.addDocument(doc);
+
+    IndexReader r = w.getReader();
+    Query rewrite = q.rewrite(r);
+    assertTrue(rewrite instanceof TermQuery);
+    assertEquals(new Term("field", "foo"), ((TermQuery) rewrite).getTerm());
+    IOUtils.close(w, r, dir);
+  }
+
+  public void testRewriteSimplePhrase() throws Exception {
+    TermAutomatonQuery q = new TermAutomatonQuery("field");
+    int initState = q.createState();
+    int s1 = q.createState();
+    int s2 = q.createState();
+    q.addTransition(initState, s1, "foo");
+    q.addTransition(s1, s2, "bar");
+    q.setAccept(s2, true);
+    q.finish();
+    
+    Directory dir = newDirectory();
+    RandomIndexWriter w = new RandomIndexWriter(random(), dir);
+    Document doc = new Document();
+    doc.add(newTextField("field", "x y z", Field.Store.NO));
+    w.addDocument(doc);
+
+    IndexReader r = w.getReader();
+    Query rewrite = q.rewrite(r);
+    assertTrue(rewrite instanceof PhraseQuery);
+    Term[] terms = ((PhraseQuery) rewrite).getTerms();
+    assertEquals(new Term("field", "foo"), terms[0]);
+    assertEquals(new Term("field", "bar"), terms[1]);
+
+    int[] positions = ((PhraseQuery) rewrite).getPositions();
+    assertEquals(0, positions[0]);
+    assertEquals(1, positions[1]);
+    
+    IOUtils.close(w, r, dir);
+  }
+
+  public void testRewritePhraseWithAny() throws Exception {
+    TermAutomatonQuery q = new TermAutomatonQuery("field");
+    int initState = q.createState();
+    int s1 = q.createState();
+    int s2 = q.createState();
+    int s3 = q.createState();
+    q.addTransition(initState, s1, "foo");
+    q.addAnyTransition(s1, s2);
+    q.addTransition(s2, s3, "bar");
+    q.setAccept(s3, true);
+    q.finish();
+    
+    Directory dir = newDirectory();
+    RandomIndexWriter w = new RandomIndexWriter(random(), dir);
+    Document doc = new Document();
+    doc.add(newTextField("field", "x y z", Field.Store.NO));
+    w.addDocument(doc);
+
+    IndexReader r = w.getReader();
+    Query rewrite = q.rewrite(r);
+    assertTrue(rewrite instanceof PhraseQuery);
+    Term[] terms = ((PhraseQuery) rewrite).getTerms();
+    assertEquals(new Term("field", "foo"), terms[0]);
+    assertEquals(new Term("field", "bar"), terms[1]);
+
+    int[] positions = ((PhraseQuery) rewrite).getPositions();
+    assertEquals(0, positions[0]);
+    assertEquals(2, positions[1]);
+    
+    IOUtils.close(w, r, dir);
+  }
+
+  public void testRewriteSimpleMultiPhrase() throws Exception {
+    TermAutomatonQuery q = new TermAutomatonQuery("field");
+    int initState = q.createState();
+    int s1 = q.createState();
+    q.addTransition(initState, s1, "foo");
+    q.addTransition(initState, s1, "bar");
+    q.setAccept(s1, true);
+    q.finish();
+    
+    Directory dir = newDirectory();
+    RandomIndexWriter w = new RandomIndexWriter(random(), dir);
+    Document doc = new Document();
+    doc.add(newTextField("field", "x y z", Field.Store.NO));
+    w.addDocument(doc);
+
+    IndexReader r = w.getReader();
+    Query rewrite = q.rewrite(r);
+    assertTrue(rewrite instanceof MultiPhraseQuery);
+    Term[][] terms = ((MultiPhraseQuery) rewrite).getTermArrays();
+    assertEquals(1, terms.length);
+    assertEquals(2, terms[0].length);
+    assertEquals(new Term("field", "foo"), terms[0][0]);
+    assertEquals(new Term("field", "bar"), terms[0][1]);
+
+    int[] positions = ((MultiPhraseQuery) rewrite).getPositions();
+    assertEquals(1, positions.length);
+    assertEquals(0, positions[0]);
+    
+    IOUtils.close(w, r, dir);
+  }
+
+  public void testRewriteMultiPhraseWithAny() throws Exception {
+    TermAutomatonQuery q = new TermAutomatonQuery("field");
+    int initState = q.createState();
+    int s1 = q.createState();
+    int s2 = q.createState();
+    int s3 = q.createState();
+    q.addTransition(initState, s1, "foo");
+    q.addTransition(initState, s1, "bar");
+    q.addAnyTransition(s1, s2);
+    q.addTransition(s2, s3, "baz");
+    q.setAccept(s3, true);
+    q.finish();
+    
+    Directory dir = newDirectory();
+    RandomIndexWriter w = new RandomIndexWriter(random(), dir);
+    Document doc = new Document();
+    doc.add(newTextField("field", "x y z", Field.Store.NO));
+    w.addDocument(doc);
+
+    IndexReader r = w.getReader();
+    Query rewrite = q.rewrite(r);
+    assertTrue(rewrite instanceof MultiPhraseQuery);
+    Term[][] terms = ((MultiPhraseQuery) rewrite).getTermArrays();
+    assertEquals(2, terms.length);
+    assertEquals(2, terms[0].length);
+    assertEquals(new Term("field", "foo"), terms[0][0]);
+    assertEquals(new Term("field", "bar"), terms[0][1]);
+    assertEquals(1, terms[1].length);
+    assertEquals(new Term("field", "baz"), terms[1][0]);
+
+    int[] positions = ((MultiPhraseQuery) rewrite).getPositions();
+    assertEquals(2, positions.length);
+    assertEquals(0, positions[0]);
+    assertEquals(2, positions[1]);
+    
+    IOUtils.close(w, r, dir);
   }
 }

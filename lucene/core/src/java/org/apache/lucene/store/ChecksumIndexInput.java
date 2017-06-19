@@ -1,7 +1,3 @@
-package org.apache.lucene.store;
-
-import java.io.IOException;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,6 +14,10 @@ import java.io.IOException;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.store;
+
+import java.io.IOException;
+
 
 /** 
  * Extension of IndexInput, computing checksum as it goes. 
@@ -44,9 +44,10 @@ public abstract class ChecksumIndexInput extends IndexInput {
    */
   @Override
   public void seek(long pos) throws IOException {
-    final long skip = pos - getFilePointer();
+    final long curFP = getFilePointer();
+    final long skip = pos - curFP;
     if (skip < 0) {
-      throw new IllegalStateException(getClass() + " cannot seek backwards");
+      throw new IllegalStateException(getClass() + " cannot seek backwards (pos=" + pos + " getFilePointer()=" + curFP + ")");
     }
     skipBytes(skip);
   }

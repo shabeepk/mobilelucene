@@ -1,5 +1,3 @@
-package org.apache.lucene.search.suggest.document;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.suggest.document;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.suggest.document;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -39,7 +38,7 @@ import org.apache.lucene.util.BytesRef;
  * Besides the usual {@link org.apache.lucene.analysis.Analyzer}s,
  * {@link CompletionAnalyzer}
  * can be used to tune suggest field only parameters
- * (e.g. preserving token seperators, preserving position increments
+ * (e.g. preserving token separators, preserving position increments
  * when converting the token stream to an automaton)
  * </p>
  * <p>
@@ -48,7 +47,7 @@ import org.apache.lucene.util.BytesRef;
  * document.add(new SuggestField(name, "suggestion", 4));
  * </pre>
  * To perform document suggestions based on the this field, use
- * {@link SuggestIndexSearcher#suggest(CompletionQuery, int)}
+ * {@link SuggestIndexSearcher#suggest(CompletionQuery, int, boolean)}
  *
  * @lucene.experimental
  */
@@ -100,7 +99,7 @@ public class SuggestField extends Field {
   }
 
   @Override
-  public TokenStream tokenStream(Analyzer analyzer, TokenStream reuse) throws IOException {
+  public TokenStream tokenStream(Analyzer analyzer, TokenStream reuse) {
     CompletionTokenStream completionStream = wrapTokenStream(super.tokenStream(analyzer, reuse));
     completionStream.setPayload(buildSuggestPayload());
     return completionStream;
@@ -126,13 +125,15 @@ public class SuggestField extends Field {
     return TYPE;
   }
 
-  private BytesRef buildSuggestPayload() throws IOException {
+  private BytesRef buildSuggestPayload() {
     ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
     try (OutputStreamDataOutput output = new OutputStreamDataOutput(byteArrayOutputStream)) {
       output.writeVInt(surfaceForm.length);
       output.writeBytes(surfaceForm.bytes, surfaceForm.offset, surfaceForm.length);
       output.writeVInt(weight + 1);
       output.writeByte(type());
+    } catch (IOException e) {
+      throw new RuntimeException(e); // not possible, it's a ByteArrayOutputStream!
     }
     return new BytesRef(byteArrayOutputStream.toByteArray());
   }

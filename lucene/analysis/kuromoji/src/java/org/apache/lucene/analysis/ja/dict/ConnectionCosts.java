@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.ja.dict;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.analysis.ja.dict;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.ja.dict;
+
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -24,7 +24,6 @@ import java.io.InputStream;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.store.DataInput;
 import org.apache.lucene.store.InputStreamDataInput;
-import org.apache.lucene.util.BitUtil;
 import org.apache.lucene.util.IOUtils;
 
 /**

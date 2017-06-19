@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.simpletext;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.codecs.simpletext;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.simpletext;
+
 
 import java.io.IOException;
 
@@ -143,7 +143,6 @@ public class SimpleTextStoredFieldsWriter extends StoredFieldsWriter {
       } else {
         write(TYPE_STRING);
         newLine();
-        
         write(VALUE);
         write(field.stringValue());
         newLine();

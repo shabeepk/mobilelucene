@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
+
 
 import java.util.Arrays;
 import java.util.List;
@@ -186,6 +186,7 @@ public final class ByteBlockPool {
      }
     }
   }
+
   /**
    * Advances the pool to its next buffer. This method should be called once
    * after the constructor to initialize the pool. In contrast to the
@@ -279,6 +280,28 @@ public final class ByteBlockPool {
     return newUpto+3;
   }
 
+  /** Fill the provided {@link BytesRef} with the bytes at the specified offset/length slice.
+   *  This will avoid copying the bytes, if the slice fits into a single block; otherwise, it uses
+   *  the provided {@link BytesRefBuilder} to copy bytes over. */
+  void setBytesRef(BytesRefBuilder builder, BytesRef result, long offset, int length) {
+    result.length = length;
+
+    int bufferIndex = (int) (offset >> BYTE_BLOCK_SHIFT);
+    byte[] buffer = buffers[bufferIndex];
+    int pos = (int) (offset & BYTE_BLOCK_MASK);
+    if (pos + length <= BYTE_BLOCK_SIZE) {
+      // common case where the slice lives in a single block: just reference the buffer directly without copying
+      result.bytes = buffer;
+      result.offset = pos;
+    } else {
+      // uncommon case: the slice spans at least 2 blocks, so we must copy the bytes:
+      builder.grow(length);
+      result.bytes = builder.get().bytes;
+      result.offset = 0;
+      readBytes(offset, result.bytes, 0, length);
+    }
+  }
+
   // Fill in a BytesRef from term's length & bytes encoded in
   // byte block
   public void setBytesRef(BytesRef term, int textStart) {
@@ -301,28 +324,25 @@ public final class ByteBlockPool {
    * the current position.
    */
   public void append(final BytesRef bytes) {
-    int length = bytes.length;
-    if (length == 0) {
-      return;
-    }
+    int bytesLeft = bytes.length;
     int offset = bytes.offset;
-    int overflow = (length + byteUpto) - BYTE_BLOCK_SIZE;
-    do {
-      if (overflow <= 0) { 
-        System.arraycopy(bytes.bytes, offset, buffer, byteUpto, length);
-        byteUpto += length;
+    while (bytesLeft > 0) {
+      int bufferLeft = BYTE_BLOCK_SIZE - byteUpto;
+      if (bytesLeft < bufferLeft) {
+        // fits within current buffer
+        System.arraycopy(bytes.bytes, offset, buffer, byteUpto, bytesLeft);
+        byteUpto += bytesLeft;
         break;
       } else {
-        final int bytesToCopy = length-overflow;
-        if (bytesToCopy > 0) {
-          System.arraycopy(bytes.bytes, offset, buffer, byteUpto, bytesToCopy);
-          offset += bytesToCopy;
-          length -= bytesToCopy;
+        // fill up this buffer and move to next one
+        if (bufferLeft > 0) {
+          System.arraycopy(bytes.bytes, offset, buffer, byteUpto, bufferLeft);
         }
         nextBuffer();
-        overflow = overflow - BYTE_BLOCK_SIZE;
+        bytesLeft -= bufferLeft;
+        offset += bufferLeft;
       }
-    }  while(true);
+    }
   }
   
   /**
@@ -330,30 +350,47 @@ public final class ByteBlockPool {
    * length into the given byte array at offset <tt>off</tt>.
    * <p>Note: this method allows to copy across block boundaries.</p>
    */
-  public void readBytes(final long offset, final byte bytes[], final int off, final int length) {
-    if (length == 0) {
-      return;
-    }
-    int bytesOffset = off;
-    int bytesLength = length;
+  public void readBytes(final long offset, final byte bytes[], int bytesOffset, int bytesLength) {
+    int bytesLeft = bytesLength;
     int bufferIndex = (int) (offset >> BYTE_BLOCK_SHIFT);
-    byte[] buffer = buffers[bufferIndex];
     int pos = (int) (offset & BYTE_BLOCK_MASK);
-    int overflow = (pos + length) - BYTE_BLOCK_SIZE;
-    do {
-      if (overflow <= 0) {
-        System.arraycopy(buffer, pos, bytes, bytesOffset, bytesLength);
-        break;
-      } else {
-        final int bytesToCopy = length - overflow;
-        System.arraycopy(buffer, pos, bytes, bytesOffset, bytesToCopy);
-        pos = 0;
-        bytesLength -= bytesToCopy;
-        bytesOffset += bytesToCopy;
-        buffer = buffers[++bufferIndex];
-        overflow = overflow - BYTE_BLOCK_SIZE;
-      }
-    } while (true);
+    while (bytesLeft > 0) {
+      byte[] buffer = buffers[bufferIndex++];
+      int chunk = Math.min(bytesLeft, BYTE_BLOCK_SIZE - pos);
+      System.arraycopy(buffer, pos, bytes, bytesOffset, chunk);
+      bytesOffset += chunk;
+      bytesLeft -= chunk;
+      pos = 0;
+    }
+  }
+
+  /**
+   * Set the given {@link BytesRef} so that its content is equal to the
+   * {@code ref.length} bytes starting at {@code offset}. Most of the time this
+   * method will set pointers to internal data-structures. However, in case a
+   * value crosses a boundary, a fresh copy will be returned.
+   * On the contrary to {@link #setBytesRef(BytesRef, int)}, this does not
+   * expect the length to be encoded with the data.
+   */
+  public void setRawBytesRef(BytesRef ref, final long offset) {
+    int bufferIndex = (int) (offset >> BYTE_BLOCK_SHIFT);
+    int pos = (int) (offset & BYTE_BLOCK_MASK);
+    if (pos + ref.length <= BYTE_BLOCK_SIZE) {
+      ref.bytes = buffers[bufferIndex];
+      ref.offset = pos;
+    } else {
+      ref.bytes = new byte[ref.length];
+      ref.offset = 0;
+      readBytes(offset, ref.bytes, 0, ref.length);
+    }
+  }
+
+  /** Read a single byte at the given {@code offset}. */
+  public byte readByte(long offset) {
+    int bufferIndex = (int) (offset >> BYTE_BLOCK_SHIFT);
+    int pos = (int) (offset & BYTE_BLOCK_MASK);
+    byte[] buffer = buffers[bufferIndex];
+    return buffer[pos];
   }
 }
 

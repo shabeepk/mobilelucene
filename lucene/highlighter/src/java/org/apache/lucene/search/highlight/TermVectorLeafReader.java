@@ -1,5 +1,3 @@
-package org.apache.lucene.search.highlight;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.highlight;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.highlight;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -29,11 +28,13 @@ import org.apache.lucene.index.Fields;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.NumericDocValues;
+import org.apache.lucene.index.PointValues;
 import org.apache.lucene.index.SortedDocValues;
 import org.apache.lucene.index.SortedNumericDocValues;
 import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.index.StoredFieldVisitor;
 import org.apache.lucene.index.Terms;
+import org.apache.lucene.search.Sort;
 import org.apache.lucene.util.Bits;
 
 /**
@@ -46,7 +47,7 @@ public class TermVectorLeafReader extends LeafReader {
   private final Fields fields;
   private final FieldInfos fieldInfos;
 
-  public TermVectorLeafReader(final String field, final Terms terms) {
+  public TermVectorLeafReader(String field, Terms terms) {
     fields = new Fields() {
       @Override
       public Iterator<String> iterator() {
@@ -78,8 +79,8 @@ public class TermVectorLeafReader extends LeafReader {
       indexOptions = IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS;
     }
     FieldInfo fieldInfo = new FieldInfo(field, 0,
-        true, true, terms.hasPayloads(),
-        indexOptions, DocValuesType.NONE, -1, Collections.<String,String>emptyMap());
+                                        true, true, terms.hasPayloads(),
+                                        indexOptions, DocValuesType.NONE, -1, Collections.emptyMap(), 0, 0);
     fieldInfos = new FieldInfos(new FieldInfo[]{fieldInfo});
   }
 
@@ -148,6 +149,11 @@ public class TermVectorLeafReader extends LeafReader {
   }
 
   @Override
+  public PointValues getPointValues() {
+    return null;
+  }
+
+  @Override
   public void checkIntegrity() throws IOException {
   }
 
@@ -173,4 +179,8 @@ public class TermVectorLeafReader extends LeafReader {
   public void document(int docID, StoredFieldVisitor visitor) throws IOException {
   }
 
+  @Override
+  public Sort getIndexSort() {
+    return null;
+  }
 }

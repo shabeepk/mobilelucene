@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.blockterms;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.codecs.blockterms;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.blockterms;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -30,7 +30,6 @@ import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.PostingsReaderBase;
 import org.apache.lucene.index.CorruptIndexException;
-import org.apache.lucene.index.DocsAndPositionsEnum;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexFileNames;
@@ -44,7 +43,6 @@ import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.util.Accountable;
 import org.apache.lucene.util.Accountables;
 import org.apache.lucene.util.ArrayUtil;
-import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefBuilder;
 import org.apache.lucene.util.RamUsageEstimator;
@@ -239,11 +237,6 @@ public class BlockTermsReader extends FieldsProducer {
     public long ramBytesUsed() {
       return FIELD_READER_RAM_BYTES_USED;
     }
-    
-    @Override
-    public Collection<Accountable> getChildResources() {
-      return Collections.emptyList();
-    }
 
     @Override
     public TermsEnum iterator() throws IOException {
@@ -378,7 +371,7 @@ public class BlockTermsReader extends FieldsProducer {
         // is after current term but before next index term:
         if (indexIsCurrent) {
 
-          final int cmp = BytesRef.getUTF8SortedAsUnicodeComparator().compare(term.get(), target);
+          final int cmp = term.get().compareTo(target);
 
           if (cmp == 0) {
             // Already at the requested term
@@ -396,7 +389,7 @@ public class BlockTermsReader extends FieldsProducer {
               didIndexNext = true;
             }
 
-            if (nextIndexTerm == null || BytesRef.getUTF8SortedAsUnicodeComparator().compare(target, nextIndexTerm) < 0) {
+            if (nextIndexTerm == null || target.compareTo(nextIndexTerm) < 0) {
               // Optimization: requested term is within the
               // same term block we are now in; skip seeking
               // (but do scanning):
@@ -658,14 +651,6 @@ public class BlockTermsReader extends FieldsProducer {
 
       @Override
       public PostingsEnum postings(PostingsEnum reuse, int flags) throws IOException {
-        
-        if (PostingsEnum.featureRequested(flags, DocsAndPositionsEnum.OLD_NULL_SEMANTICS)) {
-          if (fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS) < 0) {
-            // Positions were not indexed:
-            return null;
-          }
-        }
-
         //System.out.println("BTR.docs this=" + this);
         decodeMetaData();
         //System.out.println("BTR.docs:  state.docFreq=" + state.docFreq);

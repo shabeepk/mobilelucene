@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spans;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search.spans;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spans;
+
 
 import java.io.IOException;
 
@@ -274,20 +274,42 @@ public class TestBasics extends LuceneTestCase {
     assertTrue(searcher.explain(query, 849).getValue() > 0.0f);
   }
 
-  public void testSpanNotWindowNeg() throws Exception {
+  public void testSpanNotWindowNegPost() throws Exception {
     //test handling of invalid window < 0
     SpanQuery near = spanNearOrderedQuery("field", 4, "eight", "one");
     SpanQuery or = spanOrQuery("field", "forty");
-    SpanQuery query = spanNotQuery(near, or);
-
+    SpanQuery query = spanNotQuery(near, or, 0, -1);
     checkHits(query, new int[]
        {801, 821, 831, 851, 861, 871, 881, 891,
                1801, 1821, 1831, 1851, 1861, 1871, 1881, 1891});
 
+    query = spanNotQuery(near, or, 0, -2);
+    checkHits(query, new int[]
+       {801, 821, 831, 841, 851, 861, 871, 881, 891,
+               1801, 1821, 1831, 1841, 1851, 1861, 1871, 1881, 1891});
+
     assertTrue(searcher.explain(query, 801).getValue() > 0.0f);
     assertTrue(searcher.explain(query, 891).getValue() > 0.0f);
   }
-  
+
+  public void testSpanNotWindowNegPre() throws Exception {
+    //test handling of invalid window < 0
+    SpanQuery near = spanNearOrderedQuery("field", 4, "eight", "one");
+    SpanQuery or = spanOrQuery("field", "forty");
+    SpanQuery query = spanNotQuery(near, or, -2, 0);
+    checkHits(query, new int[]
+        {801, 821, 831, 851, 861, 871, 881, 891,
+            1801, 1821, 1831, 1851, 1861, 1871, 1881, 1891});
+
+    query = spanNotQuery(near, or, -3, 0);
+    checkHits(query, new int[]
+        {801, 821, 831, 841, 851, 861, 871, 881, 891,
+            1801, 1821, 1831, 1841, 1851, 1861, 1871, 1881, 1891});
+
+    assertTrue(searcher.explain(query, 801).getValue() > 0.0f);
+    assertTrue(searcher.explain(query, 891).getValue() > 0.0f);
+  }
+
   public void testSpanNotWindowDoubleExcludesBefore() throws Exception {
     //test hitting two excludes before an include
     SpanQuery near = spanNearOrderedQuery("field", 2, "forty", "two");

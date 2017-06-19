@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,13 +14,14 @@ package org.apache.lucene.analysis;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis;
+
 
 import java.io.IOException;
 import java.io.Closeable;
 import java.lang.reflect.Modifier;
 
 import org.apache.lucene.analysis.tokenattributes.PackedTokenAttributeImpl;
-import org.apache.lucene.analysis.tokenattributes.PositionIncrementAttribute;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.index.IndexWriter;
@@ -176,11 +175,7 @@ public abstract class TokenStream extends AttributeSource implements Closeable {
    * @throws IOException If an I/O error occurs
    */
   public void end() throws IOException {
-    clearAttributes(); // LUCENE-3849: don't consume dirty atts
-    PositionIncrementAttribute posIncAtt = getAttribute(PositionIncrementAttribute.class);
-    if (posIncAtt != null) {
-      posIncAtt.setPositionIncrement(0);
-    }
+    endAttributes(); // LUCENE-3849: don't consume dirty atts
   }
 
   /**

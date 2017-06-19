@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spans;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search.spans;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.spans;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -27,7 +27,7 @@ import org.apache.lucene.index.TermContext;
 import org.apache.lucene.search.IndexSearcher;
 
 /** Keep matches that are contained within another Spans. */
-public class SpanWithinQuery extends SpanContainQuery {
+public final class SpanWithinQuery extends SpanContainQuery {
 
   /** Construct a SpanWithinQuery matching spans from <code>little</code>
    * that are inside of <code>big</code>.
@@ -35,19 +35,12 @@ public class SpanWithinQuery extends SpanContainQuery {
    * <code>big</code> and <code>little</code> must be in the same field.
    */
   public SpanWithinQuery(SpanQuery big, SpanQuery little) {
-    super(big, little, little.getBoost());
+    super(big, little);
   }
 
   @Override
   public String toString(String field) {
     return toString(field, "SpanWithin");
-  }
-
-  @Override
-  public SpanWithinQuery clone() {
-    return new SpanWithinQuery(
-          (SpanQuery) big.clone(),
-          (SpanQuery) little.clone());
   }
 
   @Override

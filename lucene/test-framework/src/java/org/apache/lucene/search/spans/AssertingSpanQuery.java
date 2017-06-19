@@ -1,5 +1,3 @@
-package org.apache.lucene.search.spans;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,12 +14,14 @@ package org.apache.lucene.search.spans;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-import java.io.IOException;
+package org.apache.lucene.search.spans;
 
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
+
+import java.io.IOException;
+import java.util.Objects;
 
 /** Wraps a span query with asserts */
 public class AssertingSpanQuery extends SpanQuery {
@@ -48,20 +48,10 @@ public class AssertingSpanQuery extends SpanQuery {
   }
 
   @Override
-  public void setBoost(float b) {
-    in.setBoost(b);
-  }
-
-  @Override
-  public float getBoost() {
-    return in.getBoost();
-  }
-
-  @Override
   public Query rewrite(IndexReader reader) throws IOException {
     Query q = in.rewrite(reader);
     if (q == in) {
-      return this;
+      return super.rewrite(reader);
     } else if (q instanceof SpanQuery) {
       return new AssertingSpanQuery((SpanQuery) q);
     } else {
@@ -71,26 +61,21 @@ public class AssertingSpanQuery extends SpanQuery {
 
   @Override
   public Query clone() {
-    return new AssertingSpanQuery((SpanQuery) in.clone());
+    return new AssertingSpanQuery(in);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    return sameClassAs(o) &&
+           equalsTo(getClass().cast(o));
+  }
+
+  private boolean equalsTo(AssertingSpanQuery other) {
+    return Objects.equals(in, other.in);
   }
 
   @Override
   public int hashCode() {
-    final int prime = 31;
-    int result = super.hashCode();
-    result = prime * result + ((in == null) ? 0 : in.hashCode());
-    return result;
-  }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (this == obj) return true;
-    if (!super.equals(obj)) return false;
-    if (getClass() != obj.getClass()) return false;
-    AssertingSpanQuery other = (AssertingSpanQuery) obj;
-    if (in == null) {
-      if (other.in != null) return false;
-    } else if (!in.equals(other.in)) return false;
-    return true;
+    return (in == null) ? 0 : in.hashCode();
   }
 }

@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,12 +14,14 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 import java.util.Comparator;
+import java.util.Objects;
 
 import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.StringHelper;
 
 /**
  * Stores information about how to sort documents by terms in an individual
@@ -77,9 +77,6 @@ public class SortField {
      * uses ordinals to do the sorting. */
     STRING_VAL,
 
-    /** Sort use byte[] index values. */
-    BYTES,
-
     /** Force rewriting of SortField using {@link SortField#rewrite(IndexSearcher)}
      * before it can be used for sorting */
     REWRITEABLE
@@ -99,7 +96,7 @@ public class SortField {
   private FieldComparatorSource comparatorSource;
 
   // Used for 'sortMissingFirst/Last'
-  public Object missingValue = null;
+  protected Object missingValue = null;
 
   /** Creates a sort by terms in the given field with the type of term
    * values explicitly given.
@@ -141,12 +138,31 @@ public class SortField {
       }
     };
 
+  /** Return the value to use for documents that don't have a value.
+   *  A value of {@code null} indicates that default should be used. */
+  public Object getMissingValue() {
+    return missingValue;
+  }
+
+  /** Set the value to use for documents that don't have a value. */
   public void setMissingValue(Object missingValue) {
     if (type == Type.STRING || type == Type.STRING_VAL) {
       if (missingValue != STRING_FIRST && missingValue != STRING_LAST) {
         throw new IllegalArgumentException("For STRING type, missing value must be either STRING_FIRST or STRING_LAST");
       }
-    } else if (type != Type.INT && type != Type.FLOAT && type != Type.LONG && type != Type.DOUBLE) {
+    } else if (type == Type.INT) {
+      if (missingValue != null && missingValue.getClass() != Integer.class)
+        throw new IllegalArgumentException("Missing values for Type.INT can only be of type java.lang.Integer, but got " + missingValue.getClass());
+    } else if (type == Type.LONG) {
+      if (missingValue != null && missingValue.getClass() != Long.class)
+        throw new IllegalArgumentException("Missing values for Type.LONG can only be of type java.lang.Long, but got " + missingValue.getClass());
+    } else if (type == Type.FLOAT) {
+      if (missingValue != null && missingValue.getClass() != Float.class)
+        throw new IllegalArgumentException("Missing values for Type.FLOAT can only be of type java.lang.Float, but got " + missingValue.getClass());
+    } else if (type == Type.DOUBLE) {
+      if (missingValue != null && missingValue.getClass() != Double.class)
+        throw new IllegalArgumentException("Missing values for Type.DOUBLE can only be of type java.lang.Double, but got " + missingValue.getClass());
+    } else {
       throw new IllegalArgumentException("Missing value only works for numeric or STRING types");
     }
     this.missingValue = missingValue;
@@ -281,26 +297,23 @@ public class SortField {
     if (!(o instanceof SortField)) return false;
     final SortField other = (SortField)o;
     return (
-      StringHelper.equals(other.field, this.field)
+      Objects.equals(other.field, this.field)
       && other.type == this.type
       && other.reverse == this.reverse
-      && (other.comparatorSource == null ? this.comparatorSource == null : other.comparatorSource.equals(this.comparatorSource))
+      && Objects.equals(this.comparatorSource, other.comparatorSource)
+      && Objects.equals(this.missingValue, other.missingValue)
     );
   }
 
-  /** Returns true if <code>o</code> is equal to this.  If a
+  /** Returns a hash code for this {@link SortField} instance.  If a
    *  {@link FieldComparatorSource} was provided, it must properly
-   *  implement hashCode (unless a singleton is always
-   *  used). */
+   *  implement hashCode (unless a singleton is always used). */
   @Override
   public int hashCode() {
-    int hash = type.hashCode() ^ 0x346565dd + Boolean.valueOf(reverse).hashCode() ^ 0xaf5998bb;
-    if (field != null) hash += field.hashCode()^0xff5685dd;
-    if (comparatorSource != null) hash += comparatorSource.hashCode();
-    return hash;
+    return Objects.hash(field, type, reverse, comparatorSource, missingValue);
   }
 
-  private Comparator<BytesRef> bytesComparator = BytesRef.getUTF8SortedAsUnicodeComparator();
+  private Comparator<BytesRef> bytesComparator = Comparator.naturalOrder();
 
   public void setBytesComparator(Comparator<BytesRef> b) {
     bytesComparator = b;
@@ -322,7 +335,7 @@ public class SortField {
    *   optimize themselves when they are the primary sort.
    * @return {@link FieldComparator} to use when sorting
    */
-  public FieldComparator<?> getComparator(final int numHits, final int sortPos) throws IOException {
+  public FieldComparator<?> getComparator(final int numHits, final int sortPos) {
 
     switch (type) {
     case SCORE:

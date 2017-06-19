@@ -1,5 +1,3 @@
-package org.apache.lucene.store;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,23 +14,22 @@ package org.apache.lucene.store;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.store;
+
 
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
-import org.lukhnos.portmobile.file.Files;
-import org.lukhnos.portmobile.file.Path;
-import org.lukhnos.portmobile.file.StandardOpenOption;
-import org.lukhnos.portmobile.file.attribute.BasicFileAttributes;
-import org.lukhnos.portmobile.file.attribute.FileTime;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
 import org.apache.lucene.util.IOUtils;
-
-// Extra imports by portmobile.
-import org.lukhnos.portmobile.channels.utils.FileChannelUtils;
 
 /**
  * <p>Implements {@link LockFactory} using native OS file
@@ -113,7 +110,7 @@ public final class NativeFSLockFactory extends FSLockFactory {
       FileChannel channel = null;
       FileLock lock = null;
       try {
-        channel = FileChannelUtils.open(realPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+        channel = FileChannel.open(realPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
         lock = channel.tryLock();
         if (lock != null) {
           return new NativeFSLock(lock, channel, realPath, creationTime);
@@ -179,7 +176,7 @@ public final class NativeFSLockFactory extends FSLockFactory {
       // if it differs, someone deleted our lock file (and we are ineffective)
       FileTime ctime = Files.readAttributes(path, BasicFileAttributes.class).creationTime(); 
       if (!creationTime.equals(ctime)) {
-        throw new AlreadyClosedException("Underlying file changed by an external force at " + creationTime + ", (lock=" + this + ")");
+        throw new AlreadyClosedException("Underlying file changed by an external force at " + ctime + ", (lock=" + this + ")");
       }
     }
 
@@ -190,12 +187,10 @@ public final class NativeFSLockFactory extends FSLockFactory {
       }
       // NOTE: we don't validate, as unlike SimpleFSLockFactory, we can't break others locks
       // first release the lock, then the channel
-      try (FileChannel channel = this.channel) {
-        assert this.lock != null;
+      try (FileChannel channel = this.channel;
+           FileLock lock = this.lock) {
+        assert lock != null;
         assert channel != null;
-
-        this.lock.release();
-
       } finally {
         closed = true;
         clearLockHeld(path);
@@ -204,7 +199,7 @@ public final class NativeFSLockFactory extends FSLockFactory {
 
     @Override
     public String toString() {
-      return "NativeFSLock(path=" + path + ",impl=" + lock + ",ctime=" + creationTime + ")"; 
+      return "NativeFSLock(path=" + path + ",impl=" + lock + ",creationTime=" + creationTime + ")"; 
     }
   }
 }

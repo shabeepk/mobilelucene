@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.standard;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,25 +14,24 @@ package org.apache.lucene.analysis.standard;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.standard;
 
-import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.Tokenizer;
-import org.apache.lucene.analysis.core.LowerCaseFilter;
-import org.apache.lucene.analysis.core.StopAnalyzer;
-import org.apache.lucene.analysis.core.StopFilter;
-import org.apache.lucene.analysis.standard.std40.UAX29URLEmailTokenizer40;
-import org.apache.lucene.analysis.util.CharArraySet;
-import org.apache.lucene.analysis.util.StopwordAnalyzerBase;
-import org.apache.lucene.util.Version;
 
 import java.io.IOException;
 import java.io.Reader;
 
+import org.apache.lucene.analysis.CharArraySet;
+import org.apache.lucene.analysis.LowerCaseFilter;
+import org.apache.lucene.analysis.StopFilter;
+import org.apache.lucene.analysis.StopwordAnalyzerBase;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.core.StopAnalyzer;
+
 /**
  * Filters {@link org.apache.lucene.analysis.standard.UAX29URLEmailTokenizer}
  * with {@link org.apache.lucene.analysis.standard.StandardFilter},
- * {@link org.apache.lucene.analysis.core.LowerCaseFilter} and
- * {@link org.apache.lucene.analysis.core.StopFilter}, using a list of
+ * {@link org.apache.lucene.analysis.LowerCaseFilter} and
+ * {@link org.apache.lucene.analysis.StopFilter}, using a list of
  * English stop words.
  */
 public final class UAX29URLEmailAnalyzer extends StopwordAnalyzerBase {
@@ -62,17 +59,18 @@ public final class UAX29URLEmailAnalyzer extends StopwordAnalyzerBase {
   }
 
   /** Builds an analyzer with the stop words from the given reader.
-   * @see org.apache.lucene.analysis.util.WordlistLoader#getWordSet(java.io.Reader)
+   * @see org.apache.lucene.analysis.WordlistLoader#getWordSet(java.io.Reader)
    * @param stopwords Reader to read stop words from */
   public UAX29URLEmailAnalyzer(Reader stopwords) throws IOException {
     this(loadStopwordSet(stopwords));
   }
 
   /**
-   * Set maximum allowed token length.  If a token is seen
-   * that exceeds this length then it is discarded.  This
-   * setting only takes effect the next time tokenStream or
-   * tokenStream is called.
+   * Set the max allowed token length.  Tokens larger than this will be chopped
+   * up at this token length and emitted as multiple tokens.  If you need to
+   * skip such large tokens, you could increase this max length, and then
+   * use {@code LengthFilter} to remove long tokens.  The default is
+   * {@link UAX29URLEmailAnalyzer#DEFAULT_MAX_TOKEN_LENGTH}.
    */
   public void setMaxTokenLength(int length) {
     maxTokenLength = length;
@@ -87,29 +85,24 @@ public final class UAX29URLEmailAnalyzer extends StopwordAnalyzerBase {
 
   @Override
   protected TokenStreamComponents createComponents(final String fieldName) {
-    final Tokenizer src;
-    if (getVersion().onOrAfter(Version.LUCENE_4_7_0)) {
-      src = new UAX29URLEmailTokenizer();
-      ((UAX29URLEmailTokenizer)src).setMaxTokenLength(maxTokenLength);
-    } else {
-      src = new UAX29URLEmailTokenizer40();
-      ((UAX29URLEmailTokenizer40)src).setMaxTokenLength(maxTokenLength);
-    }
-
+    final UAX29URLEmailTokenizer src = new UAX29URLEmailTokenizer();
+    src.setMaxTokenLength(maxTokenLength);
     TokenStream tok = new StandardFilter(src);
     tok = new LowerCaseFilter(tok);
     tok = new StopFilter(tok, stopwords);
     return new TokenStreamComponents(src, tok) {
       @Override
-      protected void setReader(final Reader reader) throws IOException {
-        int m = UAX29URLEmailAnalyzer.this.maxTokenLength;
-        if (src instanceof UAX29URLEmailTokenizer) {
-          ((UAX29URLEmailTokenizer)src).setMaxTokenLength(m);
-        } else {
-          ((UAX29URLEmailTokenizer40)src).setMaxTokenLength(m);
-        }
+      protected void setReader(final Reader reader) {
+        // So that if maxTokenLength was changed, the change takes
+        // effect next time tokenStream is called:
+        src.setMaxTokenLength(UAX29URLEmailAnalyzer.this.maxTokenLength);
         super.setReader(reader);
       }
     };
+  }
+
+  @Override
+  protected TokenStream normalize(String fieldName, TokenStream in) {
+    return new LowerCaseFilter(in);
   }
 }

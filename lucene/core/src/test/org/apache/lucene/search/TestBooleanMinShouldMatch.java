@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,23 +14,25 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
 
-import org.apache.lucene.document.Field;
-import org.apache.lucene.util.LuceneTestCase;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.RandomIndexWriter;
-import org.apache.lucene.index.Term;
-import org.apache.lucene.search.similarities.DefaultSimilarity;
-import org.apache.lucene.search.similarities.Similarity;
-import org.apache.lucene.store.Directory;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 import java.util.Random;
+
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Field;
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.RandomIndexWriter;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.similarities.ClassicSimilarity;
+import org.apache.lucene.search.similarities.Similarity;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.util.LuceneTestCase;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 
 /** Test that BooleanQuery.setMinimumNumberShouldMatch works.
  */
@@ -397,7 +397,7 @@ public class TestBooleanMinShouldMatch extends LuceneTestCase {
     public void testRewriteCoord1() throws Exception {
       final Similarity oldSimilarity = s.getSimilarity(true);
       try {
-        s.setSimilarity(new DefaultSimilarity() {
+        s.setSimilarity(new ClassicSimilarity() {
           @Override
           public float coord(int overlap, int maxOverlap) {
             return overlap / ((float)maxOverlap + 1);
@@ -419,7 +419,7 @@ public class TestBooleanMinShouldMatch extends LuceneTestCase {
     public void testRewriteNegate() throws Exception {
       final Similarity oldSimilarity = s.getSimilarity(true);
       try {
-        s.setSimilarity(new DefaultSimilarity() {
+        s.setSimilarity(new ClassicSimilarity() {
           @Override
           public float coord(int overlap, int maxOverlap) {
             return overlap / ((float)maxOverlap + 1);

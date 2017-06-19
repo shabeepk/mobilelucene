@@ -1,5 +1,3 @@
-package org.apache.lucene.search.grouping.function;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,24 +14,25 @@ package org.apache.lucene.search.grouping.function;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.grouping.function;
 
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.queries.function.FunctionValues;
 import org.apache.lucene.queries.function.ValueSource;
 import org.apache.lucene.search.Sort;
-import org.apache.lucene.search.grouping.AbstractFirstPassGroupingCollector;
+import org.apache.lucene.search.grouping.FirstPassGroupingCollector;
 import org.apache.lucene.util.mutable.MutableValue;
 
 import java.io.IOException;
 import java.util.Map;
 
 /**
- * Concrete implementation of {@link AbstractFirstPassGroupingCollector} that groups based on
+ * Concrete implementation of {@link FirstPassGroupingCollector} that groups based on
  * {@link ValueSource} instances.
  *
  * @lucene.experimental
  */
-public class FunctionFirstPassGroupingCollector extends AbstractFirstPassGroupingCollector<MutableValue> {
+public class FunctionFirstPassGroupingCollector extends FirstPassGroupingCollector<MutableValue> {
 
   private final ValueSource groupByVS;
   private final Map<?, ?> vsContext;
@@ -84,8 +83,4 @@ public class FunctionFirstPassGroupingCollector extends AbstractFirstPassGroupin
     mval = filler.getValue();
   }
 
-  @Override
-  public boolean needsScores() {
-    return true; // TODO, maybe we don't?
-  }
 }

@@ -1,5 +1,3 @@
-package org.apache.lucene.search.join;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.join;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.join;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -30,7 +29,6 @@ import org.apache.lucene.index.NoMergePolicy;
 import org.apache.lucene.index.RandomIndexWriter;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.MatchNoDocsQuery;
-import org.apache.lucene.search.QueryWrapperFilter;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.LuceneTestCase;
@@ -88,7 +86,7 @@ public class TestCheckJoinIndex extends LuceneTestCase {
 
     final IndexReader reader = w.getReader();
     w.close();
-    BitSetProducer parentsFilter = new QueryBitSetProducer(new QueryWrapperFilter(new TermQuery(new Term("parent", "true"))));
+    BitSetProducer parentsFilter = new QueryBitSetProducer(new TermQuery(new Term("parent", "true")));
     try {
       CheckJoinIndex.check(reader, parentsFilter);
       fail("Invalid index");
@@ -128,7 +126,7 @@ public class TestCheckJoinIndex extends LuceneTestCase {
     final IndexReader reader = w.getReader();
     w.close();
 
-    BitSetProducer parentsFilter = new QueryBitSetProducer(new QueryWrapperFilter(new TermQuery(new Term("parent", "true"))));
+    BitSetProducer parentsFilter = new QueryBitSetProducer(new TermQuery(new Term("parent", "true")));
     try {
       CheckJoinIndex.check(reader, parentsFilter);
       fail("Invalid index");

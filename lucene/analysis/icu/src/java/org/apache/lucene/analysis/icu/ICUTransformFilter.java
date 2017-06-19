@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.icu;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.analysis.icu;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.icu;
+
 
 import java.io.IOException;
 
@@ -112,7 +112,7 @@ public final class ICUTransformFilter extends TokenFilter {
   /**
    * Wrap a {@link CharTermAttribute} with the Replaceable API.
    */
-  final class ReplaceableTermAttribute implements Replaceable {
+  static final class ReplaceableTermAttribute implements Replaceable {
     private char buffer[];
     private int length;
     private CharTermAttribute token;

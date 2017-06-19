@@ -1,6 +1,4 @@
-package org.apache.lucene.codecs.memory;
-
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,6 +14,7 @@ package org.apache.lucene.codecs.memory;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.memory;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -28,7 +27,6 @@ import org.apache.lucene.codecs.FieldsConsumer;
 import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.PostingsFormat;
 import org.apache.lucene.codecs.lucene50.Lucene50PostingsFormat;
-import org.apache.lucene.index.DocsAndPositionsEnum;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.Fields;
 import org.apache.lucene.index.IndexOptions;
@@ -155,7 +153,7 @@ public final class DirectPostingsFormat extends PostingsFormat {
     public long ramBytesUsed() {
       long sizeInBytes = 0;
       for(Map.Entry<String,DirectField> entry: fields.entrySet()) {
-        sizeInBytes += entry.getKey().length() * RamUsageEstimator.NUM_BYTES_CHAR;
+        sizeInBytes += entry.getKey().length() * Character.BYTES;
         sizeInBytes += entry.getValue().ramBytesUsed();
       }
       return sizeInBytes;
@@ -209,11 +207,6 @@ public final class DirectPostingsFormat extends PostingsFormat {
             ((payloads!=null) ? RamUsageEstimator.sizeOf(payloads) : 0);
       }
 
-      @Override
-      public Collection<Accountable> getChildResources() {
-        return Collections.emptyList();
-      }
-
     }
 
     // TODO: maybe specialize into prx/no-prx/no-frq cases?
@@ -261,11 +254,6 @@ public final class DirectPostingsFormat extends PostingsFormat {
         }
 
         return sizeInBytes;
-      }
-      
-      @Override
-      public Collection<Accountable> getChildResources() {
-        return Collections.emptyList();
       }
 
     }
@@ -545,11 +533,6 @@ public final class DirectPostingsFormat extends PostingsFormat {
 
       return sizeInBytes;
     }
-    
-    @Override
-    public Collection<Accountable> getChildResources() {
-      return Collections.emptyList();
-    }
 
     @Override
     public String toString() {
@@ -676,6 +659,9 @@ public final class DirectPostingsFormat extends PostingsFormat {
 
     @Override
     public TermsEnum intersect(CompiledAutomaton compiled, final BytesRef startTerm) {
+      if (compiled.type != CompiledAutomaton.AUTOMATON_TYPE.NORMAL) {
+        throw new IllegalArgumentException("please use CompiledAutomaton.getTermsEnum instead");
+      }
       return new DirectIntersectTermsEnum(compiled, startTerm);
     }
 
@@ -858,14 +844,6 @@ public final class DirectPostingsFormat extends PostingsFormat {
 
       @Override
       public PostingsEnum postings(PostingsEnum reuse, int flags) throws IOException {
-        
-        if (PostingsEnum.featureRequested(flags, DocsAndPositionsEnum.OLD_NULL_SEMANTICS)) {
-          if (!hasPos) {
-            // Positions were not indexed:
-            return null;
-          }
-        }
-
         // TODO: implement reuse
         // it's hairy!
 
@@ -994,7 +972,7 @@ public final class DirectPostingsFormat extends PostingsFormat {
         states = new State[1];
         states[0] = new State();
         states[0].changeOrd = terms.length;
-        states[0].state = runAutomaton.getInitialState();
+        states[0].state = 0;
         states[0].transitionCount = compiledAutomaton.automaton.getNumTransitions(states[0].state);
         compiledAutomaton.automaton.initTransition(states[0].state, states[0].transition);
         states[0].transitionUpto = -1;
@@ -1474,14 +1452,6 @@ public final class DirectPostingsFormat extends PostingsFormat {
 
       @Override
       public PostingsEnum postings(PostingsEnum reuse, int flags) {
-        
-        if (PostingsEnum.featureRequested(flags, DocsAndPositionsEnum.OLD_NULL_SEMANTICS)) {
-          if (!hasPos) {
-            // Positions were not indexed:
-            return null;
-          }
-        }
-        
         // TODO: implement reuse
         // it's hairy!
 

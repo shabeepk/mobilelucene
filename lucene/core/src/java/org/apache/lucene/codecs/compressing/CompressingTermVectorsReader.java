@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.compressing;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.codecs.compressing;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.compressing;
+
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -27,8 +27,6 @@ import java.util.NoSuchElementException;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.TermVectorsReader;
 import org.apache.lucene.index.CorruptIndexException;
-import org.apache.lucene.index.DocsAndPositionsEnum;
-import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
@@ -749,7 +747,7 @@ public final class CompressingTermVectorsReader extends TermVectorsReader implem
 
   }
 
-  private class TVTerms extends Terms {
+  private static class TVTerms extends Terms {
 
     private final int numTerms, flags;
     private final int[] prefixLengths, suffixLengths, termFreqs, positionIndex, positions, startOffsets, lengths, payloadIndex;
@@ -932,13 +930,6 @@ public final class CompressingTermVectorsReader extends TermVectorsReader implem
 
     @Override
     public final PostingsEnum postings(PostingsEnum reuse, int flags) throws IOException {
-      if (PostingsEnum.featureRequested(flags, DocsAndPositionsEnum.OLD_NULL_SEMANTICS)) {
-        if (positions == null && startOffsets == null) {
-          // Positions nor offsets were indexed:
-          return null;
-        }
-      }
-      
       final TVPostingsEnum docsEnum;
       if (reuse != null && reuse instanceof TVPostingsEnum) {
         docsEnum = (TVPostingsEnum) reuse;

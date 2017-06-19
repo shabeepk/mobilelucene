@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -23,18 +23,21 @@ import java.util.List;
 import java.util.Random;
 
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.CannedTokenStream;
 import org.apache.lucene.analysis.MockAnalyzer;
 import org.apache.lucene.analysis.MockTokenFilter;
 import org.apache.lucene.analysis.MockTokenizer;
+import org.apache.lucene.analysis.Token;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
+import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriterConfig.OpenMode;
 import org.apache.lucene.index.RandomIndexWriter;
 import org.apache.lucene.index.Term;
-import org.apache.lucene.search.similarities.DefaultSimilarity;
+import org.apache.lucene.search.similarities.ClassicSimilarity;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.util.TestUtil;
@@ -91,7 +94,7 @@ public class TestPhraseQuery extends LuceneTestCase {
     reader = writer.getReader();
     writer.close();
 
-    searcher = newSearcher(reader);
+    searcher = new IndexSearcher(reader);
   }
   
   @Override
@@ -119,7 +122,7 @@ public class TestPhraseQuery extends LuceneTestCase {
     query = new PhraseQuery(3, "field", "one", "five");
     ScoreDoc[] hits = searcher.search(query, 1000).scoreDocs;
     assertEquals(1, hits.length);
-    QueryUtils.check(random(), query,searcher);
+    QueryUtils.check(random(), query, searcher);
   }
 
   /**
@@ -306,7 +309,7 @@ public class TestPhraseQuery extends LuceneTestCase {
     RandomIndexWriter writer = new RandomIndexWriter(random(), directory, 
         newIndexWriterConfig(new MockAnalyzer(random()))
           .setMergePolicy(newLogMergePolicy())
-          .setSimilarity(new DefaultSimilarity()));
+          .setSimilarity(new ClassicSimilarity()));
 
     Document doc = new Document();
     doc.add(newTextField("field", "foo firstname lastname foo", Field.Store.YES));
@@ -324,17 +327,17 @@ public class TestPhraseQuery extends LuceneTestCase {
     writer.close();
 
     IndexSearcher searcher = newSearcher(reader);
-    searcher.setSimilarity(new DefaultSimilarity());
+    searcher.setSimilarity(new ClassicSimilarity());
     PhraseQuery query = new PhraseQuery(Integer.MAX_VALUE, "field", "firstname", "lastname");
     ScoreDoc[] hits = searcher.search(query, 1000).scoreDocs;
     assertEquals(3, hits.length);
     // Make sure that those matches where the terms appear closer to
     // each other get a higher score:
-    assertEquals(0.71, hits[0].score, 0.01);
+    assertEquals(1.0, hits[0].score, 0.01);
     assertEquals(0, hits[0].doc);
-    assertEquals(0.44, hits[1].score, 0.01);
+    assertEquals(0.62, hits[1].score, 0.01);
     assertEquals(1, hits[1].doc);
-    assertEquals(0.31, hits[2].score, 0.01);
+    assertEquals(0.43, hits[2].score, 0.01);
     assertEquals(2, hits[2].doc);
     QueryUtils.check(random(), query,searcher);
     reader.close();
@@ -372,9 +375,6 @@ public class TestPhraseQuery extends LuceneTestCase {
     builder.setSlop(5);
     q = builder.build();
     assertEquals("field:\"? hi|hello ? ? ? test\"~5", q.toString());
-
-    q.setBoost(2);
-    assertEquals("field:\"? hi|hello ? ? ? test\"~5^2.0", q.toString());
   }
 
   public void testWrappedPhrase() throws IOException {
@@ -552,6 +552,52 @@ public class TestPhraseQuery extends LuceneTestCase {
     assertTrue(rewritten instanceof TermQuery);
   }
 
+  /** Tests PhraseQuery with terms at the same position in the query. */
+  public void testZeroPosIncr() throws IOException {
+    Directory dir = newDirectory();
+    final Token[] tokens = new Token[3];
+    tokens[0] = new Token();
+    tokens[0].append("a");
+    tokens[0].setPositionIncrement(1);
+    tokens[1] = new Token();
+    tokens[1].append("aa");
+    tokens[1].setPositionIncrement(0);
+    tokens[2] = new Token();
+    tokens[2].append("b");
+    tokens[2].setPositionIncrement(1);
+
+    RandomIndexWriter writer = new RandomIndexWriter(random(), dir);
+    Document doc = new Document();
+    doc.add(new TextField("field", new CannedTokenStream(tokens)));
+    writer.addDocument(doc);
+    IndexReader r = writer.getReader();
+    writer.close();
+    IndexSearcher searcher = newSearcher(r);
+
+    // Sanity check; simple "a b" phrase:
+    PhraseQuery.Builder pqBuilder = new PhraseQuery.Builder();
+    pqBuilder.add(new Term("field", "a"), 0);
+    pqBuilder.add(new Term("field", "b"), 1);
+    assertEquals(1, searcher.search(pqBuilder.build(), 1).totalHits);
+
+    // Now with "a|aa b"
+    pqBuilder = new PhraseQuery.Builder();
+    pqBuilder.add(new Term("field", "a"), 0);
+    pqBuilder.add(new Term("field", "aa"), 0);
+    pqBuilder.add(new Term("field", "b"), 1);
+    assertEquals(1, searcher.search(pqBuilder.build(), 1).totalHits);
+
+    // Now with "a|z b" which should not match; this isn't a MultiPhraseQuery
+    pqBuilder = new PhraseQuery.Builder();
+    pqBuilder.add(new Term("field", "a"), 0);
+    pqBuilder.add(new Term("field", "z"), 0);
+    pqBuilder.add(new Term("field", "b"), 1);
+    assertEquals(0, searcher.search(pqBuilder.build(), 1).totalHits);
+
+    r.close();
+    dir.close();
+  }
+
   public void testRandomPhrases() throws Exception {
     Directory dir = newDirectory();
     Analyzer analyzer = new MockAnalyzer(random());
@@ -646,108 +692,24 @@ public class TestPhraseQuery extends LuceneTestCase {
   }
   
   public void testNegativeSlop() throws Exception {
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       new PhraseQuery(-2, "field", "two", "one");
-      fail("didn't get expected exception");
-    } catch (IllegalArgumentException expected) {
-      // expected exception
-    }
+    });
   }
 
   public void testNegativePosition() throws Exception {
     PhraseQuery.Builder builder = new PhraseQuery.Builder();
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       builder.add(new Term("field", "two"), -42);
-      fail("didn't get expected exception");
-    } catch (IllegalArgumentException expected) {
-      // expected exception
-    }
+    });
   }
 
   public void testBackwardPositions() throws Exception {
     PhraseQuery.Builder builder = new PhraseQuery.Builder();
     builder.add(new Term("field", "one"), 1);
     builder.add(new Term("field", "two"), 5);
-    try {
+    expectThrows(IllegalArgumentException.class, () -> {
       builder.add(new Term("field", "three"), 4);
-      fail("didn't get expected exception");
-    } catch (IllegalArgumentException expected) {
-      // expected exception
-    }
-  }
-
-  public void test52Compat() {
-    final int iters = atLeast(5);
-    for (int iter = 0; iter < iters; ++iter) {
-      int slop = random().nextInt(5);
-      String field = TestUtil.randomSimpleString(random());
-      Term[] terms = new Term[random().nextInt(5)];
-      final int[] positions = new int[terms.length];
-      for (int i = 0; i < terms.length; ++i) {
-        terms[i] = new Term(field, TestUtil.randomSimpleString(random()));
-      }
-  
-      PhraseQuery q1 = new PhraseQuery();
-      PhraseQuery.Builder q2 = new PhraseQuery.Builder();
-      q1.setSlop(slop);
-      q2.setSlop(slop);
-      for (Term term : terms) {
-        q1.add(term);
-        q2.add(term);
-      }
-      QueryUtils.checkEqual(q1, q2.build());
-  
-      if (terms.length > 0) {
-        positions[0] = random().nextInt(3);
-        for (int i = 1; i < terms.length; ++i) {
-          positions[i] = positions[i - 1] + random().nextInt(3);
-        }
-      }
-      q1 = new PhraseQuery();
-      q2 = new PhraseQuery.Builder();
-      q1.setSlop(slop);
-      q2.setSlop(slop);
-      for (Term term : terms) {
-        q1.add(term);
-        q2.add(term);
-      }
-      QueryUtils.checkEqual(q1, q2.build());
-    }
-  }
-
-  public void testBuilderImmutable() {
-    int slop = random().nextInt(5);
-    String field = TestUtil.randomSimpleString(random());
-    Term[] terms = new Term[random().nextInt(5)];
-    final int[] positions = new int[terms.length];
-    for (int i = 0; i < terms.length; ++i) {
-      terms[i] = new Term(field, TestUtil.randomSimpleString(random()));
-    }
-    PhraseQuery.Builder builder = new PhraseQuery.Builder();
-    builder.setSlop(slop);
-    for (Term term : terms) {
-      builder.add(term);
-    }
-    PhraseQuery q = builder.build();
-    try {
-      q.setSlop(2);
-      fail();
-    } catch (IllegalStateException expected) {
-      // ok
-    }
-
-    try {
-      q.add(new Term("foo", "bar"));
-      fail();
-    } catch (IllegalStateException expected) {
-      // ok
-    }
-
-    try {
-      q.add(new Term("foo", "bar"), 42);
-      fail();
-    } catch (IllegalStateException expected) {
-      // ok
-    }
+    });
   }
 }

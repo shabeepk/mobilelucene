@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.lucene.queries.function.valuesource;
 
 import java.io.IOException;
@@ -65,9 +64,9 @@ public class LongFieldSource extends FieldCacheSource {
   
   @Override
   public FunctionValues getValues(Map context, LeafReaderContext readerContext) throws IOException {
-    final NumericDocValues arr = DocValues.getNumeric(readerContext.reader(), field);
+    final NumericDocValues arr = getNumericDocValues(context, readerContext);
     final Bits valid = DocValues.getDocsWithField(readerContext.reader(), field);
-    
+
     return new LongDocValues(this) {
       @Override
       public long longVal(int doc) {
@@ -113,6 +112,10 @@ public class LongFieldSource extends FieldCacheSource {
       }
 
     };
+  }
+
+  protected NumericDocValues getNumericDocValues(Map context, LeafReaderContext readerContext) throws IOException {
+    return DocValues.getNumeric(readerContext.reader(), field);
   }
 
   protected MutableValueLong newMutableValueLong() {

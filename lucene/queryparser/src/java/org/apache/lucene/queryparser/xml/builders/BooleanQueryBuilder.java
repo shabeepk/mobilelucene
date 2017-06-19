@@ -1,18 +1,4 @@
 /*
- * Created on 25-Jan-2006
- */
-package org.apache.lucene.queryparser.xml.builders;
-
-import org.apache.lucene.search.BooleanClause;
-import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.Query;
-import org.apache.lucene.queryparser.xml.DOMUtils;
-import org.apache.lucene.queryparser.xml.ParserException;
-import org.apache.lucene.queryparser.xml.QueryBuilder;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -28,6 +14,18 @@ import org.w3c.dom.NodeList;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queryparser.xml.builders;
+
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.BoostQuery;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.queryparser.xml.DOMUtils;
+import org.apache.lucene.queryparser.xml.ParserException;
+import org.apache.lucene.queryparser.xml.QueryBuilder;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 /**
  * Builder for {@link BooleanQuery}
@@ -51,7 +49,8 @@ public class BooleanQueryBuilder implements QueryBuilder {
     bq.setMinimumNumberShouldMatch(DOMUtils.getAttribute(e, "minimumNumberShouldMatch", 0));
 
     NodeList nl = e.getChildNodes();
-    for (int i = 0; i < nl.getLength(); i++) {
+    final int nlLen = nl.getLength();
+    for (int i = 0; i < nlLen; i++) {
       Node node = nl.item(i);
       if (node.getNodeName().equals("Clause")) {
         Element clauseElem = (Element) node;
@@ -63,8 +62,11 @@ public class BooleanQueryBuilder implements QueryBuilder {
       }
     }
 
-    BooleanQuery q = bq.build();
-    q.setBoost(DOMUtils.getAttribute(e, "boost", 1.0f));
+    Query q = bq.build();
+    float boost = DOMUtils.getAttribute(e, "boost", 1.0f);
+    if (boost != 1f) {
+      q = new BoostQuery(q, boost);
+    }
     return q;
   }
 

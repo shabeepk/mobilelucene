@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,11 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
+
+import java.util.Collections;
+import java.util.Set;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.codecs.Codec;
@@ -23,8 +26,8 @@ import org.apache.lucene.index.DocumentsWriterPerThread.IndexingChain;
 import org.apache.lucene.index.IndexWriter.IndexReaderWarmer;
 import org.apache.lucene.index.IndexWriterConfig.OpenMode;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.similarities.Similarity;
-import org.apache.lucene.store.SleepingLockWrapper;
 import org.apache.lucene.util.InfoStream;
 
 /**
@@ -61,13 +64,6 @@ public class LiveIndexWriterConfig {
   /** {@link MergeScheduler} to use for running merges. */
   protected volatile MergeScheduler mergeScheduler;
 
-  /** 
-   * Timeout when trying to obtain the write lock on init. 
-   * @deprecated Use {@link SleepingLockWrapper} if you want sleeping.
-   */
-  @Deprecated
-  protected volatile long writeLockTimeout;
-
   /** {@link IndexingChain} that determines how documents are
    *  indexed. */
   protected volatile IndexingChain indexingChain;
@@ -102,6 +98,12 @@ public class LiveIndexWriterConfig {
   /** True if calls to {@link IndexWriter#close()} should first do a commit. */
   protected boolean commitOnClose = IndexWriterConfig.DEFAULT_COMMIT_ON_CLOSE;
 
+  /** The sort order to use to write merged segments. */
+  protected Sort indexSort = null;
+
+  /** The field names involved in the index sort */
+  protected Set<String> indexSortFields = Collections.emptySet();
+
   // used by IndexWriterConfig
   LiveIndexWriterConfig(Analyzer analyzer) {
     this.analyzer = analyzer;
@@ -115,7 +117,6 @@ public class LiveIndexWriterConfig {
     openMode = OpenMode.CREATE_OR_APPEND;
     similarity = IndexSearcher.getDefaultSimilarity();
     mergeScheduler = new ConcurrentMergeScheduler();
-    writeLockTimeout = IndexWriterConfig.WRITE_LOCK_TIMEOUT;
     indexingChain = DocumentsWriterPerThread.defaultIndexingChain;
     codec = Codec.getDefault();
     if (codec == null) {
@@ -355,17 +356,6 @@ public class LiveIndexWriterConfig {
   public MergeScheduler getMergeScheduler() {
     return mergeScheduler;
   }
-
-  /**
-   * Returns allowed timeout when acquiring the write lock.
-   *
-   * @see IndexWriterConfig#setWriteLockTimeout(long)
-   * @deprecated Use {@link SleepingLockWrapper} if you want sleeping.
-   */
-  @Deprecated
-  public long getWriteLockTimeout() {
-    return writeLockTimeout;
-  }
   
   /** Returns the current {@link Codec}. */
   public Codec getCodec() {
@@ -393,15 +383,14 @@ public class LiveIndexWriterConfig {
 
   /**
    * Returns {@code true} if {@link IndexWriter} should pool readers even if
-   * {@link DirectoryReader#open(IndexWriter, boolean)} has not been called.
+   * {@link DirectoryReader#open(IndexWriter)} has not been called.
    */
   public boolean getReaderPooling() {
     return readerPooling;
   }
 
   /**
-   * Returns the indexing chain set on
-   * {@link IndexWriterConfig#setIndexingChain(IndexingChain)}.
+   * Returns the indexing chain.
    */
   IndexingChain getIndexingChain() {
     return indexingChain;
@@ -466,6 +455,21 @@ public class LiveIndexWriterConfig {
     return commitOnClose;
   }
 
+  /**
+   * Set the index-time {@link Sort} order. Merged segments will be written
+   * in this order.
+   */
+  public Sort getIndexSort() {
+    return indexSort;
+  }
+
+  /**
+   * Returns the field names involved in the index sort
+   */
+  public Set<String> getIndexSortFields() {
+    return indexSortFields;
+  }
+
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
@@ -480,8 +484,6 @@ public class LiveIndexWriterConfig {
     sb.append("openMode=").append(getOpenMode()).append("\n");
     sb.append("similarity=").append(getSimilarity().getClass().getName()).append("\n");
     sb.append("mergeScheduler=").append(getMergeScheduler()).append("\n");
-    sb.append("default WRITE_LOCK_TIMEOUT=").append(IndexWriterConfig.WRITE_LOCK_TIMEOUT).append("\n");
-    sb.append("writeLockTimeout=").append(getWriteLockTimeout()).append("\n");
     sb.append("codec=").append(getCodec()).append("\n");
     sb.append("infoStream=").append(getInfoStream().getClass().getName()).append("\n");
     sb.append("mergePolicy=").append(getMergePolicy()).append("\n");
@@ -490,6 +492,7 @@ public class LiveIndexWriterConfig {
     sb.append("perThreadHardLimitMB=").append(getRAMPerThreadHardLimitMB()).append("\n");
     sb.append("useCompoundFile=").append(getUseCompoundFile()).append("\n");
     sb.append("commitOnClose=").append(getCommitOnClose()).append("\n");
+    sb.append("indexSort=").append(getIndexSort()).append("\n");
     return sb.toString();
   }
 }

@@ -1,5 +1,3 @@
-package org.apache.lucene.search.similarities;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search.similarities;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.similarities;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -35,37 +35,42 @@ import org.apache.lucene.util.SmallFloat;
  * Susan Jones, Micheline Hancock-Beaulieu, and Mike Gatford. Okapi at TREC-3.
  * In Proceedings of the Third <b>T</b>ext <b>RE</b>trieval <b>C</b>onference (TREC 1994).
  * Gaithersburg, USA, November 1994.
- * @lucene.experimental
  */
 public class BM25Similarity extends Similarity {
   private final float k1;
   private final float b;
-  // TODO: should we add a delta like sifaka.cs.uiuc.edu/~ylv2/pub/sigir11-bm25l.pdf ?
 
   /**
    * BM25 with the supplied parameter values.
    * @param k1 Controls non-linear term frequency normalization (saturation).
    * @param b Controls to what degree document length normalizes tf values.
+   * @throws IllegalArgumentException if {@code k1} is infinite or negative, or if {@code b} is 
+   *         not within the range {@code [0..1]}
    */
   public BM25Similarity(float k1, float b) {
+    if (Float.isFinite(k1) == false || k1 < 0) {
+      throw new IllegalArgumentException("illegal k1 value: " + k1 + ", must be a non-negative finite value");
+    }
+    if (Float.isNaN(b) || b < 0 || b > 1) {
+      throw new IllegalArgumentException("illegal b value: " + b + ", must be between 0 and 1");
+    }
     this.k1 = k1;
     this.b  = b;
   }
   
   /** BM25 with these default values:
    * <ul>
-   *   <li>{@code k1 = 1.2},
-   *   <li>{@code b = 0.75}.</li>
+   *   <li>{@code k1 = 1.2}</li>
+   *   <li>{@code b = 0.75}</li>
    * </ul>
    */
   public BM25Similarity() {
-    this.k1 = 1.2f;
-    this.b  = 0.75f;
+    this(1.2f, 0.75f);
   }
   
-  /** Implemented as <code>log(1 + (numDocs - docFreq + 0.5)/(docFreq + 0.5))</code>. */
-  protected float idf(long docFreq, long numDocs) {
-    return (float) Math.log(1 + (numDocs - docFreq + 0.5D)/(docFreq + 0.5D));
+  /** Implemented as <code>log(1 + (docCount - docFreq + 0.5)/(docFreq + 0.5))</code>. */
+  protected float idf(long docFreq, long docCount) {
+    return (float) Math.log(1 + (docCount - docFreq + 0.5D)/(docFreq + 0.5D));
   }
   
   /** Implemented as <code>1 / (distance + 1)</code>. */
@@ -78,7 +83,7 @@ public class BM25Similarity extends Similarity {
     return 1;
   }
   
-  /** The default implementation computes the average as <code>sumTotalTermFreq / maxDoc</code>,
+  /** The default implementation computes the average as <code>sumTotalTermFreq / docCount</code>,
    * or returns <code>1</code> if the index does not store sumTotalTermFreq:
    * any field that omits frequency information). */
   protected float avgFieldLength(CollectionStatistics collectionStats) {
@@ -86,7 +91,8 @@ public class BM25Similarity extends Similarity {
     if (sumTotalTermFreq <= 0) {
       return 1f;       // field does not exist, or stat is unsupported
     } else {
-      return (float) (sumTotalTermFreq / (double) collectionStats.maxDoc());
+      final long docCount = collectionStats.docCount() == -1 ? collectionStats.maxDoc() : collectionStats.docCount();
+      return (float) (sumTotalTermFreq / (double) docCount);
     }
   }
   
@@ -129,10 +135,11 @@ public class BM25Similarity extends Similarity {
   private static final float[] NORM_TABLE = new float[256];
 
   static {
-    for (int i = 0; i < 256; i++) {
+    for (int i = 1; i < 256; i++) {
       float f = SmallFloat.byte315ToFloat((byte)i);
       NORM_TABLE[i] = 1.0f / (f*f);
     }
+    NORM_TABLE[0] = 1.0f / NORM_TABLE[255]; // otherwise inf
   }
 
 
@@ -150,14 +157,14 @@ public class BM25Similarity extends Similarity {
    * The default implementation uses:
    * 
    * <pre class="prettyprint">
-   * idf(docFreq, searcher.maxDoc());
+   * idf(docFreq, docCount);
    * </pre>
    * 
-   * Note that {@link CollectionStatistics#maxDoc()} is used instead of
+   * Note that {@link CollectionStatistics#docCount()} is used instead of
    * {@link org.apache.lucene.index.IndexReader#numDocs() IndexReader#numDocs()} because also 
    * {@link TermStatistics#docFreq()} is used, and when the latter 
-   * is inaccurate, so is {@link CollectionStatistics#maxDoc()}, and in the same direction.
-   * In addition, {@link CollectionStatistics#maxDoc()} is more efficient to compute
+   * is inaccurate, so is {@link CollectionStatistics#docCount()}, and in the same direction.
+   * In addition, {@link CollectionStatistics#docCount()} does not skew when fields are sparse.
    *   
    * @param collectionStats collection-level statistics
    * @param termStats term-level statistics for the term
@@ -166,9 +173,11 @@ public class BM25Similarity extends Similarity {
    */
   public Explanation idfExplain(CollectionStatistics collectionStats, TermStatistics termStats) {
     final long df = termStats.docFreq();
-    final long max = collectionStats.maxDoc();
-    final float idf = idf(df, max);
-    return Explanation.match(idf, "idf(docFreq=" + df + ", maxDocs=" + max + ")");
+    final long docCount = collectionStats.docCount() == -1 ? collectionStats.maxDoc() : collectionStats.docCount();
+    final float idf = idf(df, docCount);
+    return Explanation.match(idf, "idf, computed as log(1 + (docCount - docFreq + 0.5) / (docFreq + 0.5)) from:",
+        Explanation.match(df, "docFreq"),
+        Explanation.match(docCount, "docCount"));
   }
 
   /**
@@ -185,20 +194,18 @@ public class BM25Similarity extends Similarity {
    *         for each term.
    */
   public Explanation idfExplain(CollectionStatistics collectionStats, TermStatistics termStats[]) {
-    final long max = collectionStats.maxDoc();
-    float idf = 0.0f;
+    double idf = 0d; // sum into a double before casting into a float
     List<Explanation> details = new ArrayList<>();
     for (final TermStatistics stat : termStats ) {
-      final long df = stat.docFreq();
-      final float termIdf = idf(df, max);
-      details.add(Explanation.match(termIdf, "idf(docFreq=" + df + ", maxDocs=" + max + ")"));
-      idf += termIdf;
+      Explanation idfExplain = idfExplain(collectionStats, stat);
+      details.add(idfExplain);
+      idf += idfExplain.getValue();
     }
-    return Explanation.match(idf, "idf(), sum of:", details);
+    return Explanation.match((float) idf, "idf(), sum of:", details);
   }
 
   @Override
-  public final SimWeight computeWeight(float queryBoost, CollectionStatistics collectionStats, TermStatistics... termStats) {
+  public final SimWeight computeWeight(CollectionStatistics collectionStats, TermStatistics... termStats) {
     Explanation idf = termStats.length == 1 ? idfExplain(collectionStats, termStats[0]) : idfExplain(collectionStats, termStats);
 
     float avgdl = avgFieldLength(collectionStats);
@@ -208,7 +215,7 @@ public class BM25Similarity extends Similarity {
     for (int i = 0; i < cache.length; i++) {
       cache[i] = k1 * ((1 - b) + b * decodeNormValue((byte)i) / avgdl);
     }
-    return new BM25Stats(collectionStats.field(), idf, queryBoost, avgdl, cache);
+    return new BM25Stats(collectionStats.field(), idf, avgdl, cache);
   }
 
   @Override
@@ -259,10 +266,8 @@ public class BM25Similarity extends Similarity {
     private final Explanation idf;
     /** The average document length. */
     private final float avgdl;
-    /** query's inner boost */
-    private final float queryBoost;
-    /** query's outer boost (only for explain) */
-    private float topLevelBoost;
+    /** query boost */
+    private float boost;
     /** weight (idf * boost) */
     private float weight;
     /** field name, for pulling norms */
@@ -270,26 +275,25 @@ public class BM25Similarity extends Similarity {
     /** precomputed norm[256] with k1 * ((1 - b) + b * dl / avgdl) */
     private final float cache[];
 
-    BM25Stats(String field, Explanation idf, float queryBoost, float avgdl, float cache[]) {
+    BM25Stats(String field, Explanation idf, float avgdl, float cache[]) {
       this.field = field;
       this.idf = idf;
-      this.queryBoost = queryBoost;
       this.avgdl = avgdl;
       this.cache = cache;
+      normalize(1f, 1f);
     }
 
     @Override
     public float getValueForNormalization() {
       // we return a TF-IDF like normalization to be nice, but we don't actually normalize ourselves.
-      final float queryWeight = idf.getValue() * queryBoost;
-      return queryWeight * queryWeight;
+      return weight * weight;
     }
 
     @Override
-    public void normalize(float queryNorm, float topLevelBoost) {
+    public void normalize(float queryNorm, float boost) {
       // we don't normalize with queryNorm at all, we just capture the top-level boost
-      this.topLevelBoost = topLevelBoost;
-      this.weight = idf.getValue() * queryBoost * topLevelBoost;
+      this.boost = boost;
+      this.weight = idf.getValue() * boost;
     } 
   }
 
@@ -301,7 +305,7 @@ public class BM25Similarity extends Similarity {
       subs.add(Explanation.match(0, "parameter b (norms omitted for field)"));
       return Explanation.match(
           (freq.getValue() * (k1 + 1)) / (freq.getValue() + k1),
-          "tfNorm, computed from:", subs);
+          "tfNorm, computed as (freq * (k1 + 1)) / (freq + k1) from:", subs);
     } else {
       float doclen = decodeNormValue((byte)norms.get(doc));
       subs.add(Explanation.match(b, "parameter b"));
@@ -309,12 +313,12 @@ public class BM25Similarity extends Similarity {
       subs.add(Explanation.match(doclen, "fieldLength"));
       return Explanation.match(
           (freq.getValue() * (k1 + 1)) / (freq.getValue() + k1 * (1 - b + b * doclen/stats.avgdl)),
-          "tfNorm, computed from:", subs);
+          "tfNorm, computed as (freq * (k1 + 1)) / (freq + k1 * (1 - b + b * fieldLength / avgFieldLength)) from:", subs);
     }
   }
 
   private Explanation explainScore(int doc, Explanation freq, BM25Stats stats, NumericDocValues norms) {
-    Explanation boostExpl = Explanation.match(stats.queryBoost * stats.topLevelBoost, "boost");
+    Explanation boostExpl = Explanation.match(stats.boost, "boost");
     List<Explanation> subs = new ArrayList<>();
     if (boostExpl.getValue() != 1.0f)
       subs.add(boostExpl);
@@ -335,7 +339,7 @@ public class BM25Similarity extends Similarity {
    * Returns the <code>k1</code> parameter
    * @see #BM25Similarity(float, float) 
    */
-  public float getK1() {
+  public final float getK1() {
     return k1;
   }
   
@@ -343,7 +347,7 @@ public class BM25Similarity extends Similarity {
    * Returns the <code>b</code> parameter 
    * @see #BM25Similarity(float, float) 
    */
-  public float getB() {
+  public final float getB() {
     return b;
   }
 }

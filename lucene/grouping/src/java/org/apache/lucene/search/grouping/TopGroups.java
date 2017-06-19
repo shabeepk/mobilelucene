@@ -1,5 +1,3 @@
-package org.apache.lucene.search.grouping;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.grouping;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.grouping;
 
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Sort;
@@ -23,12 +22,10 @@ import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopFieldDocs;
 
-import java.io.IOException;
-
 /** Represents result returned by a grouping search.
  *
  * @lucene.experimental */
-public class TopGroups<GROUP_VALUE_TYPE> {
+public class TopGroups<T> {
   /** Number of documents matching the search */
   public final int totalHitCount;
 
@@ -39,7 +36,7 @@ public class TopGroups<GROUP_VALUE_TYPE> {
   public final Integer totalGroupCount;
 
   /** Group results in groupSort order */
-  public final GroupDocs<GROUP_VALUE_TYPE>[] groups;
+  public final GroupDocs<T>[] groups;
 
   /** How groups are sorted against each other */
   public final SortField[] groupSort;
@@ -51,7 +48,7 @@ public class TopGroups<GROUP_VALUE_TYPE> {
    *  <code>Float.NaN</code> if scores were not computed. */
   public final float maxScore;
 
-  public TopGroups(SortField[] groupSort, SortField[] withinGroupSort, int totalHitCount, int totalGroupedHitCount, GroupDocs<GROUP_VALUE_TYPE>[] groups, float maxScore) {
+  public TopGroups(SortField[] groupSort, SortField[] withinGroupSort, int totalHitCount, int totalGroupedHitCount, GroupDocs<T>[] groups, float maxScore) {
     this.groupSort = groupSort;
     this.withinGroupSort = withinGroupSort;
     this.totalHitCount = totalHitCount;
@@ -61,7 +58,7 @@ public class TopGroups<GROUP_VALUE_TYPE> {
     this.maxScore = maxScore;
   }
 
-  public TopGroups(TopGroups<GROUP_VALUE_TYPE> oldTopGroups, Integer totalGroupCount) {
+  public TopGroups(TopGroups<T> oldTopGroups, Integer totalGroupCount) {
     this.groupSort = oldTopGroups.groupSort;
     this.withinGroupSort = oldTopGroups.withinGroupSort;
     this.totalHitCount = oldTopGroups.totalHitCount;
@@ -98,8 +95,7 @@ public class TopGroups<GROUP_VALUE_TYPE> {
    * <b>NOTE</b>: the topDocs in each GroupDocs is actually
    * an instance of TopDocsAndShards
    */
-  public static <T> TopGroups<T> merge(TopGroups<T>[] shardGroups, Sort groupSort, Sort docSort, int docOffset, int docTopN, ScoreMergeMode scoreMergeMode)
-    throws IOException {
+  public static <T> TopGroups<T> merge(TopGroups<T>[] shardGroups, Sort groupSort, Sort docSort, int docOffset, int docTopN, ScoreMergeMode scoreMergeMode) {
 
     //System.out.println("TopGroups.merge");
 
@@ -132,7 +128,7 @@ public class TopGroups<GROUP_VALUE_TYPE> {
     final GroupDocs<T>[] mergedGroupDocs = new GroupDocs[numGroups];
 
     final TopDocs[] shardTopDocs;
-    if (docSort == null) {
+    if (docSort.equals(Sort.RELEVANCE)) {
       shardTopDocs = new TopDocs[shardGroups.length];
     } else {
       shardTopDocs = new TopFieldDocs[shardGroups.length];
@@ -163,7 +159,7 @@ public class TopGroups<GROUP_VALUE_TYPE> {
         }
         */
 
-        if (docSort == null) {
+        if (docSort.equals(Sort.RELEVANCE)) {
           shardTopDocs[shardIDX] = new TopDocs(shardGroupDocs.totalHits,
                                                shardGroupDocs.scoreDocs,
                                                shardGroupDocs.maxScore);
@@ -179,7 +175,7 @@ public class TopGroups<GROUP_VALUE_TYPE> {
       }
 
       final TopDocs mergedTopDocs;
-      if (docSort == null) {
+      if (docSort.equals(Sort.RELEVANCE)) {
         mergedTopDocs = TopDocs.merge(docOffset + docTopN, shardTopDocs);
       } else {
         mergedTopDocs = TopDocs.merge(docSort, docOffset + docTopN, (TopFieldDocs[]) shardTopDocs);
@@ -231,7 +227,7 @@ public class TopGroups<GROUP_VALUE_TYPE> {
 
     if (totalGroupCount != null) {
       TopGroups<T> result = new TopGroups<>(groupSort.getSort(),
-                              docSort == null ? null : docSort.getSort(),
+                              docSort.getSort(),
                               totalHitCount,
                               totalGroupedHitCount,
                               mergedGroupDocs,
@@ -239,7 +235,7 @@ public class TopGroups<GROUP_VALUE_TYPE> {
       return new TopGroups<>(result, totalGroupCount);
     } else {
       return new TopGroups<>(groupSort.getSort(),
-                              docSort == null ? null : docSort.getSort(),
+                              docSort.getSort(),
                               totalHitCount,
                               totalGroupedHitCount,
                               mergedGroupDocs,

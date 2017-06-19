@@ -1,5 +1,3 @@
-package org.apache.lucene.search.grouping.term;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.grouping.term;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.grouping.term;
 
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.DocValues;
@@ -25,7 +24,7 @@ import org.apache.lucene.search.LeafFieldComparator;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
-import org.apache.lucene.search.grouping.AbstractAllGroupHeadsCollector;
+import org.apache.lucene.search.grouping.AllGroupHeadsCollector;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefBuilder;
 import org.apache.lucene.util.SentinelIntSet;
@@ -38,13 +37,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A base implementation of {@link org.apache.lucene.search.grouping.AbstractAllGroupHeadsCollector} for retrieving the most relevant groups when grouping
+ * A base implementation of {@link AllGroupHeadsCollector} for retrieving the most relevant groups when grouping
  * on a string based group field. More specifically this all concrete implementations of this base implementation
  * use {@link org.apache.lucene.index.SortedDocValues}.
  *
  * @lucene.experimental
  */
-public abstract class TermAllGroupHeadsCollector<GH extends AbstractAllGroupHeadsCollector.GroupHead<?>> extends AbstractAllGroupHeadsCollector<GH> {
+public abstract class TermAllGroupHeadsCollector extends AllGroupHeadsCollector<BytesRef> {
 
   private static final int DEFAULT_INITIAL_SIZE = 128;
 
@@ -68,7 +67,7 @@ public abstract class TermAllGroupHeadsCollector<GH extends AbstractAllGroupHead
    * @param sortWithinGroup The sort within each group
    * @return an <code>AbstractAllGroupHeadsCollector</code> instance based on the supplied arguments
    */
-  public static AbstractAllGroupHeadsCollector<?> create(String groupField, Sort sortWithinGroup) {
+  public static AllGroupHeadsCollector<BytesRef> create(String groupField, Sort sortWithinGroup) {
     return create(groupField, sortWithinGroup, DEFAULT_INITIAL_SIZE);
   }
 
@@ -83,7 +82,7 @@ public abstract class TermAllGroupHeadsCollector<GH extends AbstractAllGroupHead
    *                    4 bytes * initialSize.
    * @return an <code>AbstractAllGroupHeadsCollector</code> instance based on the supplied arguments
    */
-  public static AbstractAllGroupHeadsCollector<?> create(String groupField, Sort sortWithinGroup, int initialSize) {
+  public static AllGroupHeadsCollector<BytesRef> create(String groupField, Sort sortWithinGroup, int initialSize) {
     boolean sortAllScore = true;
     boolean sortAllFieldValue = true;
 
@@ -114,12 +113,12 @@ public abstract class TermAllGroupHeadsCollector<GH extends AbstractAllGroupHead
   }
 
   // A general impl that works for any group sort.
-  static class GeneralAllGroupHeadsCollector extends TermAllGroupHeadsCollector<GeneralAllGroupHeadsCollector.GroupHead> {
+  static class GeneralAllGroupHeadsCollector extends TermAllGroupHeadsCollector {
 
     private final Sort sortWithinGroup;
     private final Map<BytesRef, GroupHead> groups;
 
-    private Scorer scorer;
+    Scorer scorer;
 
     GeneralAllGroupHeadsCollector(String groupField, Sort sortWithinGroup) {
       super(groupField, sortWithinGroup.getSort().length);
@@ -171,6 +170,11 @@ public abstract class TermAllGroupHeadsCollector<GH extends AbstractAllGroupHead
     }
 
     @Override
+    public boolean needsScores() {
+      return sortWithinGroup.needsScores();
+    }
+
+    @Override
     public void setScorer(Scorer scorer) throws IOException {
       this.scorer = scorer;
       for (GroupHead groupHead : groups.values()) {
@@ -180,12 +184,15 @@ public abstract class TermAllGroupHeadsCollector<GH extends AbstractAllGroupHead
       }
     }
 
-    class GroupHead extends AbstractAllGroupHeadsCollector.GroupHead<BytesRef> {
+    class GroupHead extends AllGroupHeadsCollector.GroupHead<BytesRef> {
 
+      @SuppressWarnings({"unchecked", "rawtypes"})
       final FieldComparator[] comparators;
+      
       final LeafFieldComparator[] leafComparators;
 
-      private GroupHead(BytesRef groupValue, Sort sort, int doc) throws IOException {
+      @SuppressWarnings({"unchecked", "rawtypes"})
+      GroupHead(BytesRef groupValue, Sort sort, int doc) throws IOException {
         super(groupValue, doc + readerContext.docBase);
         final SortField[] sortFields = sort.getSort();
         comparators = new FieldComparator[sortFields.length];
@@ -217,14 +224,14 @@ public abstract class TermAllGroupHeadsCollector<GH extends AbstractAllGroupHead
 
 
   // AbstractAllGroupHeadsCollector optimized for ord fields and scores.
-  static class OrdScoreAllGroupHeadsCollector extends TermAllGroupHeadsCollector<OrdScoreAllGroupHeadsCollector.GroupHead> {
+  static class OrdScoreAllGroupHeadsCollector extends TermAllGroupHeadsCollector {
 
     private final SentinelIntSet ordSet;
     private final List<GroupHead> collectedGroups;
-    private final SortField[] fields;
+    final SortField[] fields;
 
-    private SortedDocValues[] sortsIndex;
-    private Scorer scorer;
+    SortedDocValues[] sortsIndex;
+    Scorer scorer;
     private GroupHead[] segmentGroupHeads;
 
     OrdScoreAllGroupHeadsCollector(String groupField, Sort sortWithinGroup, int initialSize) {
@@ -244,6 +251,11 @@ public abstract class TermAllGroupHeadsCollector<GH extends AbstractAllGroupHead
     @Override
     protected Collection<GroupHead> getCollectedGroupHeads() {
       return collectedGroups;
+    }
+
+    @Override
+    public boolean needsScores() {
+      return true;
     }
 
     @Override
@@ -316,13 +328,13 @@ public abstract class TermAllGroupHeadsCollector<GH extends AbstractAllGroupHead
       }
     }
 
-    class GroupHead extends AbstractAllGroupHeadsCollector.GroupHead<BytesRef> {
+    class GroupHead extends AllGroupHeadsCollector.GroupHead<BytesRef> {
 
       BytesRefBuilder[] sortValues;
       int[] sortOrds;
       float[] scores;
 
-      private GroupHead(int doc, BytesRef groupValue) throws IOException {
+      GroupHead(int doc, BytesRef groupValue) throws IOException {
         super(groupValue, doc + readerContext.docBase);
         sortValues = new BytesRefBuilder[sortsIndex.length];
         sortOrds = new int[sortsIndex.length];
@@ -378,14 +390,14 @@ public abstract class TermAllGroupHeadsCollector<GH extends AbstractAllGroupHead
 
 
   // AbstractAllGroupHeadsCollector optimized for ord fields.
-  static class OrdAllGroupHeadsCollector extends TermAllGroupHeadsCollector<OrdAllGroupHeadsCollector.GroupHead> {
+  static class OrdAllGroupHeadsCollector extends TermAllGroupHeadsCollector {
 
     private final SentinelIntSet ordSet;
     private final List<GroupHead> collectedGroups;
     private final SortField[] fields;
 
-    private SortedDocValues[] sortsIndex;
-    private GroupHead[] segmentGroupHeads;
+    SortedDocValues[] sortsIndex;
+    GroupHead[] segmentGroupHeads;
 
     OrdAllGroupHeadsCollector(String groupField, Sort sortWithinGroup, int initialSize) {
       super(groupField, sortWithinGroup.getSort().length);
@@ -404,6 +416,11 @@ public abstract class TermAllGroupHeadsCollector<GH extends AbstractAllGroupHead
     @Override
     protected Collection<GroupHead> getCollectedGroupHeads() {
       return collectedGroups;
+    }
+
+    @Override
+    public boolean needsScores() {
+      return false;
     }
 
     @Override
@@ -468,12 +485,12 @@ public abstract class TermAllGroupHeadsCollector<GH extends AbstractAllGroupHead
       }
     }
 
-    class GroupHead extends AbstractAllGroupHeadsCollector.GroupHead<BytesRef> {
+    class GroupHead extends AllGroupHeadsCollector.GroupHead<BytesRef> {
 
       BytesRefBuilder[] sortValues;
       int[] sortOrds;
 
-      private GroupHead(int doc, BytesRef groupValue) {
+      GroupHead(int doc, BytesRef groupValue) {
         super(groupValue, doc + readerContext.docBase);
         sortValues = new BytesRefBuilder[sortsIndex.length];
         sortOrds = new int[sortsIndex.length];
@@ -510,14 +527,14 @@ public abstract class TermAllGroupHeadsCollector<GH extends AbstractAllGroupHead
 
 
   // AbstractAllGroupHeadsCollector optimized for scores.
-  static class ScoreAllGroupHeadsCollector extends TermAllGroupHeadsCollector<ScoreAllGroupHeadsCollector.GroupHead> {
+  static class ScoreAllGroupHeadsCollector extends TermAllGroupHeadsCollector {
 
-    private final SentinelIntSet ordSet;
-    private final List<GroupHead> collectedGroups;
-    private final SortField[] fields;
+    final SentinelIntSet ordSet;
+    final List<GroupHead> collectedGroups;
+    final SortField[] fields;
 
-    private Scorer scorer;
-    private GroupHead[] segmentGroupHeads;
+    Scorer scorer;
+    GroupHead[] segmentGroupHeads;
 
     ScoreAllGroupHeadsCollector(String groupField, Sort sortWithinGroup, int initialSize) {
       super(groupField, sortWithinGroup.getSort().length);
@@ -535,6 +552,11 @@ public abstract class TermAllGroupHeadsCollector<GH extends AbstractAllGroupHead
     @Override
     protected Collection<GroupHead> getCollectedGroupHeads() {
       return collectedGroups;
+    }
+
+    @Override
+    public boolean needsScores() {
+      return true;
     }
 
     @Override
@@ -587,11 +609,11 @@ public abstract class TermAllGroupHeadsCollector<GH extends AbstractAllGroupHead
       }
     }
 
-    class GroupHead extends AbstractAllGroupHeadsCollector.GroupHead<BytesRef> {
+    class GroupHead extends AllGroupHeadsCollector.GroupHead<BytesRef> {
 
       float[] scores;
 
-      private GroupHead(int doc, BytesRef groupValue) throws IOException {
+      GroupHead(int doc, BytesRef groupValue) throws IOException {
         super(groupValue, doc + readerContext.docBase);
         scores = new float[fields.length];
         float score = scorer.score();
@@ -623,9 +645,5 @@ public abstract class TermAllGroupHeadsCollector<GH extends AbstractAllGroupHead
     }
 
   }
-  
-  @Override
-  public boolean needsScores() {
-    return true; // TODO, maybe we don't?
-  }
+
 }

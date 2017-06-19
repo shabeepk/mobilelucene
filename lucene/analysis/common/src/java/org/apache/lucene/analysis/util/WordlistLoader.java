@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.analysis.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.util;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -32,7 +31,10 @@ import org.apache.lucene.util.IOUtils;
  * 
  * @see IOUtils to obtain {@link Reader} instances
  * @lucene.internal
+ * @deprecated This class moved to Lucene-Core module:
+ *  {@link org.apache.lucene.analysis.WordlistLoader}
  */
+@Deprecated
 public class WordlistLoader {
   
   private static final int INITIAL_CAPACITY = 16;

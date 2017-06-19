@@ -1,14 +1,3 @@
-package org.apache.lucene.index;
-
-import java.io.IOException;
-import java.util.Iterator;
-
-import org.apache.lucene.search.DocIdSetIterator;
-import org.apache.lucene.util.Bits;
-import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.VirtualMethod;
-import org.apache.lucene.util.automaton.CompiledAutomaton;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -25,6 +14,16 @@ import org.apache.lucene.util.automaton.CompiledAutomaton;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
+import java.io.IOException;
+import java.util.Iterator;
+
+import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.util.Bits;
+import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.VirtualMethod;
+import org.apache.lucene.util.automaton.CompiledAutomaton;
 
 /**
  * A {@link FilterLeafReader} that can be used to apply
@@ -48,13 +47,10 @@ public class AssertingLeafReader extends FilterLeafReader {
     assert in.numDeletedDocs() + in.numDocs() == in.maxDoc();
     assert !in.hasDeletions() || in.numDeletedDocs() > 0 && in.numDocs() < in.maxDoc();
 
-    addCoreClosedListener(new CoreClosedListener() {
-      @Override
-      public void onClose(Object ownerCoreCacheKey) throws IOException {
-        final Object expectedKey = getCoreCacheKey();
-        assert expectedKey == ownerCoreCacheKey
-            : "Core closed listener called on a different key " + expectedKey + " <> " + ownerCoreCacheKey;
-      }
+    addCoreClosedListener(ownerCoreCacheKey -> {
+      final Object expectedKey = getCoreCacheKey();
+      assert expectedKey == ownerCoreCacheKey
+          : "Core closed listener called on a different key " + expectedKey + " <> " + ownerCoreCacheKey;
     });
   }
 
@@ -155,10 +151,7 @@ public class AssertingLeafReader extends FilterLeafReader {
         actualReuse = null;
       }
       PostingsEnum docs = super.postings(actualReuse, flags);
-      if (docs == null) {
-        assert PostingsEnum.featureRequested(flags, DocsAndPositionsEnum.OLD_NULL_SEMANTICS);
-        return null;
-      }
+      assert docs != null;
       if (docs == actualReuse) {
         // codec reused, reset asserting state
         ((AssertingPostingsEnum)reuse).reset();

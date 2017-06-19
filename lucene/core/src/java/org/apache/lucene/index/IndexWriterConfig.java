@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,19 +14,25 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.PrintStream;
+import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.stream.Collectors;
 
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.codecs.Codec;
-import org.apache.lucene.index.DocumentsWriterPerThread.IndexingChain;
 import org.apache.lucene.index.IndexWriter.IndexReaderWarmer;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.similarities.Similarity;
-import org.apache.lucene.store.SleepingLockWrapper;
 import org.apache.lucene.util.InfoStream;
 import org.apache.lucene.util.PrintStreamInfoStream;
-import org.apache.lucene.util.SetOnce;
 import org.apache.lucene.util.SetOnce.AlreadySetException;
+import org.apache.lucene.util.SetOnce;
 
 /**
  * Holds all the configuration that is used to create an {@link IndexWriter}.
@@ -87,13 +91,6 @@ public final class IndexWriterConfig extends LiveIndexWriterConfig {
    */
   public final static double DEFAULT_RAM_BUFFER_SIZE_MB = 16.0;
 
-  /**
-   * Default value for the write lock timeout (0 ms: no sleeping).
-   * @deprecated Use {@link SleepingLockWrapper} if you want sleeping.
-   */
-  @Deprecated
-  public static final long WRITE_LOCK_TIMEOUT = 0;
-
   /** Default setting for {@link #setReaderPooling}. */
   public final static boolean DEFAULT_READER_POOLING = false;
 
@@ -127,7 +124,21 @@ public final class IndexWriterConfig extends LiveIndexWriterConfig {
   }
   
   /**
-   * Creates a new config that with the default {@link
+   * Creates a new config, using {@link StandardAnalyzer} as the
+   * analyzer.  By default, {@link TieredMergePolicy} is used
+   * for merging;
+   * Note that {@link TieredMergePolicy} is free to select
+   * non-contiguous merges, which means docIDs may not
+   * remain monotonic over time.  If this is a problem you
+   * should switch to {@link LogByteSizeMergePolicy} or
+   * {@link LogDocMergePolicy}.
+   */
+  public IndexWriterConfig() {
+    this(new StandardAnalyzer());
+  }
+  
+  /**
+   * Creates a new config that with the provided {@link
    * Analyzer}. By default, {@link TieredMergePolicy} is used
    * for merging;
    * Note that {@link TieredMergePolicy} is free to select
@@ -168,7 +179,7 @@ public final class IndexWriterConfig extends LiveIndexWriterConfig {
    * like NFS that do not support "delete on last close" semantics, which
    * Lucene's "point in time" search normally relies on.
    * <p>
-   * <b>NOTE:</b> the deletion policy cannot be null.
+   * <b>NOTE:</b> the deletion policy must not be null.
    *
    * <p>Only takes effect when IndexWriter is first created. 
    */
@@ -205,7 +216,7 @@ public final class IndexWriterConfig extends LiveIndexWriterConfig {
   /**
    * Expert: set the {@link Similarity} implementation used by this IndexWriter.
    * <p>
-   * <b>NOTE:</b> the similarity cannot be null.
+   * <b>NOTE:</b> the similarity must not be null.
    *
    * <p>Only takes effect when IndexWriter is first created. */
   public IndexWriterConfig setSimilarity(Similarity similarity) {
@@ -225,7 +236,7 @@ public final class IndexWriterConfig extends LiveIndexWriterConfig {
    * Expert: sets the merge scheduler used by this writer. The default is
    * {@link ConcurrentMergeScheduler}.
    * <p>
-   * <b>NOTE:</b> the merge scheduler cannot be null.
+   * <b>NOTE:</b> the merge scheduler must not be null.
    *
    * <p>Only takes effect when IndexWriter is first created. */
   public IndexWriterConfig setMergeScheduler(MergeScheduler mergeScheduler) {
@@ -239,24 +250,6 @@ public final class IndexWriterConfig extends LiveIndexWriterConfig {
   @Override
   public MergeScheduler getMergeScheduler() {
     return mergeScheduler;
-  }
-
-  /**
-   * Sets the maximum time to wait for a write lock (in milliseconds) for this
-   * instance. Note that the value can be zero, for no sleep/retry behavior.
-   *
-   * <p>Only takes effect when IndexWriter is first created.
-   * @deprecated Use {@link SleepingLockWrapper} if you want sleeping.
-   */
-  @Deprecated
-  public IndexWriterConfig setWriteLockTimeout(long writeLockTimeout) {
-    this.writeLockTimeout = writeLockTimeout;
-    return this;
-  }
-
-  @Override
-  public long getWriteLockTimeout() {
-    return writeLockTimeout;
   }
 
   /**
@@ -286,7 +279,6 @@ public final class IndexWriterConfig extends LiveIndexWriterConfig {
 
   /** Expert: Sets the {@link DocumentsWriterPerThreadPool} instance used by the
    * IndexWriter to assign thread-states to incoming indexing threads.
-   * </p>
    * <p>
    * NOTE: The given {@link DocumentsWriterPerThreadPool} instance must not be used with
    * other {@link IndexWriter} instances once it has been initialized / associated with an
@@ -310,11 +302,11 @@ public final class IndexWriterConfig extends LiveIndexWriterConfig {
   /** By default, IndexWriter does not pool the
    *  SegmentReaders it must open for deletions and
    *  merging, unless a near-real-time reader has been
-   *  obtained by calling {@link DirectoryReader#open(IndexWriter, boolean)}.
+   *  obtained by calling {@link DirectoryReader#open(IndexWriter)}.
    *  This method lets you enable pooling without getting a
    *  near-real-time reader.  NOTE: if you set this to
    *  false, IndexWriter will still pool readers once
-   *  {@link DirectoryReader#open(IndexWriter, boolean)} is called.
+   *  {@link DirectoryReader#open(IndexWriter)} is called.
    *
    * <p>Only takes effect when IndexWriter is first created. */
   public IndexWriterConfig setReaderPooling(boolean readerPooling) {
@@ -325,22 +317,6 @@ public final class IndexWriterConfig extends LiveIndexWriterConfig {
   @Override
   public boolean getReaderPooling() {
     return readerPooling;
-  }
-
-  /** Expert: sets the {@link DocConsumer} chain to be used to process documents.
-   *
-   * <p>Only takes effect when IndexWriter is first created. */
-  IndexWriterConfig setIndexingChain(IndexingChain indexingChain) {
-    if (indexingChain == null) {
-      throw new IllegalArgumentException("indexingChain must not be null");
-    }
-    this.indexingChain = indexingChain;
-    return this;
-  }
-
-  @Override
-  IndexingChain getIndexingChain() {
-    return indexingChain;
   }
 
   /**
@@ -479,6 +455,28 @@ public final class IndexWriterConfig extends LiveIndexWriterConfig {
    */
   public IndexWriterConfig setCommitOnClose(boolean commitOnClose) {
     this.commitOnClose = commitOnClose;
+    return this;
+  }
+
+  /** We only allow sorting on these types */
+  private static final EnumSet<SortField.Type> ALLOWED_INDEX_SORT_TYPES = EnumSet.of(SortField.Type.STRING,
+                                                                                     SortField.Type.LONG,
+                                                                                     SortField.Type.INT,
+                                                                                     SortField.Type.DOUBLE,
+                                                                                     SortField.Type.FLOAT);
+
+  /**
+   * Set the {@link Sort} order to use when merging segments.
+   */
+  public IndexWriterConfig setIndexSort(Sort sort) {
+    for(SortField sortField : sort.getSort()) {
+      final SortField.Type sortType = Sorter.getSortFieldType(sortField);
+      if (ALLOWED_INDEX_SORT_TYPES.contains(sortType) == false) {
+        throw new IllegalArgumentException("invalid SortField type: must be one of " + ALLOWED_INDEX_SORT_TYPES + " but got: " + sortField);
+      }
+    }
+    this.indexSort = sort;
+    this.indexSortFields = Arrays.stream(sort.getSort()).map(SortField::getField).collect(Collectors.toSet());
     return this;
   }
 

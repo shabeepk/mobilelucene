@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.memory;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.codecs.memory;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.memory;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -120,7 +120,7 @@ import org.apache.lucene.util.fst.Util;
  */
 
 public class FSTTermsWriter extends FieldsConsumer {
-  static final String TERMS_EXTENSION = "tmp";
+  static final String TERMS_EXTENSION = "tfp";
   static final String TERMS_CODEC_NAME = "FSTTerms";
   public static final int TERMS_VERSION_START = 2;
   public static final int TERMS_VERSION_CURRENT = TERMS_VERSION_START;
@@ -167,7 +167,7 @@ public class FSTTermsWriter extends FieldsConsumer {
       FieldInfo fieldInfo = fieldInfos.fieldInfo(field);
       boolean hasFreq = fieldInfo.getIndexOptions().compareTo(IndexOptions.DOCS_AND_FREQS) >= 0;
       TermsEnum termsEnum = terms.iterator();
-      TermsWriter termsWriter = termsWriter = new TermsWriter(fieldInfo);
+      TermsWriter termsWriter = new TermsWriter(fieldInfo);
 
       long sumTotalTermFreq = 0;
       long sumDocFreq = 0;

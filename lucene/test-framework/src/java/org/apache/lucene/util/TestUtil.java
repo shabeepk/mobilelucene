@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
@@ -26,12 +25,14 @@ import java.io.PrintStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.CharBuffer;
+import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -45,38 +46,31 @@ import java.util.regex.PatternSyntaxException;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-import com.carrotsearch.randomizedtesting.generators.RandomInts;
-import com.carrotsearch.randomizedtesting.generators.RandomPicks;
-
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.PostingsFormat;
 import org.apache.lucene.codecs.asserting.AssertingCodec;
 import org.apache.lucene.codecs.blockterms.LuceneFixedGap;
 import org.apache.lucene.codecs.blocktreeords.BlockTreeOrdsPostingsFormat;
-import org.apache.lucene.codecs.lucene50.Lucene50DocValuesFormat;
 import org.apache.lucene.codecs.lucene50.Lucene50PostingsFormat;
-import org.apache.lucene.codecs.lucene53.Lucene53Codec;
+import org.apache.lucene.codecs.lucene54.Lucene54DocValuesFormat;
+import org.apache.lucene.codecs.lucene62.Lucene62Codec;
 import org.apache.lucene.codecs.perfield.PerFieldDocValuesFormat;
 import org.apache.lucene.codecs.perfield.PerFieldPostingsFormat;
 import org.apache.lucene.document.BinaryDocValuesField;
+import org.apache.lucene.document.BinaryPoint;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.document.DoubleField;
 import org.apache.lucene.document.Field;
-import org.apache.lucene.document.FieldType.NumericType;
-import org.apache.lucene.document.FloatField;
-import org.apache.lucene.document.IntField;
-import org.apache.lucene.document.LongField;
 import org.apache.lucene.document.NumericDocValuesField;
 import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.index.CheckIndex;
+import org.apache.lucene.index.CodecReader;
 import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.IndexFileNames;
-import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.FilterLeafReader;
+import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexableField;
@@ -85,24 +79,29 @@ import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.LogMergePolicy;
 import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.MergeScheduler;
-import org.apache.lucene.index.CodecReader;
 import org.apache.lucene.index.MultiFields;
+import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.index.SlowCodecReaderWrapper;
 import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.index.TieredMergePolicy;
+import org.apache.lucene.mockfile.FilterFileSystem;
+import org.apache.lucene.mockfile.VirusCheckingFS;
+import org.apache.lucene.mockfile.WindowsFS;
 import org.apache.lucene.search.FieldDoc;
-import org.apache.lucene.search.FilteredQuery;
-import org.apache.lucene.search.FilteredQuery.FilterStrategy;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.NoLockFactory;
 import org.apache.lucene.store.RAMDirectory;
 import org.junit.Assert;
 
+import com.carrotsearch.randomizedtesting.generators.RandomNumbers;
+import com.carrotsearch.randomizedtesting.generators.RandomPicks;
 
 /**
  * General utility methods for Lucene unit tests. 
@@ -113,14 +112,32 @@ public final class TestUtil {
   }
 
   /** 
-   * Convenience method unzipping zipName into destDir, cleaning up 
-   * destDir first.
+   * A comparator that compares UTF-16 strings / char sequences according to Unicode
+   * code point order. This can be used to verify {@link BytesRef} order. 
+   * <p>
+   * <b>Warning:</b> This comparator is rather inefficient, because
+   * it converts the strings to a {@code int[]} array on each invocation.
+   * */
+  public static final Comparator<CharSequence> STRING_CODEPOINT_COMPARATOR = (a, b) -> {
+    final int[] aCodePoints = a.codePoints().toArray();
+    final int[] bCodePoints = b.codePoints().toArray();
+    for(int i = 0, c = Math.min(aCodePoints.length, bCodePoints.length); i < c; i++) {
+      if (aCodePoints[i] < bCodePoints[i]) {
+        return -1;
+      } else if (aCodePoints[i] > bCodePoints[i]) {
+        return 1;
+      }
+    }
+    return aCodePoints.length - bCodePoints.length;
+  };
+  
+  /** 
+   * Convenience method unzipping zipName into destDir. You must pass it a clean destDir.
+   *
    * Closes the given InputStream after extracting! 
    */
   public static void unzip(InputStream in, Path destDir) throws IOException {
     in = new BufferedInputStream(in);
-    IOUtils.rm(destDir);
-    Files.createDirectory(destDir);
 
     try (ZipInputStream zipInput = new ZipInputStream(in)) {
       ZipEntry entry;
@@ -160,11 +177,14 @@ public final class TestUtil {
       assert hasNext;
       T v = iterator.next();
       assert allowNull || v != null;
-      try {
-        iterator.remove();
-        throw new AssertionError("broken iterator (supports remove): " + iterator);
-      } catch (UnsupportedOperationException expected) {
-        // ok
+      // for the first element, check that remove is not supported
+      if (i == 0) {
+        try {
+          iterator.remove();
+          throw new AssertionError("broken iterator (supports remove): " + iterator);
+        } catch (UnsupportedOperationException expected) {
+          // ok
+        }
       }
     }
     assert !iterator.hasNext();
@@ -236,7 +256,7 @@ public final class TestUtil {
     }
 
     try {
-      coll.addAll(Collections.<T>singleton(null));
+      coll.addAll(Collections.singleton(null));
       throw new AssertionError("broken collection (supports addAll): " + coll);
     } catch (UnsupportedOperationException e) {
       // ok
@@ -262,28 +282,30 @@ public final class TestUtil {
   }
 
   public static CheckIndex.Status checkIndex(Directory dir, boolean crossCheckTermVectors) throws IOException {
-    return checkIndex(dir, crossCheckTermVectors, false);
+    return checkIndex(dir, crossCheckTermVectors, false, null);
   }
 
   /** If failFast is true, then throw the first exception when index corruption is hit, instead of moving on to other fields/segments to
    *  look for any other corruption.  */
-  public static CheckIndex.Status checkIndex(Directory dir, boolean crossCheckTermVectors, boolean failFast) throws IOException {
-    ByteArrayOutputStream bos = new ByteArrayOutputStream(1024);
+  public static CheckIndex.Status checkIndex(Directory dir, boolean crossCheckTermVectors, boolean failFast, ByteArrayOutputStream output) throws IOException {
+    if (output == null) {
+      output = new ByteArrayOutputStream(1024);
+    }
     // TODO: actually use the dir's locking, unless test uses a special method?
     // some tests e.g. exception tests become much more complicated if they have to close the writer
     try (CheckIndex checker = new CheckIndex(dir, NoLockFactory.INSTANCE.obtainLock(dir, "bogus"))) {
       checker.setCrossCheckTermVectors(crossCheckTermVectors);
       checker.setFailFast(failFast);
-      checker.setInfoStream(new PrintStream(bos, false, IOUtils.UTF_8), false);
+      checker.setInfoStream(new PrintStream(output, false, IOUtils.UTF_8), false);
       CheckIndex.Status indexStatus = checker.checkIndex(null);
       
       if (indexStatus == null || indexStatus.clean == false) {
         System.out.println("CheckIndex failed");
-        System.out.println(bos.toString(IOUtils.UTF_8));
+        System.out.println(output.toString(IOUtils.UTF_8));
         throw new RuntimeException("CheckIndex failed");
       } else {
         if (LuceneTestCase.INFOSTREAM) {
-          System.out.println(bos.toString(IOUtils.UTF_8));
+          System.out.println(output.toString(IOUtils.UTF_8));
         }
         return indexStatus;
       }
@@ -316,6 +338,7 @@ public final class TestUtil {
     CheckIndex.testStoredFields(codecReader, infoStream, true);
     CheckIndex.testTermVectors(codecReader, infoStream, false, crossCheckTermVectors, true);
     CheckIndex.testDocValues(codecReader, infoStream, true);
+    CheckIndex.testPoints(codecReader, infoStream, true);
     
     // some checks really against the reader API
     checkReaderSanity(reader);
@@ -407,7 +430,7 @@ public final class TestUtil {
 
   /** start and end are BOTH inclusive */
   public static int nextInt(Random r, int start, int end) {
-    return RandomInts.randomIntBetween(r, start, end);
+    return RandomNumbers.randomIntBetween(r, start, end);
   }
 
   /** start and end are BOTH inclusive */
@@ -424,6 +447,16 @@ public final class TestUtil {
       assert result <= end;
       return result;
     }
+  }
+  
+  /**
+   * Returns a randomish big integer with {@code 1 .. maxBytes} storage.
+   */
+  public static BigInteger nextBigInteger(Random random, int maxBytes) {
+    int length = TestUtil.nextInt(random, 1, maxBytes);
+    byte[] buffer = new byte[length];
+    random.nextBytes(buffer);
+    return new BigInteger(buffer);
   }
 
   public static String randomSimpleString(Random r, int maxLength) {
@@ -548,7 +581,7 @@ public final class TestUtil {
     final StringBuilder regexp = new StringBuilder(maxLength);
     for (int i = nextInt(r, 0, maxLength); i > 0; i--) {
       if (r.nextBoolean()) {
-        regexp.append((char) RandomInts.randomIntBetween(r, 'a', 'z'));
+        regexp.append((char) RandomNumbers.randomIntBetween(r, 'a', 'z'));
       } else {
         regexp.append(RandomPicks.randomFrom(r, ops));
       }
@@ -768,7 +801,7 @@ public final class TestUtil {
     0x1D24F, 0x1D35F, 0x1D37F, 0x1D7FF, 0x1F02F, 0x1F09F, 0x1F1FF, 0x1F2FF, 
     0x2A6DF, 0x2B73F, 0x2FA1F, 0xE007F, 0xE01EF, 0xFFFFF, 0x10FFFF
   };
-  
+
   /** Returns random string of length between 0-20 codepoints, all codepoints within the same unicode block. */
   public static String randomRealisticUnicodeString(Random r) {
     return randomRealisticUnicodeString(r, 20);
@@ -881,7 +914,7 @@ public final class TestUtil {
    * This may be different than {@link Codec#getDefault()} because that is randomized. 
    */
   public static Codec getDefaultCodec() {
-    return new Lucene53Codec();
+    return new Lucene62Codec();
   }
   
   /** 
@@ -914,7 +947,7 @@ public final class TestUtil {
    * Returns the actual default docvalues format (e.g. LuceneMNDocValuesFormat for this version of Lucene.
    */
   public static DocValuesFormat getDefaultDocValuesFormat() {
-    return new Lucene50DocValuesFormat();
+    return new Lucene54DocValuesFormat();
   }
 
   // TODO: generalize all 'test-checks-for-crazy-codecs' to
@@ -978,15 +1011,14 @@ public final class TestUtil {
   public static void reduceOpenFiles(IndexWriter w) {
     // keep number of open files lowish
     MergePolicy mp = w.getConfig().getMergePolicy();
+    mp.setNoCFSRatio(1.0);
     if (mp instanceof LogMergePolicy) {
       LogMergePolicy lmp = (LogMergePolicy) mp;
       lmp.setMergeFactor(Math.min(5, lmp.getMergeFactor()));
-      lmp.setNoCFSRatio(1.0);
     } else if (mp instanceof TieredMergePolicy) {
       TieredMergePolicy tmp = (TieredMergePolicy) mp;
       tmp.setMaxMergeAtOnce(Math.min(5, tmp.getMaxMergeAtOnce()));
       tmp.setSegmentsPerTier(Math.min(5, tmp.getSegmentsPerTier()));
-      tmp.setNoCFSRatio(1.0);
     }
     MergeScheduler ms = w.getConfig().getMergeScheduler();
     if (ms instanceof ConcurrentMergeScheduler) {
@@ -1039,7 +1071,7 @@ public final class TestUtil {
       final Field field1 = (Field) f;
       final Field field2;
       final DocValuesType dvType = field1.fieldType().docValuesType();
-      final NumericType numType = field1.fieldType().numericType();
+      final int dimCount = field1.fieldType().pointDimensionCount();
       if (dvType != DocValuesType.NONE) {
         switch(dvType) {
           case NUMERIC:
@@ -1054,23 +1086,11 @@ public final class TestUtil {
           default:
             throw new IllegalStateException("unknown Type: " + dvType);
         }
-      } else if (numType != null) {
-        switch (numType) {
-          case INT:
-            field2 = new IntField(field1.name(), field1.numericValue().intValue(), field1.fieldType());
-            break;
-          case FLOAT:
-            field2 = new FloatField(field1.name(), field1.numericValue().intValue(), field1.fieldType());
-            break;
-          case LONG:
-            field2 = new LongField(field1.name(), field1.numericValue().intValue(), field1.fieldType());
-            break;
-          case DOUBLE:
-            field2 = new DoubleField(field1.name(), field1.numericValue().intValue(), field1.fieldType());
-            break;
-          default:
-            throw new IllegalStateException("unknown Type: " + numType);
-        }
+      } else if (dimCount != 0) {
+        BytesRef br = field1.binaryValue();
+        byte[] bytes = new byte[br.length];
+        System.arraycopy(br.bytes, br.offset, bytes, 0, br.length);
+        field2 = new BinaryPoint(field1.name(), bytes, field1.fieldType());
       } else {
         field2 = new Field(field1.name(), field1.stringValue(), field1.fieldType());
       }
@@ -1177,48 +1197,6 @@ public final class TestUtil {
       }
     }
   }
-    
-  
-  public static final FilterStrategy randomFilterStrategy(final Random random) {
-    switch(random.nextInt(6)) {
-      case 5:
-      case 4:
-        return new FilteredQuery.RandomAccessFilterStrategy() {
-          @Override
-          protected boolean useRandomAccess(Bits bits, long filterCost) {
-            return LuceneTestCase.random().nextBoolean();
-          }
-        };
-      case 3:
-        return FilteredQuery.RANDOM_ACCESS_FILTER_STRATEGY;
-      case 2:
-        return FilteredQuery.LEAP_FROG_FILTER_FIRST_STRATEGY;
-      case 1:
-        return FilteredQuery.LEAP_FROG_QUERY_FIRST_STRATEGY;
-      case 0: 
-        return FilteredQuery.QUERY_FIRST_FILTER_STRATEGY;
-      default:
-        return FilteredQuery.RANDOM_ACCESS_FILTER_STRATEGY;
-    }
-  }
-
-  /**
-   * Returns a random string in the specified length range consisting 
-   * entirely of whitespace characters 
-   * @see #WHITESPACE_CHARACTERS
-   */
-  public static String randomWhitespace(Random r, int minLength, int maxLength) {
-    final int end = nextInt(r, minLength, maxLength);
-    StringBuilder out = new StringBuilder();
-    for (int i = 0; i < end; i++) {
-      int offset = nextInt(r, 0, WHITESPACE_CHARACTERS.length-1);
-      char c = WHITESPACE_CHARACTERS[offset];
-      // sanity check
-      Assert.assertTrue("Not really whitespace? (@"+offset+"): " + c, Character.isWhitespace(c));
-      out.append(c);
-    }
-    return out.toString();
-  }
 
   public static String randomAnalysisString(Random random, int maxLength, boolean simple) {
     assert maxLength >= 0;
@@ -1255,7 +1233,7 @@ public final class TestUtil {
     int evilness = TestUtil.nextInt(random, 0, 20);
 
     StringBuilder sb = new StringBuilder();
-    while (sb.length() < wordLength) {;
+    while (sb.length() < wordLength) {
       if (simple) {
         sb.append(random.nextBoolean() ? TestUtil.randomSimpleString(random, wordLength) : TestUtil.randomHtmlishString(random, wordLength));
       } else {
@@ -1300,7 +1278,7 @@ public final class TestUtil {
     } else {
       try {
         return br.utf8ToString() + " " + br.toString();
-      } catch (IllegalArgumentException t) {
+      } catch (AssertionError | IllegalArgumentException t) {
         // If BytesRef isn't actually UTF8, or it's eg a
         // prefix of UTF8 that ends mid-unicode-char, we
         // fallback to hex:
@@ -1319,36 +1297,94 @@ public final class TestUtil {
     }
     return ram;
   }
-  
-  /** List of characters that match {@link Character#isWhitespace} */
-  public static final char[] WHITESPACE_CHARACTERS = new char[] {
-    // :TODO: is this list exhaustive?
-    '\u0009',
-    '\n',    
-    '\u000B',
-    '\u000C',
-    '\r',    
-    '\u001C',
-    '\u001D',
-    '\u001E',
-    '\u001F',
-    '\u0020',
-    // '\u0085', faild sanity check?
-    '\u1680',
-    '\u180E',
-    '\u2000',
-    '\u2001',
-    '\u2002',
-    '\u2003',
-    '\u2004',
-    '\u2005',
-    '\u2006',
-    '\u2008',
-    '\u2009',
-    '\u200A',
-    '\u2028',
-    '\u2029',
-    '\u205F',
-    '\u3000',
-  };
+
+  public static boolean hasWindowsFS(Directory dir) {
+    dir = FilterDirectory.unwrap(dir);
+    if (dir instanceof FSDirectory) {
+      Path path = ((FSDirectory) dir).getDirectory();
+      FileSystem fs = path.getFileSystem();
+      while (fs instanceof FilterFileSystem) {
+        FilterFileSystem ffs = (FilterFileSystem) fs;
+        if (ffs.getParent() instanceof WindowsFS) {
+          return true;
+        }
+        fs = ffs.getDelegate();
+      }
+    }
+
+    return false;
+  }
+
+  public static boolean hasWindowsFS(Path path) {
+    FileSystem fs = path.getFileSystem();
+    while (fs instanceof FilterFileSystem) {
+      FilterFileSystem ffs = (FilterFileSystem) fs;
+      if (ffs.getParent() instanceof WindowsFS) {
+        return true;
+      }
+      fs = ffs.getDelegate();
+    }
+
+    return false;
+  }
+
+  public static boolean hasVirusChecker(Directory dir) {
+    dir = FilterDirectory.unwrap(dir);
+    if (dir instanceof FSDirectory) {
+      return hasVirusChecker(((FSDirectory) dir).getDirectory());
+    } else {
+      return false;
+    }
+  }
+
+  public static boolean hasVirusChecker(Path path) {
+    FileSystem fs = path.getFileSystem();
+    while (fs instanceof FilterFileSystem) {
+      FilterFileSystem ffs = (FilterFileSystem) fs;
+      if (ffs.getParent() instanceof VirusCheckingFS) {
+        return true;
+      }
+      fs = ffs.getDelegate();
+    }
+
+    return false;
+  }
+
+  /** Returns true if VirusCheckingFS is in use and was in fact already enabled */
+  public static boolean disableVirusChecker(Directory in) {
+    Directory dir = FilterDirectory.unwrap(in);
+    if (dir instanceof FSDirectory) {
+
+      FileSystem fs = ((FSDirectory) dir).getDirectory().getFileSystem();
+      while (fs instanceof FilterFileSystem) {
+        FilterFileSystem ffs = (FilterFileSystem) fs;
+        if (ffs.getParent() instanceof VirusCheckingFS) {
+          VirusCheckingFS vfs = (VirusCheckingFS) ffs.getParent();
+          boolean isEnabled = vfs.isEnabled();
+          vfs.disable();
+          return isEnabled;
+        }
+        fs = ffs.getDelegate();
+      }
+    }
+
+    return false;
+  }
+
+  public static void enableVirusChecker(Directory in) {
+    Directory dir = FilterDirectory.unwrap(in);
+    if (dir instanceof FSDirectory) {
+
+      FileSystem fs = ((FSDirectory) dir).getDirectory().getFileSystem();
+      while (fs instanceof FilterFileSystem) {
+        FilterFileSystem ffs = (FilterFileSystem) fs;
+        if (ffs.getParent() instanceof VirusCheckingFS) {
+          VirusCheckingFS vfs = (VirusCheckingFS) ffs.getParent();
+          vfs.enable();
+          return;
+        }
+        fs = ffs.getDelegate();
+      }
+    }
+  }
 }

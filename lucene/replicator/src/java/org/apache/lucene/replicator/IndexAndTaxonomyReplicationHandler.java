@@ -1,5 +1,3 @@
-package org.apache.lucene.replicator;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.replicator;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.replicator;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -142,10 +141,12 @@ public class IndexAndTaxonomyReplicationHandler implements ReplicationHandler {
       indexDir.sync(Collections.singletonList(indexPendingFile));
       
       if (taxoSegmentsFile != null) {
-        taxoDir.renameFile(taxoPendingFile, taxoSegmentsFile);
+        taxoDir.rename(taxoPendingFile, taxoSegmentsFile);
+        taxoDir.syncMetaData();
       }
       
-      indexDir.renameFile(indexPendingFile, indexSegmentsFile);
+      indexDir.rename(indexPendingFile, indexSegmentsFile);
+      indexDir.syncMetaData();
       
       success = true;
     } finally {

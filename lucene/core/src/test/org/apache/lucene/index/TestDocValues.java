@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import org.apache.lucene.document.BinaryDocValuesField;
 import org.apache.lucene.document.Document;
@@ -40,8 +40,8 @@ public class TestDocValues extends LuceneTestCase {
     Directory dir = newDirectory();
     IndexWriter iw = new IndexWriter(dir, newIndexWriterConfig(null));
     iw.addDocument(new Document());
-    DirectoryReader dr = DirectoryReader.open(iw, true);
-    LeafReader r = getOnlySegmentReader(dr);
+    DirectoryReader dr = DirectoryReader.open(iw);
+    LeafReader r = getOnlyLeafReader(dr);
     
     // ok
     assertNotNull(DocValues.getBinary(r, "bogus"));
@@ -65,34 +65,28 @@ public class TestDocValues extends LuceneTestCase {
     Document doc = new Document();
     doc.add(new StringField("foo", "bar", Field.Store.NO));
     iw.addDocument(doc);
-    DirectoryReader dr = DirectoryReader.open(iw, true);
-    LeafReader r = getOnlySegmentReader(dr);
+    DirectoryReader dr = DirectoryReader.open(iw);
+    LeafReader r = getOnlyLeafReader(dr);
    
     // errors
-    try {
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getBinary(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
-    try {
+    });
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getNumeric(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
-    try {
+    });
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getSorted(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
-    try {
+    });
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getSortedSet(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
-    try {
+    });
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getSortedNumeric(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
-    try {
+    });
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getDocsWithField(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
+    });
     
     dr.close();
     iw.close();
@@ -108,8 +102,8 @@ public class TestDocValues extends LuceneTestCase {
     Document doc = new Document();
     doc.add(new NumericDocValuesField("foo", 3));
     iw.addDocument(doc);
-    DirectoryReader dr = DirectoryReader.open(iw, true);
-    LeafReader r = getOnlySegmentReader(dr);
+    DirectoryReader dr = DirectoryReader.open(iw);
+    LeafReader r = getOnlyLeafReader(dr);
     
     // ok
     assertNotNull(DocValues.getNumeric(r, "foo"));
@@ -117,18 +111,15 @@ public class TestDocValues extends LuceneTestCase {
     assertNotNull(DocValues.getDocsWithField(r, "foo"));
     
     // errors
-    try {
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getBinary(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
-    try {
+    });
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getSorted(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
-    try {
+    });
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getSortedSet(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
+    });
     
     dr.close();
     iw.close();
@@ -144,30 +135,26 @@ public class TestDocValues extends LuceneTestCase {
     Document doc = new Document();
     doc.add(new BinaryDocValuesField("foo", new BytesRef("bar")));
     iw.addDocument(doc);
-    DirectoryReader dr = DirectoryReader.open(iw, true);
-    LeafReader r = getOnlySegmentReader(dr);
+    DirectoryReader dr = DirectoryReader.open(iw);
+    LeafReader r = getOnlyLeafReader(dr);
     
     // ok
     assertNotNull(DocValues.getBinary(r, "foo"));
     assertNotNull(DocValues.getDocsWithField(r, "foo"));
     
     // errors
-    try {
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getNumeric(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
-    try {
+    });
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getSorted(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
-    try {
+    });
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getSortedSet(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
-    try {
+    });
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getSortedNumeric(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
+    });
     
     dr.close();
     iw.close();
@@ -183,8 +170,8 @@ public class TestDocValues extends LuceneTestCase {
     Document doc = new Document();
     doc.add(new SortedDocValuesField("foo", new BytesRef("bar")));
     iw.addDocument(doc);
-    DirectoryReader dr = DirectoryReader.open(iw, true);
-    LeafReader r = getOnlySegmentReader(dr);
+    DirectoryReader dr = DirectoryReader.open(iw);
+    LeafReader r = getOnlyLeafReader(dr);
     
     // ok
     assertNotNull(DocValues.getBinary(r, "foo"));
@@ -193,14 +180,12 @@ public class TestDocValues extends LuceneTestCase {
     assertNotNull(DocValues.getDocsWithField(r, "foo"));
     
     // errors
-    try {
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getNumeric(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
-    try {
+    });
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getSortedNumeric(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
+    });
     
     dr.close();
     iw.close();
@@ -216,30 +201,26 @@ public class TestDocValues extends LuceneTestCase {
     Document doc = new Document();
     doc.add(new SortedSetDocValuesField("foo", new BytesRef("bar")));
     iw.addDocument(doc);
-    DirectoryReader dr = DirectoryReader.open(iw, true);
-    LeafReader r = getOnlySegmentReader(dr);
+    DirectoryReader dr = DirectoryReader.open(iw);
+    LeafReader r = getOnlyLeafReader(dr);
     
     // ok
     assertNotNull(DocValues.getSortedSet(r, "foo"));
     assertNotNull(DocValues.getDocsWithField(r, "foo"));
     
     // errors
-    try {
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getBinary(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
-    try {
+    });
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getNumeric(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
-    try {
+    });
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getSorted(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
-    try {
+    });
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getSortedNumeric(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
+    });
     
     dr.close();
     iw.close();
@@ -255,30 +236,26 @@ public class TestDocValues extends LuceneTestCase {
     Document doc = new Document();
     doc.add(new SortedNumericDocValuesField("foo", 3));
     iw.addDocument(doc);
-    DirectoryReader dr = DirectoryReader.open(iw, true);
-    LeafReader r = getOnlySegmentReader(dr);
+    DirectoryReader dr = DirectoryReader.open(iw);
+    LeafReader r = getOnlyLeafReader(dr);
     
     // ok
     assertNotNull(DocValues.getSortedNumeric(r, "foo"));
     assertNotNull(DocValues.getDocsWithField(r, "foo"));
     
     // errors
-    try {
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getBinary(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
-    try {
+    });
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getNumeric(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
-    try {
+    });
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getSorted(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
-    try {
+    });
+    expectThrows(IllegalStateException.class, () -> {
       DocValues.getSortedSet(r, "foo");
-      fail();
-    } catch (IllegalStateException expected) {}
+    });
     
     dr.close();
     iw.close();

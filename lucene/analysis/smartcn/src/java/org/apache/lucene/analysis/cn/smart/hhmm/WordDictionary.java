@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.lucene.analysis.cn.smart.hhmm;
 
 import java.io.DataInputStream;
@@ -149,24 +148,21 @@ class WordDictionary extends AbstractDictionary {
 
   private void loadFromObjectInputStream(InputStream serialObjectInputStream)
       throws IOException, ClassNotFoundException {
-    ObjectInputStream input = new ObjectInputStream(serialObjectInputStream);
-    wordIndexTable = (short[]) input.readObject();
-    charIndexTable = (char[]) input.readObject();
-    wordItem_charArrayTable = (char[][][]) input.readObject();
-    wordItem_frequencyTable = (int[][]) input.readObject();
-    // log.info("load core dict from serialization.");
-    input.close();
+    try (ObjectInputStream input = new ObjectInputStream(serialObjectInputStream)) {
+      wordIndexTable = (short[]) input.readObject();
+      charIndexTable = (char[]) input.readObject();
+      wordItem_charArrayTable = (char[][][]) input.readObject();
+      wordItem_frequencyTable = (int[][]) input.readObject();
+      // log.info("load core dict from serialization.");
+    }
   }
 
   private void saveToObj(Path serialObj) {
-    try {
-      ObjectOutputStream output = new ObjectOutputStream(Files.newOutputStream(
-          serialObj));
+    try (ObjectOutputStream output = new ObjectOutputStream(Files.newOutputStream(serialObj))) {
       output.writeObject(wordIndexTable);
       output.writeObject(charIndexTable);
       output.writeObject(wordItem_charArrayTable);
       output.writeObject(wordItem_frequencyTable);
-      output.close();
       // log.info("serialize core dict.");
     } catch (Exception e) {
       // log.warn(e.getMessage());

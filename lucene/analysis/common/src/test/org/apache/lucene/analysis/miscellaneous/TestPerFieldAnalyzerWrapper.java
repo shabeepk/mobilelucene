@@ -1,23 +1,3 @@
-package org.apache.lucene.analysis.miscellaneous;
-
-import java.io.IOException;
-import java.io.Reader;
-import java.util.Collections;
-import java.util.Map;
-
-import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.AnalyzerWrapper;
-import org.apache.lucene.analysis.BaseTokenStreamTestCase;
-import org.apache.lucene.analysis.MockCharFilter;
-import org.apache.lucene.analysis.MockTokenizer;
-import org.apache.lucene.analysis.TokenFilter;
-import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.core.SimpleAnalyzer;
-import org.apache.lucene.analysis.core.WhitespaceAnalyzer;
-import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
-import org.apache.lucene.util.IOUtils;
-import org.apache.lucene.util.Rethrow;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -34,6 +14,24 @@ import org.apache.lucene.util.Rethrow;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.miscellaneous;
+
+import java.io.Reader;
+import java.util.Collections;
+import java.util.Map;
+
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.AnalyzerWrapper;
+import org.apache.lucene.analysis.BaseTokenStreamTestCase;
+import org.apache.lucene.analysis.MockCharFilter;
+import org.apache.lucene.analysis.MockTokenizer;
+import org.apache.lucene.analysis.TokenFilter;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.core.SimpleAnalyzer;
+import org.apache.lucene.analysis.core.WhitespaceAnalyzer;
+import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
+import org.apache.lucene.util.IOUtils;
+
 
 public class TestPerFieldAnalyzerWrapper extends BaseTokenStreamTestCase {
   public void testPerField() throws Exception {
@@ -105,11 +103,7 @@ public class TestPerFieldAnalyzerWrapper extends BaseTokenStreamTestCase {
 
       @Override
       protected TokenStreamComponents wrapComponents(String fieldName, TokenStreamComponents components) {
-        try {
-          assertNotSame(specialAnalyzer.tokenStream("special", text), components.getTokenStream());
-        } catch (IOException e) {
-          Rethrow.rethrow(e);
-        }
+        assertNotSame(specialAnalyzer.tokenStream("special", text), components.getTokenStream());
         TokenFilter filter = new ASCIIFoldingFilter(components.getTokenStream());
         return new TokenStreamComponents(components.getTokenizer(), filter);
       }

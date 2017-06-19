@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.hunspell;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.analysis.hunspell;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.hunspell;
+
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,13 +24,12 @@ import java.util.Collections;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.BaseTokenStreamTestCase;
+import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.MockTokenizer;
 import org.apache.lucene.analysis.Tokenizer;
 import org.apache.lucene.analysis.core.KeywordTokenizer;
-import org.apache.lucene.analysis.hunspell.Dictionary;
-import org.apache.lucene.analysis.hunspell.HunspellStemFilter;
 import org.apache.lucene.analysis.miscellaneous.SetKeywordMarkerFilter;
-import org.apache.lucene.analysis.util.CharArraySet;
+import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.IOUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -43,11 +42,14 @@ public class TestHunspellStemFilter extends BaseTokenStreamTestCase {
     // no multiple try-with to workaround bogus VerifyError
     InputStream affixStream = TestStemmer.class.getResourceAsStream("simple.aff");
     InputStream dictStream = TestStemmer.class.getResourceAsStream("simple.dic");
+    Directory tempDir = getDirectory();
+    
     try {
-      dictionary = new Dictionary(affixStream, dictStream);
+      dictionary = new Dictionary(tempDir, "dictionary", affixStream, dictStream);
     } finally {
       IOUtils.closeWhileHandlingException(affixStream, dictStream);
     }
+    tempDir.close();
   }
   
   @AfterClass
@@ -107,8 +109,9 @@ public class TestHunspellStemFilter extends BaseTokenStreamTestCase {
     // no multiple try-with to workaround bogus VerifyError
     InputStream affixStream = TestStemmer.class.getResourceAsStream("simple.aff");
     InputStream dictStream = TestStemmer.class.getResourceAsStream("simple.dic");
+    Directory tempDir = getDirectory();
     try {
-      d = new Dictionary(affixStream, Collections.singletonList(dictStream), true);
+      d = new Dictionary(tempDir, "dictionary", affixStream, Collections.singletonList(dictStream), true);
     } finally {
       IOUtils.closeWhileHandlingException(affixStream, dictStream);
     }
@@ -121,5 +124,10 @@ public class TestHunspellStemFilter extends BaseTokenStreamTestCase {
     };
     checkOneTerm(a, "NoChAnGy", "NoChAnGy");
     a.close();
+    tempDir.close();
+  }
+
+  private static Directory getDirectory() {
+    return newDirectory();
   }
 }

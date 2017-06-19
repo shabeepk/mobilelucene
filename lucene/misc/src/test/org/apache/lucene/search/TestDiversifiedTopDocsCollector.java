@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,26 +14,26 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Store;
+import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FloatDocValuesField;
-import org.apache.lucene.document.FloatField;
+import org.apache.lucene.document.LegacyFloatField;
 import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.FieldInvertState;
 import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.MultiDocValues;
 import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.index.RandomIndexWriter;
-import org.apache.lucene.index.SlowCompositeReaderWrapper;
 import org.apache.lucene.index.SortedDocValues;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause.Occur;
@@ -333,7 +331,7 @@ public class TestDiversifiedTopDocsCollector extends LuceneTestCase {
         new BytesRef(""));
     Field weeksAtNumberOneField = new FloatDocValuesField("weeksAtNumberOne",
         0.0F);
-    Field weeksStoredField = new FloatField("weeks", 0.0F, Store.YES);
+    Field weeksStoredField = new LegacyFloatField("weeks", 0.0F, Store.YES);
     Field idField = newStringField("id", "", Field.Store.YES);
     Field songField = newTextField("song", "", Field.Store.NO);
     Field storedArtistField = newTextField("artistName", "", Field.Store.NO);
@@ -350,7 +348,7 @@ public class TestDiversifiedTopDocsCollector extends LuceneTestCase {
     for (int i = 0; i < hitsOfThe60s.length; i++) {
       String cols[] = hitsOfThe60s[i].split("\t");
       Record record = new Record(String.valueOf(i), cols[0], cols[1], cols[2],
-          Float.valueOf(cols[3]));
+          Float.parseFloat(cols[3]));
       parsedRecords.put(record.id, record);
       idField.setStringValue(record.id);
       yearField.setStringValue(record.year);
@@ -368,8 +366,7 @@ public class TestDiversifiedTopDocsCollector extends LuceneTestCase {
     reader = writer.getReader();
     writer.close();
     searcher = newSearcher(reader);
-    LeafReader ar = SlowCompositeReaderWrapper.wrap(reader);
-    artistDocValues = ar.getSortedDocValues("artist");
+    artistDocValues = MultiDocValues.getSortedValues(reader, "artist");
 
     // All searches sort by song popularity 
     final Similarity base = searcher.getSimilarity(true);
@@ -422,9 +419,9 @@ public class TestDiversifiedTopDocsCollector extends LuceneTestCase {
     }
 
     @Override
-    public SimWeight computeWeight(float queryBoost,
+    public SimWeight computeWeight(
         CollectionStatistics collectionStats, TermStatistics... termStats) {
-      return sim.computeWeight(queryBoost, collectionStats, termStats);
+      return sim.computeWeight(collectionStats, termStats);
     }
 
     @Override

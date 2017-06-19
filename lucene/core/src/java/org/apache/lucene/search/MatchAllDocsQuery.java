@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,12 +14,13 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.util.Bits;
-import org.apache.lucene.util.ToStringUtils;
 
 /**
  * A query that matches all documents.
@@ -31,23 +30,55 @@ public final class MatchAllDocsQuery extends Query {
 
   @Override
   public Weight createWeight(IndexSearcher searcher, boolean needsScores) {
-    return new RandomAccessWeight(this) {
-      @Override
-      protected Bits getMatchingDocs(LeafReaderContext context) throws IOException {
-        return new Bits.MatchAllBits(context.reader().maxDoc());
-      }
+    return new ConstantScoreWeight(this) {
       @Override
       public String toString() {
         return "weight(" + MatchAllDocsQuery.this + ")";
+      }
+      @Override
+      public Scorer scorer(LeafReaderContext context) throws IOException {
+        return new ConstantScoreScorer(this, score(), DocIdSetIterator.all(context.reader().maxDoc()));
+      }
+      @Override
+      public BulkScorer bulkScorer(LeafReaderContext context) throws IOException {
+        final float score = score();
+        final int maxDoc = context.reader().maxDoc();
+        return new BulkScorer() {
+          @Override
+          public int score(LeafCollector collector, Bits acceptDocs, int min, int max) throws IOException {
+            max = Math.min(max, maxDoc);
+            FakeScorer scorer = new FakeScorer();
+            scorer.score = score;
+            collector.setScorer(scorer);
+            for (int doc = min; doc < max; ++doc) {
+              scorer.doc = doc;
+              if (acceptDocs == null || acceptDocs.get(doc)) {
+                collector.collect(doc);
+              }
+            }
+            return max == maxDoc ? DocIdSetIterator.NO_MORE_DOCS : max;
+          }
+          @Override
+          public long cost() {
+            return maxDoc;
+          }
+        };
       }
     };
   }
 
   @Override
   public String toString(String field) {
-    StringBuilder buffer = new StringBuilder();
-    buffer.append("*:*");
-    buffer.append(ToStringUtils.boost(getBoost()));
-    return buffer.toString();
+    return "*:*";
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    return sameClassAs(o);
+  }
+
+  @Override
+  public int hashCode() {
+    return classHash();
   }
 }

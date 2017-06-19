@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,14 +14,15 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 
 /**
  * Abstract decorator class of a DocIdSetIterator
  * implementation that provides on-demand filter/validation
- * mechanism on an underlying DocIdSetIterator.  See {@link
- * FilteredDocIdSet}.
+ * mechanism on an underlying DocIdSetIterator.
  */
 public abstract class FilteredDocIdSetIterator extends DocIdSetIterator {
   protected DocIdSetIterator _innerIter;

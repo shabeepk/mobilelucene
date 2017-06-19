@@ -1,5 +1,3 @@
-package org.apache.lucene.util;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.util;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.util;
+
 
 import java.io.BufferedReader;
 import java.io.Closeable;
@@ -27,15 +27,15 @@ import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
-import org.lukhnos.portmobile.charset.StandardCharsets;
-import org.lukhnos.portmobile.file.DirectoryStream;
-import org.lukhnos.portmobile.file.FileStore;
-import org.lukhnos.portmobile.file.FileVisitResult;
-import org.lukhnos.portmobile.file.FileVisitor;
-import org.lukhnos.portmobile.file.Files;
-import org.lukhnos.portmobile.file.Path;
-import org.lukhnos.portmobile.file.StandardOpenOption;
-import org.lukhnos.portmobile.file.attribute.BasicFileAttributes;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileStore;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -47,21 +47,10 @@ import org.apache.lucene.store.FileSwitchDirectory;
 import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.RAMDirectory;
 
-// Extra imports by portmobile.
-import org.lukhnos.portmobile.channels.utils.FileChannelUtils;
-
 /** This class emulates the new Java 7 "Try-With-Resources" statement.
  * Remove once Lucene is on Java 7.
  * @lucene.internal */
 public final class IOUtils {
-  
-  /**
-   * UTF-8 {@link Charset} instance to prevent repeated
-   * {@link Charset#forName(String)} lookups
-   * @deprecated Use {@link StandardCharsets#UTF_8} instead.
-   */
-  @Deprecated
-  public static final Charset CHARSET_UTF_8 = StandardCharsets.UTF_8;
   
   /**
    * UTF-8 charset string.
@@ -107,7 +96,9 @@ public final class IOUtils {
       }
     }
 
-    reThrow(th);
+    if (th != null) {
+      throw rethrowAlways(th);
+    }
   }
 
   /**
@@ -201,14 +192,52 @@ public final class IOUtils {
    * <p>
    * Note that the files should not be null.
    */
-  public static void deleteFilesIgnoringExceptions(Directory dir, String... files) {
-    for (String name : files) {
+  public static void deleteFilesIgnoringExceptions(Directory dir, Collection<String> files) {
+    for(String name : files) {
       try {
         dir.deleteFile(name);
       } catch (Throwable ignored) {
         // ignore
       }
     }
+  }
+
+  public static void deleteFilesIgnoringExceptions(Directory dir, String... files) {
+    deleteFilesIgnoringExceptions(dir, Arrays.asList(files));
+  }
+  
+  /**
+   * Deletes all given file names.  Some of the
+   * file names may be null; they are
+   * ignored.  After everything is deleted, the method either
+   * throws the first exception it hit while deleting, or
+   * completes normally if there were no exceptions.
+   * 
+   * @param dir Directory to delete files from
+   * @param names file names to delete
+   */
+  public static void deleteFiles(Directory dir, Collection<String> names) throws IOException {
+    Throwable th = null;
+    for (String name : names) {
+      if (name != null) {
+        try {
+          dir.deleteFile(name);
+        } catch (Throwable t) {
+          addSuppressed(th, t);
+          if (th == null) {
+            th = t;
+          }
+        }
+      }
+    }
+
+    if (th != null) {
+      throw rethrowAlways(th);
+    }
+  }
+
+  public static void deleteFiles(Directory dir, String... files) throws IOException {
+    deleteFiles(dir, Arrays.asList(files));
   }
   
   /**
@@ -275,7 +304,9 @@ public final class IOUtils {
       }
     }
 
-    reThrow(th);
+    if (th != null) {
+      throw rethrowAlways(th);
+    }
   }
   
   /**
@@ -351,37 +382,83 @@ public final class IOUtils {
   }
 
   /**
-   * Simple utility method that takes a previously caught
-   * {@code Throwable} and rethrows either {@code
-   * IOException} or an unchecked exception.  If the
-   * argument is null then this method does nothing.
+   * This utility method takes a previously caught (non-null)
+   * {@code Throwable} and rethrows either the original argument
+   * if it was a subclass of the {@code IOException} or an 
+   * {@code RuntimeException} with the cause set to the argument.
+   * 
+   * <p>This method <strong>never returns any value</strong>, even though it declares
+   * a return value of type {@link Error}. The return value declaration
+   * is very useful to let the compiler know that the code path following
+   * the invocation of this method is unreachable. So in most cases the
+   * invocation of this method will be guarded by an {@code if} and
+   * used together with a {@code throw} statement, as in:
+   * </p>
+   * <pre>{@code
+   *   if (t != null) throw IOUtils.rethrowAlways(t)
+   * }
+   * </pre>
+   * 
+   * @param th The throwable to rethrow, <strong>must not be null</strong>.
+   * @return This method always results in an exception, it never returns any value. 
+   *         See method documentation for detailsa and usage example.
+   * @throws IOException if the argument was an instance of IOException
+   * @throws RuntimeException with the {@link RuntimeException#getCause()} set
+   *         to the argument, if it was not an instance of IOException. 
    */
-  public static void reThrow(Throwable th) throws IOException {
-    if (th != null) {
-      if (th instanceof IOException) {
-        throw (IOException) th;
-      }
-      reThrowUnchecked(th);
+  public static Error rethrowAlways(Throwable th) throws IOException, RuntimeException {
+    if (th == null) {
+      throw new AssertionError("rethrow argument must not be null.");
     }
+
+    if (th instanceof IOException) {
+      throw (IOException) th;
+    }
+
+    if (th instanceof RuntimeException) {
+      throw (RuntimeException) th;
+    }
+
+    if (th instanceof Error) {
+      throw (Error) th;
+    }
+
+    throw new RuntimeException(th);
   }
 
   /**
-   * Simple utility method that takes a previously caught
-   * {@code Throwable} and rethrows it as an unchecked exception.
-   * If the argument is null then this method does nothing.
+   * Rethrows the argument as {@code IOException} or {@code RuntimeException} 
+   * if it's not null.
+   * 
+   * @deprecated This method is deprecated in favor of {@link #rethrowAlways}. Code should
+   * be updated to {@link #rethrowAlways} and guarded with an additional null-argument check
+   * (because {@link #rethrowAlways} is not accepting null arguments). 
    */
+  @Deprecated
+  public static void reThrow(Throwable th) throws IOException {
+    if (th != null) {
+      throw rethrowAlways(th);
+    }
+  }
+  
+  /**
+   * @deprecated This method is deprecated in favor of {@link #rethrowAlways}. Code should
+   * be updated to {@link #rethrowAlways} and guarded with an additional null-argument check
+   * (because {@link #rethrowAlways} is not accepting null arguments). 
+   */
+  @Deprecated
   public static void reThrowUnchecked(Throwable th) {
     if (th != null) {
-      if (th instanceof RuntimeException) {
-        throw (RuntimeException) th;
-      }
       if (th instanceof Error) {
         throw (Error) th;
       }
+      if (th instanceof RuntimeException) {
+        throw (RuntimeException) th;
+      }
       throw new RuntimeException(th);
-    }
+    }    
   }
-
+  
   /**
    * Ensure that any writes to the given file is written to the storage device that contains it.
    * @param fileToSync the file to fsync
@@ -389,52 +466,21 @@ public final class IOUtils {
    *  because not all file systems and operating systems allow to fsync on a directory)
    */
   public static void fsync(Path fileToSync, boolean isDir) throws IOException {
-    IOException exc = null;
-    
-
-    if (isDir) {
-      // Investigate this on OS X.
-      return;
-    }
-
     // If the file is a directory we have to open read-only, for regular files we must open r/w for the fsync to have an effect.
     // See http://blog.httrack.com/blog/2013/11/15/everything-you-always-wanted-to-know-about-fsync/
-    try (final FileChannel file = FileChannelUtils.open(fileToSync, isDir ? StandardOpenOption.READ : StandardOpenOption.WRITE)) {
-      for (int retry = 0; retry < 5; retry++) {
-        try {
-          file.force(true);
-          return;
-        } catch (IOException ioe) {
-          if (exc == null) {
-            exc = ioe;
-          }
-          try {
-            // Pause 5 msec
-            Thread.sleep(5L);
-          } catch (InterruptedException ie) {
-            ThreadInterruptedException ex = new ThreadInterruptedException(ie);
-            ex.addSuppressed(exc);
-            throw ex;
-          }
-        }
-      }
+    try (final FileChannel file = FileChannel.open(fileToSync, isDir ? StandardOpenOption.READ : StandardOpenOption.WRITE)) {
+      file.force(true);
     } catch (IOException ioe) {
-      if (exc == null) {
-        exc = ioe;
+      if (isDir) {
+        assert (Constants.LINUX || Constants.MAC_OS_X) == false :
+            "On Linux and MacOSX fsyncing a directory should not throw IOException, "+
+                "we just don't want to rely on that in production (undocumented). Got: " + ioe;
+        // Ignore exception if it is a directory
+        return;
       }
+      // Throw original exception
+      throw ioe;
     }
-    
-    if (isDir) {
-      // TODO: LUCENE-6169 - Fix this assert once Java 9 problems are solved!
-      assert (Constants.LINUX || Constants.MAC_OS_X) == false || Constants.JRE_IS_MINIMUM_JAVA9 :
-        "On Linux and MacOSX fsyncing a directory should not throw IOException, "+
-        "we just don't want to rely on that in production (undocumented). Got: " + exc;
-      // Ignore exception if it is a directory
-      return;
-    }
-    
-    // Throw original exception
-    throw exc;
   }
 
   /** If the dir is an {@link FSDirectory} or wraps one via possibly
@@ -490,9 +536,6 @@ public final class IOUtils {
   
   // note: requires a real or fake linux filesystem!
   static boolean spinsLinux(Path path) throws IOException {
-    return false;
-
-    /*
     FileStore store = getFileStore(path);
     
     // if fs type is tmpfs, it doesn't spin.
@@ -538,10 +581,8 @@ public final class IOUtils {
     try (InputStream stream = Files.newInputStream(rotational)) {
       return stream.read() == '1'; 
     }
-    */
   }
   
-  /*
   // Files.getFileStore(Path) useless here!
   // don't complain, just try it yourself
   static FileStore getFileStore(Path path) throws IOException {
@@ -582,5 +623,4 @@ public final class IOUtils {
       return desc;
     }
   }
-  */
 }

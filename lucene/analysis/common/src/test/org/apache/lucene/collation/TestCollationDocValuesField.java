@@ -1,6 +1,4 @@
-package org.apache.lucene.collation;
-
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -16,6 +14,11 @@ package org.apache.lucene.collation;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.collation;
+
+
+import java.text.Collator;
+import java.util.Locale;
 
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
@@ -24,7 +27,6 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.MultiDocValues;
 import org.apache.lucene.index.RandomIndexWriter;
 import org.apache.lucene.index.SortedDocValues;
-
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Sort;
@@ -34,9 +36,6 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.util.TestUtil;
-
-import java.text.Collator;
-import java.util.Locale;
 
 /**
  * trivial test of CollationDocValuesField
@@ -120,10 +119,10 @@ public class TestCollationDocValuesField extends LuceneTestCase {
     for(int docID=0;docID<is.getIndexReader().maxDoc();docID++) {
       Document doc = is.doc(docID);
       String s = doc.getField("field").stringValue();
-      boolean collatorAccepts = collator.compare(s, startPoint) >= 0 && collator.compare(s, endPoint) <= 0;
+      boolean collatorAccepts = collate(collator, s, startPoint) >= 0 && collate(collator, s, endPoint) <= 0;
       BytesRef br = dvs.get(docID);
       boolean luceneAccepts = br.compareTo(startBR) >= 0 && br.compareTo(endBR) <= 0;
-      assertEquals(collatorAccepts, luceneAccepts);
+      assertEquals(startPoint + " <= " + s + " <= " + endPoint, collatorAccepts, luceneAccepts);
     }
   }
 }

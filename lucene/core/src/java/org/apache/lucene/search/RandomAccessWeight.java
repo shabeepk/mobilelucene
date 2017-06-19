@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 
@@ -61,6 +61,11 @@ public abstract class RandomAccessWeight extends ConstantScoreWeight {
         final int doc = approximation.docID();
 
         return matchingDocs.get(doc);
+      }
+
+      @Override
+      public float matchCost() {
+        return 10; // TODO: use some cost of matchingDocs
       }
     };
 

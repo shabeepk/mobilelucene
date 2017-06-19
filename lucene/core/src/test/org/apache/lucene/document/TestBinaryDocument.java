@@ -1,14 +1,3 @@
-package org.apache.lucene.document;
-
-import java.nio.charset.StandardCharsets;
-
-import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.IndexableField;
-import org.apache.lucene.index.RandomIndexWriter;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.util.BytesRef;
-import org.apache.lucene.util.LuceneTestCase;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -25,6 +14,16 @@ import org.apache.lucene.util.LuceneTestCase;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.document;
+
+
+import java.nio.charset.StandardCharsets;
+
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.RandomIndexWriter;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.LuceneTestCase;
 
 /**
  * Tests {@link Document} class.
@@ -39,8 +38,8 @@ public class TestBinaryDocument extends LuceneTestCase {
   {
     FieldType ft = new FieldType();
     ft.setStored(true);
-    IndexableField binaryFldStored = new StoredField("binaryStored", binaryValStored.getBytes(StandardCharsets.UTF_8));
-    IndexableField stringFldStored = new Field("stringStored", binaryValStored, ft);
+    StoredField binaryFldStored = new StoredField("binaryStored", binaryValStored.getBytes(StandardCharsets.UTF_8));
+    Field stringFldStored = new Field("stringStored", binaryValStored, ft);
 
     Document doc = new Document();
     
@@ -71,14 +70,14 @@ public class TestBinaryDocument extends LuceneTestCase {
     String stringFldStoredTest = docFromReader.get("stringStored");
     assertTrue(stringFldStoredTest.equals(binaryValStored));
     
-    writer.close();    
+    writer.close();
     reader.close();
     dir.close();
   }
   
   public void testCompressionTools() throws Exception {
-    IndexableField binaryFldCompressed = new StoredField("binaryCompressed", CompressionTools.compress(binaryValCompressed.getBytes(StandardCharsets.UTF_8)));
-    IndexableField stringFldCompressed = new StoredField("stringCompressed", CompressionTools.compressString(binaryValCompressed));
+    StoredField binaryFldCompressed = new StoredField("binaryCompressed", CompressionTools.compress(binaryValCompressed.getBytes(StandardCharsets.UTF_8)));
+    StoredField stringFldCompressed = new StoredField("stringCompressed", CompressionTools.compressString(binaryValCompressed));
     
     Document doc = new Document();
     

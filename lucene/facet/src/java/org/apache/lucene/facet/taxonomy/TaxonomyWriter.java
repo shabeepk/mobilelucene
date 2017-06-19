@@ -1,11 +1,3 @@
-package org.apache.lucene.facet.taxonomy;
-
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.Map;
-
-import org.apache.lucene.index.TwoPhaseCommit;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -22,6 +14,14 @@ import org.apache.lucene.index.TwoPhaseCommit;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.facet.taxonomy;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.Map;
+
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.TwoPhaseCommit;
 
 /**
  * TaxonomyWriter is the interface which the faceted-search library uses
@@ -106,19 +106,14 @@ public interface TaxonomyWriter extends Closeable, TwoPhaseCommit {
   public int getSize();
 
   /**
-   * Sets the commit user data map. That method is considered a transaction and
-   * will be {@link #commit() committed} even if no other changes were made to
-   * the writer instance.
-   * <p>
-   * <b>NOTE:</b> the map is cloned internally, therefore altering the map's
-   * contents after calling this method has no effect.
+   * Sets the commit user data iterable.  See {@link IndexWriter#setLiveCommitData}.
    */
-  public void setCommitData(Map<String,String> commitUserData);
+  public void setLiveCommitData(Iterable<Map.Entry<String,String>> commitUserData);
 
   /**
-   * Returns the commit user data map that was set on
-   * {@link #setCommitData(Map)}.
+   * Returns the commit user data iterable that was set on
+   * {@link #setLiveCommitData(Iterable)}.
    */
-  public Map<String,String> getCommitData();
+  public Iterable<Map.Entry<String,String>> getLiveCommitData();
   
 }

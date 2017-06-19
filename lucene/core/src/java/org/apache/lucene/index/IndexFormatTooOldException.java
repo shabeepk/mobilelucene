@@ -14,11 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.lucene.index;
 
 import java.io.IOException;
-import org.lukhnos.portmobile.util.Objects;
+import java.util.Objects;
 
 import org.apache.lucene.store.DataInput;
 
@@ -43,7 +42,7 @@ public class IndexFormatTooOldException extends IOException {
    * @lucene.internal */
   public IndexFormatTooOldException(String resourceDescription, String reason) {
     super("Format version is not supported (resource " + resourceDescription + "): " +
-        reason + ". This version of Lucene only supports indexes created with release 4.0 and later.");
+        reason + ". This version of Lucene only supports indexes created with release 5.0 and later.");
     this.resourceDescription = resourceDescription;
     this.reason = reason;
     this.version = null;
@@ -73,7 +72,7 @@ public class IndexFormatTooOldException extends IOException {
   public IndexFormatTooOldException(String resourceDescription, int version, int minVersion, int maxVersion) {
     super("Format version is not supported (resource " + resourceDescription + "): " +
         version + " (needs to be between " + minVersion + " and " + maxVersion +
-        "). This version of Lucene only supports indexes created with release 4.0 and later.");
+        "). This version of Lucene only supports indexes created with release 5.0 and later.");
     this.resourceDescription = resourceDescription;
     this.version = version;
     this.minVersion = minVersion;

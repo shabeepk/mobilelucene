@@ -1,5 +1,3 @@
-package org.apache.lucene.queryparser.flexible.standard.builders;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.queryparser.flexible.standard.builders;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.queryparser.flexible.standard.builders;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -44,7 +43,7 @@ public class MultiPhraseQueryNodeBuilder implements StandardQueryBuilder {
   public MultiPhraseQuery build(QueryNode queryNode) throws QueryNodeException {
     MultiPhraseQueryNode phraseNode = (MultiPhraseQueryNode) queryNode;
 
-    MultiPhraseQuery phraseQuery = new MultiPhraseQuery();
+    MultiPhraseQuery.Builder phraseQueryBuilder = new MultiPhraseQuery.Builder();
 
     List<QueryNode> children = phraseNode.getChildren();
 
@@ -71,14 +70,14 @@ public class MultiPhraseQueryNodeBuilder implements StandardQueryBuilder {
       for (int positionIncrement : positionTermMap.keySet()) {
         List<Term> termList = positionTermMap.get(positionIncrement);
 
-        phraseQuery.add(termList.toArray(new Term[termList.size()]),
+        phraseQueryBuilder.add(termList.toArray(new Term[termList.size()]),
             positionIncrement);
 
       }
 
     }
 
-    return phraseQuery;
+    return phraseQueryBuilder.build();
 
   }
 

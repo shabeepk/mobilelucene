@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.lucene.analysis.cn.smart;
 
 import org.apache.lucene.analysis.cn.smart.hhmm.SegTokenFilter; // for javadoc
@@ -25,16 +24,16 @@ import org.apache.lucene.analysis.cn.smart.hhmm.SegTokenFilter; // for javadoc
  */
 public class Utility {
 
-  public static final char[] STRING_CHAR_ARRAY = new String("未##串")
+  public static final char[] STRING_CHAR_ARRAY = "未##串"
       .toCharArray();
 
-  public static final char[] NUMBER_CHAR_ARRAY = new String("未##数")
+  public static final char[] NUMBER_CHAR_ARRAY = "未##数"
       .toCharArray();
 
-  public static final char[] START_CHAR_ARRAY = new String("始##始")
+  public static final char[] START_CHAR_ARRAY = "始##始"
       .toCharArray();
 
-  public static final char[] END_CHAR_ARRAY = new String("末##末").toCharArray();
+  public static final char[] END_CHAR_ARRAY = "末##末".toCharArray();
 
   /**
    * Delimiters will be filtered to this character by {@link SegTokenFilter}

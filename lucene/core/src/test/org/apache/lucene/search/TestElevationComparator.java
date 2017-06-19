@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,21 +14,29 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.lucene.analysis.MockAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.SortedDocValuesField;
-import org.apache.lucene.index.*;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.DocValues;
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.SortedDocValues;
+import org.apache.lucene.index.Term;
 import org.apache.lucene.search.FieldValueHitQueue.Entry;
-import org.apache.lucene.search.similarities.DefaultSimilarity;
-import org.apache.lucene.store.*;
-import org.apache.lucene.util.LuceneTestCase;
+import org.apache.lucene.search.similarities.ClassicSimilarity;
+import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.BytesRef;
-
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import org.apache.lucene.util.LuceneTestCase;
 
 public class TestElevationComparator extends LuceneTestCase {
 
@@ -44,7 +50,7 @@ public class TestElevationComparator extends LuceneTestCase {
         newIndexWriterConfig(new MockAnalyzer(random())).
             setMaxBufferedDocs(2).
             setMergePolicy(newLogMergePolicy(1000)).
-            setSimilarity(new DefaultSimilarity())
+            setSimilarity(new ClassicSimilarity())
     );
     writer.addDocument(adoc(new String[] {"id", "a", "title", "ipod", "str_s", "a"}));
     writer.addDocument(adoc(new String[] {"id", "b", "title", "ipod ipod", "str_s", "b"}));
@@ -53,11 +59,11 @@ public class TestElevationComparator extends LuceneTestCase {
     writer.addDocument(adoc(new String[] {"id", "y", "title", "boosted boosted", "str_s","y"}));
     writer.addDocument(adoc(new String[] {"id", "z", "title", "boosted boosted boosted","str_s", "z"}));
 
-    IndexReader r = DirectoryReader.open(writer, true);
+    IndexReader r = DirectoryReader.open(writer);
     writer.close();
 
     IndexSearcher searcher = newSearcher(r);
-    searcher.setSimilarity(new DefaultSimilarity());
+    searcher.setSimilarity(new ClassicSimilarity());
 
     runTest(searcher, true);
     runTest(searcher, false);
@@ -121,8 +127,7 @@ public class TestElevationComparator extends LuceneTestCase {
      // System.out.println(" pri doc=" + vals[i+1] + " pri=" + (1+max));
    }
    BooleanQuery q = b.build();
-   q.setBoost(0);
-   return q;
+   return new BoostQuery(q, 0f);
  }
 
  private Document adoc(String[] vals) {
@@ -145,7 +150,7 @@ class ElevationComparatorSource extends FieldComparatorSource {
   }
 
   @Override
-  public FieldComparator<Integer> newComparator(final String fieldname, final int numHits, int sortPos, boolean reversed) throws IOException {
+  public FieldComparator<Integer> newComparator(final String fieldname, final int numHits, int sortPos, boolean reversed) {
    return new FieldComparator<Integer>() {
 
      private final int[] values = new int[numHits];

@@ -1,5 +1,3 @@
-package org.apache.lucene.search.suggest.document;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.suggest.document;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.suggest.document;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -195,6 +194,48 @@ public class FuzzyCompletionQuery extends PrefixCompletionQuery {
       // this only happens if you have multiple paths anyway (e.g. synonyms)
       return Operations.determinize(a, maxDeterminizedStates);
     }
+  }
+
+  /**
+   * Get the maximum edit distance for fuzzy matches
+   */
+  public int getMaxEdits() {
+    return maxEdits;
+  }
+
+  /**
+   * Return whether transpositions count as a single edit
+   */
+  public boolean isTranspositions() {
+    return transpositions;
+  }
+
+  /**
+   * Get the length of a prefix where no edits are permitted
+   */
+  public int getNonFuzzyPrefix() {
+    return nonFuzzyPrefix;
+  }
+
+  /**
+   * Get the minimum length of a term considered for matching
+   */
+  public int getMinFuzzyLength() {
+    return minFuzzyLength;
+  }
+
+  /**
+   * Return true if lengths are measured in unicode code-points rather than bytes
+   */
+  public boolean isUnicodeAware() {
+    return unicodeAware;
+  }
+
+  /**
+   * Get the maximum number of determinized states permitted
+   */
+  public int getMaxDeterminizedStates() {
+    return maxDeterminizedStates;
   }
 
   @Override

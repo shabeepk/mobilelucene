@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis.tokenattributes;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.analysis.tokenattributes;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis.tokenattributes;
+
 
 import org.apache.lucene.util.Attribute;
 import org.apache.lucene.util.BytesRef;
@@ -24,9 +24,7 @@ import org.apache.lucene.util.BytesRef;
  * The payload of a Token.
  * <p>
  * The payload is stored in the index at each position, and can
- * be used to influence scoring when using Payload-based queries 
- * in the {@link org.apache.lucene.search.payloads} and
- * {@link org.apache.lucene.search.spans} packages.
+ * be used to influence scoring when using Payload-based queries.
  * <p>
  * NOTE: because the payload will be stored at each position, it's usually
  * best to use the minimum number of bytes necessary. Some codec implementations

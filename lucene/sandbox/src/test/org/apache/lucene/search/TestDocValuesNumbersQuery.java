@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
 
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field.Store;
@@ -94,19 +93,15 @@ public class TestDocValuesNumbersQuery extends LuceneTestCase {
         for (Long number : queryNumbers) {
           bq.add(new TermQuery(new Term("text", number.toString())), Occur.SHOULD);
         }
-        Query q1 = new ConstantScoreQuery(bq.build());
-        q1.setBoost(boost);
+        Query q1 = new BoostQuery(new ConstantScoreQuery(bq.build()), boost);
 
-        Query q2 = new DocValuesNumbersQuery("long", queryNumbers);
-        q2.setBoost(boost);
+        Query q2 = new BoostQuery(new DocValuesNumbersQuery("long", queryNumbers), boost);
         assertSameMatches(searcher, q1, q2, true);
 
-        Query q3 = new DocValuesNumbersQuery("twolongs", queryNumbers);
-        q3.setBoost(boost);
+        Query q3 = new BoostQuery(new DocValuesNumbersQuery("twolongs", queryNumbers), boost);
         assertSameMatches(searcher, q1, q3, true);
 
-        Query q4 = new DocValuesNumbersQuery("twolongs", queryNumbersX2);
-        q4.setBoost(boost);
+        Query q4 = new BoostQuery(new DocValuesNumbersQuery("twolongs", queryNumbersX2), boost);
         assertSameMatches(searcher, q1, q4, true);
       }
 
@@ -158,10 +153,8 @@ public class TestDocValuesNumbersQuery extends LuceneTestCase {
         for (Long number : queryNumbers) {
           bq.add(new TermQuery(new Term("text", number.toString())), Occur.SHOULD);
         }
-        Query q1 = new ConstantScoreQuery(bq.build());
-        q1.setBoost(boost);
-        final Query q2 = new DocValuesNumbersQuery("long", queryNumbers);
-        q2.setBoost(boost);
+        Query q1 = new BoostQuery(new ConstantScoreQuery(bq.build()), boost);
+        final Query q2 = new BoostQuery(new DocValuesNumbersQuery("long", queryNumbers), boost);
 
         BooleanQuery.Builder bq1 = new BooleanQuery.Builder();
         bq1.add(q1, Occur.MUST);

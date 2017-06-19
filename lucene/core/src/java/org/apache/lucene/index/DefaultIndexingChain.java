@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,19 +14,28 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.codecs.DocValuesConsumer;
 import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.NormsConsumer;
 import org.apache.lucene.codecs.NormsFormat;
-import org.apache.lucene.codecs.StoredFieldsWriter;
+import org.apache.lucene.codecs.PointsFormat;
+import org.apache.lucene.codecs.PointsWriter;
 import org.apache.lucene.document.FieldType;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.similarities.Similarity;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.util.ArrayUtil;
@@ -48,10 +55,8 @@ final class DefaultIndexingChain extends DocConsumer {
 
   // Writes postings and term vectors:
   final TermsHash termsHash;
-
-  // lazy init:
-  private StoredFieldsWriter storedFieldsWriter;
-  private int lastStoredDocID; 
+  // Writes stored fields
+  final StoredFieldsConsumer storedFieldsConsumer;
 
   // NOTE: I tried using Hash Map<String,PerField>
   // but it was ~2% slower on Wiki and Geonames with Java
@@ -65,39 +70,95 @@ final class DefaultIndexingChain extends DocConsumer {
   // Holds fields seen in each document
   private PerField[] fields = new PerField[1];
 
+  private final Set<String> finishedDocValues = new HashSet<>();
+
   public DefaultIndexingChain(DocumentsWriterPerThread docWriter) throws IOException {
     this.docWriter = docWriter;
     this.fieldInfos = docWriter.getFieldInfosBuilder();
     this.docState = docWriter.docState;
     this.bytesUsed = docWriter.bytesUsed;
 
-    TermsHash termVectorsWriter = new TermVectorsConsumer(docWriter);
+    final TermsHash termVectorsWriter;
+    if (docWriter.getSegmentInfo().getIndexSort() == null) {
+      storedFieldsConsumer = new StoredFieldsConsumer(docWriter);
+      termVectorsWriter = new TermVectorsConsumer(docWriter);
+    } else {
+      storedFieldsConsumer = new SortingStoredFieldsConsumer(docWriter);
+      termVectorsWriter = new SortingTermVectorsConsumer(docWriter);
+    }
     termsHash = new FreqProxTermsWriter(docWriter, termVectorsWriter);
   }
-  
-  // TODO: can we remove this lazy-init / make cleaner / do it another way...? 
-  private void initStoredFieldsWriter() throws IOException {
-    if (storedFieldsWriter == null) {
-      storedFieldsWriter = docWriter.codec.storedFieldsFormat().fieldsWriter(docWriter.directory, docWriter.getSegmentInfo(), IOContext.DEFAULT);
+
+  private Sorter.DocMap maybeSortSegment(SegmentWriteState state) throws IOException {
+    Sort indexSort = state.segmentInfo.getIndexSort();
+    if (indexSort == null) {
+      return null;
     }
+
+    final List<Sorter.DocComparator> comparators = new ArrayList<>();
+    for (int i = 0; i < indexSort.getSort().length; i++) {
+      SortField sortField = indexSort.getSort()[i];
+      PerField perField = getPerField(sortField.getField());
+      if (perField != null && perField.docValuesWriter != null &&
+          finishedDocValues.contains(perField.fieldInfo.name) == false) {
+          perField.docValuesWriter.finish(state.segmentInfo.maxDoc());
+          Sorter.DocComparator cmp = perField.docValuesWriter.getDocComparator(state.segmentInfo.maxDoc(), sortField);
+          comparators.add(cmp);
+          finishedDocValues.add(perField.fieldInfo.name);
+      } else {
+        // safe to ignore, sort field with no values or already seen before
+      }
+    }
+    Sorter.DocComparator docComparator = new Sorter.DocComparator() {
+      @Override
+      public int compare(int docID1, int docID2) {
+        for (Sorter.DocComparator comparator : comparators) {
+          int comp = comparator.compare(docID1, docID2);
+          if (comp != 0) {
+            return comp;
+          }
+        }
+        return Integer.compare(docID1, docID2); // docid order tiebreak
+      }
+    };
+    // returns null if documents are already sorted
+    return Sorter.sort(state.segmentInfo.maxDoc(), docComparator);
   }
 
   @Override
-  public void flush(SegmentWriteState state) throws IOException, AbortingException {
+  public Sorter.DocMap flush(SegmentWriteState state) throws IOException, AbortingException {
 
     // NOTE: caller (DocumentsWriterPerThread) handles
     // aborting on any exception from this method
-
+    Sorter.DocMap sortMap = maybeSortSegment(state);
     int maxDoc = state.segmentInfo.maxDoc();
-    writeNorms(state);
-    writeDocValues(state);
+    long t0 = System.nanoTime();
+    writeNorms(state, sortMap);
+    if (docState.infoStream.isEnabled("IW")) {
+      docState.infoStream.message("IW", ((System.nanoTime()-t0)/1000000) + " msec to write norms");
+    }
+    
+    t0 = System.nanoTime();
+    writeDocValues(state, sortMap);
+    if (docState.infoStream.isEnabled("IW")) {
+      docState.infoStream.message("IW", ((System.nanoTime()-t0)/1000000) + " msec to write docValues");
+    }
+
+    t0 = System.nanoTime();
+    writePoints(state, sortMap);
+    if (docState.infoStream.isEnabled("IW")) {
+      docState.infoStream.message("IW", ((System.nanoTime()-t0)/1000000) + " msec to write points");
+    }
     
     // it's possible all docs hit non-aborting exceptions...
-    initStoredFieldsWriter();
-    fillStoredFields(maxDoc);
-    storedFieldsWriter.finish(state.fieldInfos, maxDoc);
-    storedFieldsWriter.close();
+    t0 = System.nanoTime();
+    storedFieldsConsumer.finish(maxDoc);
+    storedFieldsConsumer.flush(state, sortMap);
+    if (docState.infoStream.isEnabled("IW")) {
+      docState.infoStream.message("IW", ((System.nanoTime()-t0)/1000000) + " msec to finish stored fields");
+    }
 
+    t0 = System.nanoTime();
     Map<String,TermsHashPerField> fieldsToFlush = new HashMap<>();
     for (int i=0;i<fieldHash.length;i++) {
       PerField perField = fieldHash[i];
@@ -109,17 +170,70 @@ final class DefaultIndexingChain extends DocConsumer {
       }
     }
 
-    termsHash.flush(fieldsToFlush, state);
+    termsHash.flush(fieldsToFlush, state, sortMap);
+    if (docState.infoStream.isEnabled("IW")) {
+      docState.infoStream.message("IW", ((System.nanoTime()-t0)/1000000) + " msec to write postings and finish vectors");
+    }
 
     // Important to save after asking consumer to flush so
     // consumer can alter the FieldInfo* if necessary.  EG,
     // FreqProxTermsWriter does this with
     // FieldInfo.storePayload.
+    t0 = System.nanoTime();
     docWriter.codec.fieldInfosFormat().write(state.directory, state.segmentInfo, "", state.fieldInfos, IOContext.DEFAULT);
+    if (docState.infoStream.isEnabled("IW")) {
+      docState.infoStream.message("IW", ((System.nanoTime()-t0)/1000000) + " msec to write fieldInfos");
+    }
+
+    return sortMap;
+  }
+
+  /** Writes all buffered points. */
+  private void writePoints(SegmentWriteState state, Sorter.DocMap sortMap) throws IOException {
+    PointsWriter pointsWriter = null;
+    boolean success = false;
+    try {
+      for (int i=0;i<fieldHash.length;i++) {
+        PerField perField = fieldHash[i];
+        while (perField != null) {
+          if (perField.pointValuesWriter != null) {
+            if (perField.fieldInfo.getPointDimensionCount() == 0) {
+              // BUG
+              throw new AssertionError("segment=" + state.segmentInfo + ": field=\"" + perField.fieldInfo.name + "\" has no points but wrote them");
+            }
+            if (pointsWriter == null) {
+              // lazy init
+              PointsFormat fmt = state.segmentInfo.getCodec().pointsFormat();
+              if (fmt == null) {
+                throw new IllegalStateException("field=\"" + perField.fieldInfo.name + "\" was indexed as points but codec does not support points");
+              }
+              pointsWriter = fmt.fieldsWriter(state);
+            }
+
+            perField.pointValuesWriter.flush(state, sortMap, pointsWriter);
+            perField.pointValuesWriter = null;
+          } else if (perField.fieldInfo.getPointDimensionCount() != 0) {
+            // BUG
+            throw new AssertionError("segment=" + state.segmentInfo + ": field=\"" + perField.fieldInfo.name + "\" has points but did not write them");
+          }
+          perField = perField.next;
+        }
+      }
+      if (pointsWriter != null) {
+        pointsWriter.finish();
+      }
+      success = true;
+    } finally {
+      if (success) {
+        IOUtils.close(pointsWriter);
+      } else {
+        IOUtils.closeWhileHandlingException(pointsWriter);
+      }
+    }
   }
 
   /** Writes all buffered doc values (called from {@link #flush}). */
-  private void writeDocValues(SegmentWriteState state) throws IOException {
+  private void writeDocValues(SegmentWriteState state, Sorter.DocMap sortMap) throws IOException {
     int maxDoc = state.segmentInfo.maxDoc();
     DocValuesConsumer dvConsumer = null;
     boolean success = false;
@@ -138,8 +252,10 @@ final class DefaultIndexingChain extends DocConsumer {
               dvConsumer = fmt.fieldsConsumer(state);
             }
 
-            perField.docValuesWriter.finish(maxDoc);
-            perField.docValuesWriter.flush(state, dvConsumer);
+            if (finishedDocValues.contains(perField.fieldInfo.name) == false) {
+              perField.docValuesWriter.finish(maxDoc);
+            }
+            perField.docValuesWriter.flush(state, sortMap, dvConsumer);
             perField.docValuesWriter = null;
           } else if (perField.fieldInfo.getDocValuesType() != DocValuesType.NONE) {
             // BUG
@@ -173,17 +289,7 @@ final class DefaultIndexingChain extends DocConsumer {
     }
   }
 
-  /** Catch up for all docs before us that had no stored
-   *  fields, or hit non-aborting exceptions before writing
-   *  stored fields. */
-  private void fillStoredFields(int docID) throws IOException, AbortingException {
-    while (lastStoredDocID < docID) {
-      startStoredFields();
-      finishStoredFields();
-    }
-  }
-
-  private void writeNorms(SegmentWriteState state) throws IOException {
+  private void writeNorms(SegmentWriteState state, Sorter.DocMap sortMap) throws IOException {
     boolean success = false;
     NormsConsumer normsConsumer = null;
     try {
@@ -201,7 +307,7 @@ final class DefaultIndexingChain extends DocConsumer {
           if (fi.omitsNorms() == false && fi.getIndexOptions() != IndexOptions.NONE) {
             assert perField.norms != null: "field=" + fi.name;
             perField.norms.finish(state.segmentInfo.maxDoc());
-            perField.norms.flush(state, normsConsumer);
+            perField.norms.flush(state, sortMap, normsConsumer);
           }
         }
       }
@@ -217,7 +323,7 @@ final class DefaultIndexingChain extends DocConsumer {
 
   @Override
   public void abort() {
-    IOUtils.closeWhileHandlingException(storedFieldsWriter);
+    storedFieldsConsumer.abort();
 
     try {
       // E.g. close any open files in the term vectors writer:
@@ -253,21 +359,19 @@ final class DefaultIndexingChain extends DocConsumer {
 
   /** Calls StoredFieldsWriter.startDocument, aborting the
    *  segment if it hits any exception. */
-  private void startStoredFields() throws IOException, AbortingException {
+  private void startStoredFields(int docID) throws IOException, AbortingException {
     try {
-      initStoredFieldsWriter();
-      storedFieldsWriter.startDocument();
+      storedFieldsConsumer.startDocument(docID);
     } catch (Throwable th) {
       throw AbortingException.wrap(th);
     }
-    lastStoredDocID++;
   }
 
   /** Calls StoredFieldsWriter.finishDocument, aborting the
    *  segment if it hits any exception. */
   private void finishStoredFields() throws IOException, AbortingException {
     try {
-      storedFieldsWriter.finishDocument();
+      storedFieldsConsumer.finishDocument();
     } catch (Throwable th) {
       throw AbortingException.wrap(th);
     }
@@ -291,8 +395,7 @@ final class DefaultIndexingChain extends DocConsumer {
 
     termsHash.startDocument();
 
-    fillStoredFields(docState.docID);
-    startStoredFields();
+    startStoredFields(docState.docID);
 
     boolean aborting = false;
     try {
@@ -320,7 +423,7 @@ final class DefaultIndexingChain extends DocConsumer {
       throw AbortingException.wrap(th);
     }
   }
-  
+
   private int processField(IndexableField field, long fieldGen, int fieldCount) throws IOException, AbortingException {
     String fieldName = field.name();
     IndexableFieldType fieldType = field.fieldType();
@@ -357,8 +460,12 @@ final class DefaultIndexingChain extends DocConsumer {
         fp = getOrAddField(fieldName, fieldType, false);
       }
       if (fieldType.stored()) {
+        String value = field.stringValue();
+        if (value != null && value.length() > IndexWriter.MAX_STORED_STRING_LENGTH) {
+          throw new IllegalArgumentException("stored field \"" + field.name() + "\" is too large (" + value.length() + " characters) to store");
+        }
         try {
-          storedFieldsWriter.writeField(fp.fieldInfo, field);
+          storedFieldsConsumer.writeField(fp.fieldInfo, field);
         } catch (Throwable th) {
           throw AbortingException.wrap(th);
         }
@@ -367,13 +474,19 @@ final class DefaultIndexingChain extends DocConsumer {
 
     DocValuesType dvType = fieldType.docValuesType();
     if (dvType == null) {
-      throw new NullPointerException("docValuesType cannot be null (field: \"" + fieldName + "\")");
+      throw new NullPointerException("docValuesType must not be null (field: \"" + fieldName + "\")");
     }
     if (dvType != DocValuesType.NONE) {
       if (fp == null) {
         fp = getOrAddField(fieldName, fieldType, false);
       }
       indexDocValue(fp, dvType, field);
+    }
+    if (fieldType.pointDimensionCount() != 0) {
+      if (fp == null) {
+        fp = getOrAddField(fieldName, fieldType, false);
+      }
+      indexPoint(fp, field);
     }
     
     return fieldCount;
@@ -398,8 +511,27 @@ final class DefaultIndexingChain extends DocConsumer {
     }
   }
 
-  /** Called from processDocument to index one field's doc
-   *  value */
+  /** Called from processDocument to index one field's point */
+  private void indexPoint(PerField fp, IndexableField field) throws IOException {
+    int pointDimensionCount = field.fieldType().pointDimensionCount();
+
+    int dimensionNumBytes = field.fieldType().pointNumBytes();
+
+    // Record dimensions for this field; this setter will throw IllegalArgExc if
+    // the dimensions were already set to something different:
+    if (fp.fieldInfo.getPointDimensionCount() == 0) {
+      fieldInfos.globalFieldNumbers.setDimensions(fp.fieldInfo.number, fp.fieldInfo.name, pointDimensionCount, dimensionNumBytes);
+    }
+
+    fp.fieldInfo.setPointDimensions(pointDimensionCount, dimensionNumBytes);
+
+    if (fp.pointValuesWriter == null) {
+      fp.pointValuesWriter = new PointValuesWriter(docWriter, fp.fieldInfo);
+    }
+    fp.pointValuesWriter.addPackedValue(docState.docID, field.binaryValue());
+  }
+
+  /** Called from processDocument to index one field's doc value */
   private void indexDocValue(PerField fp, DocValuesType dvType, IndexableField field) throws IOException {
 
     if (fp.fieldInfo.getDocValuesType() == DocValuesType.NONE) {
@@ -527,6 +659,9 @@ final class DefaultIndexingChain extends DocConsumer {
     // segment:
     DocValuesWriter docValuesWriter;
 
+    // Non-null if this field ever had points in this segment:
+    PointValuesWriter pointValuesWriter;
+
     /** We use this to know when a PerField is seen for the
      *  first time in the current document. */
     long fieldGen = -1;
@@ -539,8 +674,6 @@ final class DefaultIndexingChain extends DocConsumer {
     
     // reused
     TokenStream tokenStream;
-
-    IndexOptions indexOptions;
 
     public PerField(FieldInfo fieldInfo, boolean invert) {
       this.fieldInfo = fieldInfo;
@@ -624,8 +757,10 @@ final class DefaultIndexingChain extends DocConsumer {
           if (invertState.position < invertState.lastPosition) {
             if (posIncr == 0) {
               throw new IllegalArgumentException("first position increment must be > 0 (got 0) for field '" + field.name() + "'");
+            } else if (posIncr < 0) {
+              throw new IllegalArgumentException("position increment must be >= 0 (got " + posIncr + ") for field '" + field.name() + "'");
             } else {
-              throw new IllegalArgumentException("position increments (and gaps) must be >= 0 (got " + posIncr + ") for field '" + field.name() + "'");
+              throw new IllegalArgumentException("position overflowed Integer.MAX_VALUE (got posIncr=" + posIncr + " lastPosition=" + invertState.lastPosition + " position=" + invertState.position + ") for field '" + field.name() + "'");
             }
           } else if (invertState.position > IndexWriter.MAX_POSITION) {
             throw new IllegalArgumentException("position " + invertState.position + " is too large for field '" + field.name() + "': max allowed position is " + IndexWriter.MAX_POSITION);

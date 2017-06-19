@@ -1,5 +1,3 @@
-package org.apache.lucene.analysis;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,16 +14,24 @@ package org.apache.lucene.analysis;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.analysis;
 
-import org.apache.lucene.store.AlreadyClosedException;
-import org.apache.lucene.util.CloseableThreadLocal;
-import org.apache.lucene.util.Version;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.Reader;
+import java.io.StringReader;
 import java.util.HashMap;
 import java.util.Map;
+
+import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
+import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
+import org.apache.lucene.analysis.tokenattributes.TermToBytesRefAttribute;
+import org.apache.lucene.store.AlreadyClosedException;
+import org.apache.lucene.util.AttributeFactory;
+import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.CloseableThreadLocal;
+import org.apache.lucene.util.Version;
 
 /**
  * An Analyzer builds TokenStreams, which analyze text.  It thus represents a
@@ -44,6 +50,12 @@ import java.util.Map;
  *     TokenStream filter = new FooFilter(source);
  *     filter = new BarFilter(filter);
  *     return new TokenStreamComponents(source, filter);
+ *   }
+ *   {@literal @Override}
+ *   protected TokenStream normalize(TokenStream in) {
+ *     // Assuming FooFilter is about normalization and BarFilter is about
+ *     // stemming, only FooFilter should be applied
+ *     return new FooFilter(in);
  *   }
  * };
  * </pre>
@@ -109,6 +121,15 @@ public abstract class Analyzer implements Closeable {
   protected abstract TokenStreamComponents createComponents(String fieldName);
 
   /**
+   * Wrap the given {@link TokenStream} in order to apply normalization filters.
+   * The default implementation returns the {@link TokenStream} as-is. This is
+   * used by {@link #normalize(String, String)}.
+   */
+  protected TokenStream normalize(String fieldName, TokenStream in) {
+    return in;
+  }
+
+  /**
    * Returns a TokenStream suitable for <code>fieldName</code>, tokenizing
    * the contents of <code>reader</code>.
    * <p>
@@ -131,11 +152,10 @@ public abstract class Analyzer implements Closeable {
    * @param reader the reader the streams source reads from
    * @return TokenStream for iterating the analyzed content of <code>reader</code>
    * @throws AlreadyClosedException if the Analyzer is closed.
-   * @throws IOException if an i/o error occurs.
    * @see #tokenStream(String, String)
    */
   public final TokenStream tokenStream(final String fieldName,
-                                       final Reader reader) throws IOException {
+                                       final Reader reader) {
     TokenStreamComponents components = reuseStrategy.getReusableComponents(this, fieldName);
     final Reader r = initReader(fieldName, reader);
     if (components == null) {
@@ -165,10 +185,9 @@ public abstract class Analyzer implements Closeable {
    * @param text the String the streams source reads from
    * @return TokenStream for iterating the analyzed content of <code>reader</code>
    * @throws AlreadyClosedException if the Analyzer is closed.
-   * @throws IOException if an i/o error occurs (may rarely happen for strings).
    * @see #tokenStream(String, Reader)
    */
-  public final TokenStream tokenStream(final String fieldName, final String text) throws IOException {
+  public final TokenStream tokenStream(final String fieldName, final String text) {
     TokenStreamComponents components = reuseStrategy.getReusableComponents(this, fieldName);
     @SuppressWarnings("resource") final ReusableStringReader strReader = 
         (components == null || components.reusableStringReader == null) ?
@@ -184,7 +203,65 @@ public abstract class Analyzer implements Closeable {
     components.reusableStringReader = strReader;
     return components.getTokenStream();
   }
-    
+
+  /**
+   * Normalize a string down to the representation that it would have in the
+   * index.
+   * <p>
+   * This is typically used by query parsers in order to generate a query on
+   * a given term, without tokenizing or stemming, which are undesirable if
+   * the string to analyze is a partial word (eg. in case of a wildcard or
+   * fuzzy query).
+   * <p>
+   * This method uses {@link #initReaderForNormalization(String, Reader)} in
+   * order to apply necessary character-level normalization and then
+   * {@link #normalize(String, TokenStream)} in order to apply the normalizing
+   * token filters.
+   */
+  public final BytesRef normalize(final String fieldName, final String text) {
+    try {
+      // apply char filters
+      final String filteredText;
+      try (Reader reader = new StringReader(text)) {
+        Reader filterReader = initReaderForNormalization(fieldName, reader);
+        char[] buffer = new char[64];
+        StringBuilder builder = new StringBuilder();
+        for (;;) {
+          final int read = filterReader.read(buffer, 0, buffer.length);
+          if (read == -1) {
+            break;
+          }
+          builder.append(buffer, 0, read);
+        }
+        filteredText = builder.toString();
+      } catch (IOException e) {
+        throw new IllegalStateException("Normalization threw an unexpected exeption", e);
+      }
+
+      final AttributeFactory attributeFactory = attributeFactory(fieldName);
+      try (TokenStream ts = normalize(fieldName,
+          new StringTokenStream(attributeFactory, filteredText, text.length()))) {
+        final TermToBytesRefAttribute termAtt = ts.addAttribute(TermToBytesRefAttribute.class);
+        ts.reset();
+        if (ts.incrementToken() == false) {
+          throw new IllegalStateException("The normalization token stream is "
+              + "expected to produce exactly 1 token, but got 0 for analyzer "
+              + this + " and input \"" + text + "\"");
+        }
+        final BytesRef term = BytesRef.deepCopyOf(termAtt.getBytesRef());
+        if (ts.incrementToken()) {
+          throw new IllegalStateException("The normalization token stream is "
+              + "expected to produce exactly 1 token, but got 2+ for analyzer "
+              + this + " and input \"" + text + "\"");
+        }
+        ts.end();
+        return term;
+      }
+    } catch (IOException e) {
+      throw new IllegalStateException("Normalization threw an unexpected exeption", e);
+    }
+  }
+
   /**
    * Override this if you want to add a CharFilter chain.
    * <p>
@@ -197,6 +274,23 @@ public abstract class Analyzer implements Closeable {
    */
   protected Reader initReader(String fieldName, Reader reader) {
     return reader;
+  }
+
+  /** Wrap the given {@link Reader} with {@link CharFilter}s that make sense
+   *  for normalization. This is typically a subset of the {@link CharFilter}s
+   *  that are applied in {@link #initReader(String, Reader)}. This is used by
+   *  {@link #normalize(String, String)}. */
+  protected Reader initReaderForNormalization(String fieldName, Reader reader) {
+    return reader;
+  }
+
+  /** Return the {@link AttributeFactory} to be used for
+   *  {@link #tokenStream analysis} and
+   *  {@link #normalize(String, String) normalization} on the given
+   *  {@code FieldName}. The default implementation returns
+   *  {@link TokenStream#DEFAULT_TOKEN_ATTRIBUTE_FACTORY}. */
+  protected AttributeFactory attributeFactory(String fieldName) {
+    return TokenStream.DEFAULT_TOKEN_ATTRIBUTE_FACTORY;
   }
 
   /**
@@ -313,10 +407,8 @@ public abstract class Analyzer implements Closeable {
      * 
      * @param reader
      *          a reader to reset the source component
-     * @throws IOException
-     *           if the component's reset method throws an {@link IOException}
      */
-    protected void setReader(final Reader reader) throws IOException {
+    protected void setReader(final Reader reader) {
       source.setReader(reader);
     }
 
@@ -440,4 +532,41 @@ public abstract class Analyzer implements Closeable {
     }
   };
 
+  private static final class StringTokenStream extends TokenStream {
+
+    private final String value;
+    private final int length;
+    private boolean used = true;
+    private final CharTermAttribute termAttribute = addAttribute(CharTermAttribute.class);
+    private final OffsetAttribute offsetAttribute = addAttribute(OffsetAttribute.class);
+
+    StringTokenStream(AttributeFactory attributeFactory, String value, int length) {
+      super(attributeFactory);
+      this.value = value;
+      this.length = length;
+    }
+
+    @Override
+    public void reset() {
+      used = false;
+    }
+
+    @Override
+    public boolean incrementToken() {
+      if (used) {
+        return false;
+      }
+      clearAttributes();
+      termAttribute.append(value);
+      offsetAttribute.setOffset(0, length);
+      used = true;
+      return true;
+    }
+
+    @Override
+    public void end() throws IOException {
+      super.end();
+      offsetAttribute.setOffset(length, length);
+    }
+  }
 }

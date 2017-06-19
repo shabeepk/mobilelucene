@@ -1,5 +1,3 @@
-package org.apache.lucene.codecs.lucene50;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.codecs.lucene50;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.codecs.lucene50;
+
 
 import static org.apache.lucene.codecs.lucene50.Lucene50NormsFormat.CONST_COMPRESSED;
 import static org.apache.lucene.codecs.lucene50.Lucene50NormsFormat.DELTA_COMPRESSED;
@@ -259,7 +259,7 @@ final class Lucene50NormsProducer extends NormsProducer {
 
           @Override
           public Collection<Accountable> getChildResources() {
-            return Collections.<Accountable>singleton(reader);
+            return Collections.singleton(reader);
           }
 
           @Override
@@ -301,7 +301,7 @@ final class Lucene50NormsProducer extends NormsProducer {
 
           @Override
           public Collection<Accountable> getChildResources() {
-            return Collections.<Accountable>singleton(ordsReader);
+            return Collections.singleton(ordsReader);
           }
 
           @Override
@@ -368,7 +368,7 @@ final class Lucene50NormsProducer extends NormsProducer {
           int doc = (int) live.get(i);
           set.set(doc);
         }
-        final Norms nestedInstance = loadNorms(entry.nested);
+        Norms nestedInstance = loadNorms(entry.nested);
         return new Norms() {
           @Override
           public long get(int docID) {
@@ -467,10 +467,6 @@ final class Lucene50NormsProducer extends NormsProducer {
   }
   
   static abstract class Norms extends NumericDocValues implements Accountable {
-    @Override
-    public Collection<Accountable> getChildResources() {
-      return Collections.emptyList();
-    }
   }
 
   @Override

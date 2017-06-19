@@ -1,5 +1,3 @@
-package org.apache.lucene.benchmark.byTask.tasks;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.benchmark.byTask.tasks;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.benchmark.byTask.tasks;
+
 
 import java.nio.file.Path;
 import java.util.Properties;
@@ -31,6 +31,7 @@ import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
 /** Tests the functionality of {@link AddIndexesTask}. */
@@ -54,6 +55,11 @@ public class AddIndexesTaskTest extends BenchmarkTestCase {
     } finally {
       tmpDir.close();
     }
+  }
+  
+  @AfterClass
+  public static void afterClassAddIndexesTaskTest() {
+    testDir = inputDir = null;
   }
   
   private PerfRunData createPerfRunData() throws Exception {

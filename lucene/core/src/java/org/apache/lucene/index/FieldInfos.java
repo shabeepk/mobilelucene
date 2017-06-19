@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,12 +14,16 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -39,6 +41,7 @@ public class FieldInfos implements Iterable<FieldInfo> {
   private final boolean hasVectors;
   private final boolean hasNorms;
   private final boolean hasDocValues;
+  private final boolean hasPointValues;
   
   // used only by fieldInfo(int)
   private final FieldInfo[] byNumberTable; // contiguous
@@ -58,6 +61,7 @@ public class FieldInfos implements Iterable<FieldInfo> {
     boolean hasFreq = false;
     boolean hasNorms = false;
     boolean hasDocValues = false;
+    boolean hasPointValues = false;
     
     TreeMap<Integer, FieldInfo> byNumber = new TreeMap<>();
     for (FieldInfo info : infos) {
@@ -80,6 +84,7 @@ public class FieldInfos implements Iterable<FieldInfo> {
       hasNorms |= info.hasNorms();
       hasDocValues |= info.getDocValuesType() != DocValuesType.NONE;
       hasPayloads |= info.hasPayloads();
+      hasPointValues |= (info.getPointDimensionCount() != 0);
     }
     
     this.hasVectors = hasVectors;
@@ -89,6 +94,7 @@ public class FieldInfos implements Iterable<FieldInfo> {
     this.hasFreq = hasFreq;
     this.hasNorms = hasNorms;
     this.hasDocValues = hasDocValues;
+    this.hasPointValues = hasPointValues;
     this.values = Collections.unmodifiableCollection(byNumber.values());
     Integer max = byNumber.isEmpty() ? null : Collections.max(byNumber.keySet());
     
@@ -142,6 +148,11 @@ public class FieldInfos implements Iterable<FieldInfo> {
   public boolean hasDocValues() {
     return hasDocValues;
   }
+
+  /** Returns true if any fields have PointValues */
+  public boolean hasPointValues() {
+    return hasPointValues;
+  }
   
   /** Returns the number of fields */
   public int size() {
@@ -187,6 +198,16 @@ public class FieldInfos implements Iterable<FieldInfo> {
       return byNumberMap.get(fieldNumber);
     }
   }
+
+  static final class FieldDimensions {
+    public final int dimensionCount;
+    public final int dimensionNumBytes;
+
+    public FieldDimensions(int dimensionCount, int dimensionNumBytes) {
+      this.dimensionCount = dimensionCount;
+      this.dimensionNumBytes = dimensionNumBytes;
+    }
+  }
   
   static final class FieldNumbers {
     
@@ -197,6 +218,8 @@ public class FieldInfos implements Iterable<FieldInfo> {
     // sessions:
     private final Map<String,DocValuesType> docValuesType;
 
+    private final Map<String,FieldDimensions> dimensions;
+
     // TODO: we should similarly catch an attempt to turn
     // norms back on after they were already ommitted; today
     // we silently discard the norm but this is badly trappy
@@ -206,6 +229,7 @@ public class FieldInfos implements Iterable<FieldInfo> {
       this.nameToNumber = new HashMap<>();
       this.numberToName = new HashMap<>();
       this.docValuesType = new HashMap<>();
+      this.dimensions = new HashMap<>();
     }
     
     /**
@@ -214,13 +238,26 @@ public class FieldInfos implements Iterable<FieldInfo> {
      * number assigned if possible otherwise the first unassigned field number
      * is used as the field number.
      */
-    synchronized int addOrGet(String fieldName, int preferredFieldNumber, DocValuesType dvType) {
+    synchronized int addOrGet(String fieldName, int preferredFieldNumber, DocValuesType dvType, int dimensionCount, int dimensionNumBytes) {
       if (dvType != DocValuesType.NONE) {
         DocValuesType currentDVType = docValuesType.get(fieldName);
         if (currentDVType == null) {
           docValuesType.put(fieldName, dvType);
         } else if (currentDVType != DocValuesType.NONE && currentDVType != dvType) {
           throw new IllegalArgumentException("cannot change DocValues type from " + currentDVType + " to " + dvType + " for field \"" + fieldName + "\"");
+        }
+      }
+      if (dimensionCount != 0) {
+        FieldDimensions dims = dimensions.get(fieldName);
+        if (dims != null) {
+          if (dims.dimensionCount != dimensionCount) {
+            throw new IllegalArgumentException("cannot change point dimension count from " + dims.dimensionCount + " to " + dimensionCount + " for field=\"" + fieldName + "\"");
+          }
+          if (dims.dimensionNumBytes != dimensionNumBytes) {
+            throw new IllegalArgumentException("cannot change point numBytes from " + dims.dimensionNumBytes + " to " + dimensionNumBytes + " for field=\"" + fieldName + "\"");
+          }
+        } else {
+          dimensions.put(fieldName, new FieldDimensions(dimensionCount, dimensionNumBytes));
         }
       }
       Integer fieldNumber = nameToNumber.get(fieldName);
@@ -257,6 +294,24 @@ public class FieldInfos implements Iterable<FieldInfo> {
       }
     }
 
+    synchronized void verifyConsistentDimensions(Integer number, String name, int dimensionCount, int dimensionNumBytes) {
+      if (name.equals(numberToName.get(number)) == false) {
+        throw new IllegalArgumentException("field number " + number + " is already mapped to field name \"" + numberToName.get(number) + "\", not \"" + name + "\"");
+      }
+      if (number.equals(nameToNumber.get(name)) == false) {
+        throw new IllegalArgumentException("field name \"" + name + "\" is already mapped to field number \"" + nameToNumber.get(name) + "\", not \"" + number + "\"");
+      }
+      FieldDimensions dim = dimensions.get(name);
+      if (dim != null) {
+        if (dim.dimensionCount != dimensionCount) {
+          throw new IllegalArgumentException("cannot change point dimension count from " + dim.dimensionCount + " to " + dimensionCount + " for field=\"" + name + "\"");
+        }
+        if (dim.dimensionNumBytes != dimensionNumBytes) {
+          throw new IllegalArgumentException("cannot change point numBytes from " + dim.dimensionNumBytes + " to " + dimensionNumBytes + " for field=\"" + name + "\"");
+        }
+      }
+    }
+
     /**
      * Returns true if the {@code fieldName} exists in the map and is of the
      * same {@code dvType}.
@@ -271,15 +326,31 @@ public class FieldInfos implements Iterable<FieldInfo> {
       }
     }
     
+    synchronized Set<String> getFieldNames() {
+      return Collections.unmodifiableSet(new HashSet<String>(nameToNumber.keySet()));
+    }
+
     synchronized void clear() {
       numberToName.clear();
       nameToNumber.clear();
       docValuesType.clear();
+      dimensions.clear();
     }
 
     synchronized void setDocValuesType(int number, String name, DocValuesType dvType) {
       verifyConsistent(number, name, dvType);
       docValuesType.put(name, dvType);
+    }
+
+    synchronized void setDimensions(int number, String name, int dimensionCount, int dimensionNumBytes) {
+      if (dimensionNumBytes > PointValues.MAX_NUM_BYTES) {
+        throw new IllegalArgumentException("dimension numBytes must be <= PointValues.MAX_NUM_BYTES (= " + PointValues.MAX_NUM_BYTES + "); got " + dimensionNumBytes + " for field=\"" + name + "\"");
+      }
+      if (dimensionCount > PointValues.MAX_DIMENSIONS) {
+        throw new IllegalArgumentException("pointDimensionCount must be <= PointValues.MAX_DIMENSIONS (= " + PointValues.MAX_DIMENSIONS + "); got " + dimensionCount + " for field=\"" + name + "\"");
+      }
+      verifyConsistentDimensions(number, name, dimensionCount, dimensionNumBytes);
+      dimensions.put(name, new FieldDimensions(dimensionCount, dimensionNumBytes));
     }
   }
   
@@ -314,8 +385,8 @@ public class FieldInfos implements Iterable<FieldInfo> {
         // number for this field.  If the field was seen
         // before then we'll get the same name and number,
         // else we'll allocate a new one:
-        final int fieldNumber = globalFieldNumbers.addOrGet(name, -1, DocValuesType.NONE);
-        fi = new FieldInfo(name, fieldNumber, false, false, false, IndexOptions.NONE, DocValuesType.NONE, -1, new HashMap<String,String>());
+        final int fieldNumber = globalFieldNumbers.addOrGet(name, -1, DocValuesType.NONE, 0, 0);
+        fi = new FieldInfo(name, fieldNumber, false, false, false, IndexOptions.NONE, DocValuesType.NONE, -1, new HashMap<>(), 0, 0);
         assert !byName.containsKey(fi.name);
         globalFieldNumbers.verifyConsistent(Integer.valueOf(fi.number), fi.name, DocValuesType.NONE);
         byName.put(fi.name, fi);
@@ -325,10 +396,11 @@ public class FieldInfos implements Iterable<FieldInfo> {
     }
    
     private FieldInfo addOrUpdateInternal(String name, int preferredFieldNumber,
-        boolean storeTermVector,
-        boolean omitNorms, boolean storePayloads, IndexOptions indexOptions, DocValuesType docValues) {
+                                          boolean storeTermVector,
+                                          boolean omitNorms, boolean storePayloads, IndexOptions indexOptions, DocValuesType docValues,
+                                          int dimensionCount, int dimensionNumBytes) {
       if (docValues == null) {
-        throw new NullPointerException("DocValuesType cannot be null");
+        throw new NullPointerException("DocValuesType must not be null");
       }
       FieldInfo fi = fieldInfo(name);
       if (fi == null) {
@@ -337,13 +409,13 @@ public class FieldInfos implements Iterable<FieldInfo> {
         // number for this field.  If the field was seen
         // before then we'll get the same name and number,
         // else we'll allocate a new one:
-        final int fieldNumber = globalFieldNumbers.addOrGet(name, preferredFieldNumber, docValues);
-        fi = new FieldInfo(name, fieldNumber, storeTermVector, omitNorms, storePayloads, indexOptions, docValues, -1, new HashMap<String,String>());
+        final int fieldNumber = globalFieldNumbers.addOrGet(name, preferredFieldNumber, docValues, dimensionCount, dimensionNumBytes);
+        fi = new FieldInfo(name, fieldNumber, storeTermVector, omitNorms, storePayloads, indexOptions, docValues, -1, new HashMap<>(), dimensionCount, dimensionNumBytes);
         assert !byName.containsKey(fi.name);
         globalFieldNumbers.verifyConsistent(Integer.valueOf(fi.number), fi.name, fi.getDocValuesType());
         byName.put(fi.name, fi);
       } else {
-        fi.update(storeTermVector, omitNorms, storePayloads, indexOptions);
+        fi.update(storeTermVector, omitNorms, storePayloads, indexOptions, dimensionCount, dimensionNumBytes);
 
         if (docValues != DocValuesType.NONE) {
           // Only pay the synchronization cost if fi does not already have a DVType
@@ -364,8 +436,9 @@ public class FieldInfos implements Iterable<FieldInfo> {
     public FieldInfo add(FieldInfo fi) {
       // IMPORTANT - reuse the field number if possible for consistent field numbers across segments
       return addOrUpdateInternal(fi.name, fi.number, fi.hasVectors(),
-                 fi.omitsNorms(), fi.hasPayloads(),
-                 fi.getIndexOptions(), fi.getDocValuesType());
+                                 fi.omitsNorms(), fi.hasPayloads(),
+                                 fi.getIndexOptions(), fi.getDocValuesType(),
+                                 fi.getPointDimensionCount(), fi.getPointNumBytes());
     }
     
     public FieldInfo fieldInfo(String fieldName) {

@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -48,8 +47,8 @@ import org.apache.lucene.util.TestUtil;
 import org.apache.lucene.util.UnicodeUtil;
 import org.apache.lucene.util.Version;
 import org.apache.lucene.util.automaton.Automaton;
-import org.apache.lucene.util.automaton.AutomatonTestUtil.RandomAcceptedStrings;
 import org.apache.lucene.util.automaton.AutomatonTestUtil;
+import org.apache.lucene.util.automaton.AutomatonTestUtil.RandomAcceptedStrings;
 import org.apache.lucene.util.automaton.CompiledAutomaton;
 
 import static org.junit.Assert.assertEquals;
@@ -57,7 +56,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-
 
 /** Helper class extracted from BasePostingsFormatTestCase to exercise a postings format. */
 public class RandomPostingsTester {
@@ -123,7 +121,8 @@ public class RandomPostingsTester {
 
       fieldInfoArray[fieldUpto] = new FieldInfo(field, fieldUpto, false, false, true,
                                                 IndexOptions.DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS,
-                                                DocValuesType.NONE, -1, new HashMap<String,String>());
+                                                DocValuesType.NONE, -1, new HashMap<>(),
+                                                0, 0);
       fieldUpto++;
 
       SortedMap<BytesRef,SeedAndOrd> postings = new TreeMap<>();
@@ -612,7 +611,7 @@ public class RandomPostingsTester {
   // maxAllowed = the "highest" we can index, but we will still
   // randomly index at lower IndexOption
   public FieldsProducer buildIndex(Codec codec, Directory dir, IndexOptions maxAllowed, boolean allowPayloads, boolean alwaysTestMax) throws IOException {
-    SegmentInfo segmentInfo = new SegmentInfo(dir, Version.LATEST, "_0", maxDoc, false, codec, Collections.<String,String>emptyMap(), StringHelper.randomId(), new HashMap<String,String>());
+    SegmentInfo segmentInfo = new SegmentInfo(dir, Version.LATEST, "_0", maxDoc, false, codec, Collections.emptyMap(), StringHelper.randomId(), new HashMap<>(), null);
 
     int maxIndexOption = Arrays.asList(IndexOptions.values()).indexOf(maxAllowed);
     if (LuceneTestCase.VERBOSE) {
@@ -638,7 +637,8 @@ public class RandomPostingsTester {
                                                    indexOptions,
                                                    DocValuesType.NONE,
                                                    -1,
-                                                   new HashMap<String,String>());
+                                                   new HashMap<>(),
+                                                   0, 0);
     }
 
     FieldInfos newFieldInfos = new FieldInfos(newFieldInfoArray);
@@ -1239,12 +1239,9 @@ public class RandomPostingsTester {
       }
     }
     assertFalse(iterator.hasNext());
-    try {
+    LuceneTestCase.expectThrows(NoSuchElementException.class, () -> {
       iterator.next();
-      throw new AssertionError("Fields.iterator() doesn't throw NoSuchElementException when past the end");
-    } catch (NoSuchElementException expected) {
-      // expected
-    }
+    });
   }
 
   /** Indexes all fields/terms at the specified
@@ -1270,6 +1267,5 @@ public class RandomPostingsTester {
 
     fieldsProducer.close();
     dir.close();
-    IOUtils.rm(path);
   }
 }

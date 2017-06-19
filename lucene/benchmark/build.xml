@@ -46,9 +46,9 @@
         <available file="temp/enwiki-20070527-pages-articles.xml.bz2" property="enwiki.exists"/>
         <available file="temp/enwiki-20070527-pages-articles.xml" property="enwiki.expanded"/>
         <available file="${working.dir}/enwiki.txt" property="enwiki.extracted"/>
-    	<available file="temp/${top.100k.words.archive.filename}"
+      <available file="temp/${top.100k.words.archive.filename}"
                    property="top.100k.words.archive.present"/>
-    	<available file="${working.dir}/top100k-out" 
+      <available file="${working.dir}/top100k-out" 
                    property="top.100k.word.files.expanded"/>
     </target>
 
@@ -59,7 +59,7 @@
     </target>
 
     <target name="get-enwiki" unless="enwiki.exists">
-        <get src="http://people.apache.org/~gsingers/wikipedia/enwiki-20070527-pages-articles.xml.bz2"
+        <get src="http://home.apache.org/~dsmiley/data/enwiki-20070527-pages-articles.xml.bz2"
              dest="temp/enwiki-20070527-pages-articles.xml.bz2"/>
     </target>
 
@@ -77,7 +77,7 @@
         <!-- note: latest data is at: http://download.geonames.org/export/dump/allCountries.zip
          and then randomize with: gsort -R -S 1500M file.txt > file_random.txt
          and then compress with: bzip2 -9 -k file_random.txt -->
-        <get src="http://people.apache.org/~dsmiley/data/geonames_20130921_randomOrder_allCountries.txt.bz2"
+      <get src="http://home.apache.org/~dsmiley/data/geonames_20130921_randomOrder_allCountries.txt.bz2"
              dest="temp/allCountries.txt.bz2"/>
     </target>
 
@@ -137,27 +137,27 @@
         <untar src="temp/mini_newsgroups.tar" dest="${working.dir}"/>
     </target>
 
-	<property name="top.100k.words.archive.filename" 
-	          value="top.100k.words.de.en.fr.uk.wikipedia.2009-11.tar.bz2"/>
-	<property name="top.100k.words.archive.base.url"
-	          value="http://people.apache.org/~rmuir/wikipedia"/>
-	<target name="get-top-100k-words-archive" unless="top.100k.words.archive.present">
-		<mkdir dir="temp"/>
-	    <get src="${top.100k.words.archive.base.url}/${top.100k.words.archive.filename}"
-	         dest="temp/${top.100k.words.archive.filename}"/>
-	</target>
-	<target name="expand-top-100k-word-files" unless="top.100k.word.files.expanded">
-		<mkdir dir="${working.dir}/top100k-out"/>
-	    <untar src="temp/${top.100k.words.archive.filename}"
-	           overwrite="true" compression="bzip2" dest="${working.dir}/top100k-out"/>
-	</target>
-	
-	<target name="top-100k-wiki-word-files" depends="check-files">
-	  <mkdir dir="${working.dir}"/>
-	  <antcall target="get-top-100k-words-archive"/>
-	  <antcall target="expand-top-100k-word-files"/>
-	</target>
-	
+  <property name="top.100k.words.archive.filename" 
+            value="top.100k.words.de.en.fr.uk.wikipedia.2009-11.tar.bz2"/>
+  <property name="top.100k.words.archive.base.url"
+            value="http://home.apache.org/~rmuir/wikipedia"/>
+  <target name="get-top-100k-words-archive" unless="top.100k.words.archive.present">
+    <mkdir dir="temp"/>
+      <get src="${top.100k.words.archive.base.url}/${top.100k.words.archive.filename}"
+           dest="temp/${top.100k.words.archive.filename}"/>
+  </target>
+  <target name="expand-top-100k-word-files" unless="top.100k.word.files.expanded">
+    <mkdir dir="${working.dir}/top100k-out"/>
+      <untar src="temp/${top.100k.words.archive.filename}"
+             overwrite="true" compression="bzip2" dest="${working.dir}/top100k-out"/>
+  </target>
+  
+  <target name="top-100k-wiki-word-files" depends="check-files">
+    <mkdir dir="${working.dir}"/>
+    <antcall target="get-top-100k-words-archive"/>
+    <antcall target="expand-top-100k-word-files"/>
+  </target>
+  
     <target name="get-files" depends="check-files">
         <mkdir dir="temp"/>
         <antcall target="get-reuters"/>
@@ -171,7 +171,7 @@
       <pathelement path="${analyzers-common.jar}"/>
       <pathelement path="${queryparser.jar}"/>
       <pathelement path="${facet.jar}"/>
-      <pathelement path="${spatial.jar}"/>
+      <pathelement path="${spatial-extras.jar}"/>
       <pathelement path="${queries.jar}"/>
       <pathelement path="${codecs.jar}"/>
       <pathelement path="${join.jar}"/>
@@ -185,7 +185,7 @@
     </path>
 
     <target name="javadocs" depends="javadocs-memory,javadocs-highlighter,javadocs-analyzers-common,
-      javadocs-queryparser,javadocs-facet,javadocs-spatial,compile-core,check-javadocs-uptodate" 
+      javadocs-queryparser,javadocs-facet,javadocs-spatial-extras,compile-core,check-javadocs-uptodate"
             unless="javadocs-uptodate-${name}">
     <invoke-module-javadoc>
       <links>
@@ -194,7 +194,7 @@
         <link href="../analyzers-common"/>
         <link href="../queryparser"/>
         <link href="../facet"/>
-        <link href="../spatial"/>
+        <link href="../spatial-extras"/>
       </links>
     </invoke-module-javadoc>
     </target>
@@ -222,44 +222,44 @@
         </java>
     </target>
 
-	<property name="collation.alg.file" location="conf/collation.alg"/>
-	<property name="collation.output.file" 
-	          value="${working.dir}/collation.benchmark.output.txt"/>
-	<property name="collation.jira.output.file" 
-	          value="${working.dir}/collation.bm2jira.output.txt"/>
-	
-	<path id="collation.runtime.classpath">
-	  <path refid="run.classpath"/>
+  <property name="collation.alg.file" location="conf/collation.alg"/>
+  <property name="collation.output.file" 
+            value="${working.dir}/collation.benchmark.output.txt"/>
+  <property name="collation.jira.output.file" 
+            value="${working.dir}/collation.bm2jira.output.txt"/>
+  
+  <path id="collation.runtime.classpath">
+    <path refid="run.classpath"/>
       <pathelement path="${analyzers-icu.jar}"/>
-	</path>
-	
-	<target name="collation" depends="compile,jar-analyzers-icu,top-100k-wiki-word-files">
-	    <echo>Running benchmark with alg file: ${collation.alg.file}</echo>
-	    <java fork="true" classname="org.apache.lucene.benchmark.byTask.Benchmark" 
-	          maxmemory="${task.mem}" output="${collation.output.file}">
-	      <classpath refid="collation.runtime.classpath"/>
-	      <arg file="${collation.alg.file}"/>
-	    </java>
-	    <echo>Benchmark output is in file: ${collation.output.file}</echo>
-	    <echo>Converting to JIRA table format...</echo>
-	    <exec executable="${perl.exe}" output="${collation.jira.output.file}" failonerror="true">
+  </path>
+  
+  <target name="collation" depends="compile,jar-analyzers-icu,top-100k-wiki-word-files">
+      <echo>Running benchmark with alg file: ${collation.alg.file}</echo>
+      <java fork="true" classname="org.apache.lucene.benchmark.byTask.Benchmark" 
+            maxmemory="${task.mem}" output="${collation.output.file}">
+        <classpath refid="collation.runtime.classpath"/>
+        <arg file="${collation.alg.file}"/>
+      </java>
+      <echo>Benchmark output is in file: ${collation.output.file}</echo>
+      <echo>Converting to JIRA table format...</echo>
+      <exec executable="${perl.exe}" output="${collation.jira.output.file}" failonerror="true">
         <arg value="-CSD"/>
-	      <arg value="scripts/collation.bm2jira.pl"/>
-	      <arg value="${collation.output.file}"/>
-	    </exec>
-	    <echo>Benchmark output in JIRA table format is in file: ${collation.jira.output.file}</echo>
-	</target>
-	
+        <arg value="scripts/collation.bm2jira.pl"/>
+        <arg value="${collation.output.file}"/>
+      </exec>
+      <echo>Benchmark output in JIRA table format is in file: ${collation.jira.output.file}</echo>
+  </target>
+  
     <property name="shingle.alg.file" location="conf/shingle.alg"/>
     <property name="shingle.output.file" 
               value="${working.dir}/shingle.benchmark.output.txt"/>
     <property name="shingle.jira.output.file" 
               value="${working.dir}/shingle.bm2jira.output.txt"/>
-	
+  
     <path id="shingle.runtime.classpath">
       <path refid="run.classpath"/>
     </path>
-	
+  
     <target name="shingle" depends="compile,get-files">
       <echo>Running benchmark with alg file: ${shingle.alg.file}</echo>
       <java fork="true" classname="org.apache.lucene.benchmark.byTask.Benchmark" 
@@ -277,7 +277,7 @@
       <echo>Benchmark output in JIRA table format is in file: ${shingle.jira.output.file}</echo>
     </target>
 
-    <target name="init" depends="module-build.init,jar-memory,jar-highlighter,jar-analyzers-common,jar-queryparser,jar-facet,jar-spatial,jar-codecs,jar-join"/>
+    <target name="init" depends="module-build.init,jar-memory,jar-highlighter,jar-analyzers-common,jar-queryparser,jar-facet,jar-spatial-extras,jar-codecs,jar-join"/>
   
     <target name="compile-test" depends="copy-alg-files-for-testing,module-build.compile-test"/>
     <target name="copy-alg-files-for-testing" description="copy .alg files as resources for testing">

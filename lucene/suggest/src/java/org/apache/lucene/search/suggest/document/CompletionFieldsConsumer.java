@@ -1,5 +1,3 @@
-package org.apache.lucene.search.suggest.document;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.suggest.document;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.suggest.document;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -87,6 +86,10 @@ final class CompletionFieldsConsumer extends FieldsConsumer {
     for (String field : fields) {
       CompletionTermWriter termWriter = new CompletionTermWriter();
       Terms terms = fields.terms(field);
+      if (terms == null) {
+        // this can happen from ghost fields, where the incoming Fields iterator claims a field exists but it does not
+        continue;
+      }
       TermsEnum termsEnum = terms.iterator();
 
       // write terms

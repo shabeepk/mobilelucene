@@ -1,5 +1,3 @@
-package org.apache.lucene.index;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,8 @@ package org.apache.lucene.index;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.index;
+
 
 import org.apache.lucene.util.BytesRef;
 
@@ -33,12 +33,8 @@ import java.util.Arrays;
  */
 public final class TermContext {
 
-  /** Holds the {@link IndexReaderContext} of the top-level
-   *  {@link IndexReader}, used internally only for
-   *  asserting.
-   *
-   *  @lucene.internal */
-  public final IndexReaderContext topReaderContext;
+  // Important: do NOT keep hard references to index readers
+  private final Object topReaderContextIdentity;
   private final TermState[] states;
   private int docFreq;
   private long totalTermFreq;
@@ -50,7 +46,7 @@ public final class TermContext {
    */
   public TermContext(IndexReaderContext context) {
     assert context != null && context.isTopLevel;
-    topReaderContext = context;
+    topReaderContextIdentity = context.identity;
     docFreq = 0;
     totalTermFreq = 0;
     final int len;
@@ -61,7 +57,16 @@ public final class TermContext {
     }
     states = new TermState[len];
   }
-  
+
+  /**
+   * Expert: Return whether this {@link TermContext} was built for the given
+   * {@link IndexReaderContext}. This is typically used for assertions.
+   * @lucene.internal
+   */
+  public boolean wasBuiltFor(IndexReaderContext context) {
+    return topReaderContextIdentity == context.identity;
+  }
+
   /**
    * Creates a {@link TermContext} with an initial {@link TermState},
    * {@link IndexReader} pair.
@@ -175,18 +180,6 @@ public final class TermContext {
    */
   public long totalTermFreq() {
     return totalTermFreq;
-  }
-
-  /** Returns true if all terms stored here are real (e.g., not auto-prefix terms).
-   *
-   *  @lucene.internal */
-  public boolean hasOnlyRealTerms() {
-    for (TermState termState : states) {
-      if (termState != null && termState.isRealTerm() == false) {
-        return false;
-      }
-    }
-    return true;
   }
 
   @Override

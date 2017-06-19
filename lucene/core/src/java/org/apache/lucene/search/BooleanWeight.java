@@ -1,5 +1,3 @@
-package org.apache.lucene.search;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,18 +14,24 @@ package org.apache.lucene.search;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.EnumMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.similarities.Similarity;
+import org.apache.lucene.util.Bits;
 
 /**
  * Expert: the Weight for BooleanQuery, used to
@@ -105,8 +109,6 @@ final class BooleanWeight extends Weight {
       i += 1;
     }
 
-    sum *= query.getBoost() * query.getBoost();             // boost each sub-weight
-
     return sum ;
   }
 
@@ -127,11 +129,10 @@ final class BooleanWeight extends Weight {
   }
 
   @Override
-  public void normalize(float norm, float topLevelBoost) {
-    topLevelBoost *= query.getBoost();                  // incorporate boost
+  public void normalize(float norm, float boost) {
     for (Weight w : weights) {
       // normalize all clauses, (even if non-scoring in case of side affects)
-      w.normalize(norm, topLevelBoost);
+      w.normalize(norm, boost);
     }
   }
 
@@ -190,29 +191,49 @@ final class BooleanWeight extends Weight {
     }
   }
 
-  /** Try to build a boolean scorer for this weight. Returns null if {@link BooleanScorer}
-   *  cannot be used. */
+  static BulkScorer disableScoring(final BulkScorer scorer) {
+    return new BulkScorer() {
+
+      @Override
+      public int score(final LeafCollector collector, Bits acceptDocs, int min, int max) throws IOException {
+        final LeafCollector noScoreCollector = new LeafCollector() {
+          FakeScorer fake = new FakeScorer();
+
+          @Override
+          public void setScorer(Scorer scorer) throws IOException {
+            collector.setScorer(fake);
+          }
+
+          @Override
+          public void collect(int doc) throws IOException {
+            fake.doc = doc;
+            collector.collect(doc);
+          }
+        };
+        return scorer.score(noScoreCollector, acceptDocs, min, max);
+      }
+
+      @Override
+      public long cost() {
+        return scorer.cost();
+      }
+    };
+  }
+
+  // Return a BulkScorer for the optional clauses only,
+  // or null if it is not applicable
   // pkg-private for forcing use of BooleanScorer in tests
-  BooleanScorer booleanScorer(LeafReaderContext context) throws IOException {
+  BulkScorer optionalBulkScorer(LeafReaderContext context) throws IOException {
     List<BulkScorer> optional = new ArrayList<BulkScorer>();
     Iterator<BooleanClause> cIter = query.iterator();
     for (Weight w  : weights) {
       BooleanClause c =  cIter.next();
+      if (c.getOccur() != Occur.SHOULD) {
+        continue;
+      }
       BulkScorer subScorer = w.bulkScorer(context);
-      
-      if (subScorer == null) {
-        if (c.isRequired()) {
-          return null;
-        }
-      } else if (c.isRequired()) {
-        // TODO: there are some cases where BooleanScorer
-        // would handle conjunctions faster than
-        // BooleanScorer2...
-        return null;
-      } else if (c.isProhibited()) {
-        // TODO: there are some cases where BooleanScorer could do this faster
-        return null;
-      } else {
+
+      if (subScorer != null) {
         optional.add(subScorer);
       }
     }
@@ -225,13 +246,62 @@ final class BooleanWeight extends Weight {
       return null;
     }
 
+    if (optional.size() == 1) {
+      BulkScorer opt = optional.get(0);
+      if (!disableCoord && maxCoord > 1) {
+        return new BooleanTopLevelScorers.BoostedBulkScorer(opt, coord(1, maxCoord));
+      } else {
+        return opt;
+      }
+    }
+
     return new BooleanScorer(this, disableCoord, maxCoord, optional, Math.max(1, query.getMinimumNumberShouldMatch()), needsScores);
   }
 
-  @Override
-  public BulkScorer bulkScorer(LeafReaderContext context) throws IOException {
-    final BooleanScorer bulkScorer = booleanScorer(context);
-    if (bulkScorer != null) { // BooleanScorer is applicable
+  // Return a BulkScorer for the required clauses only,
+  // or null if it is not applicable
+  private BulkScorer requiredBulkScorer(LeafReaderContext context) throws IOException {
+    BulkScorer scorer = null;
+
+    Iterator<BooleanClause> cIter = query.iterator();
+    for (Weight w  : weights) {
+      BooleanClause c =  cIter.next();
+      if (c.isRequired() == false) {
+        continue;
+      }
+      if (scorer != null) {
+        // we don't have a BulkScorer for conjunctions
+        return null;
+      }
+      scorer = w.bulkScorer(context);
+      if (scorer == null) {
+        // no matches
+        return null;
+      }
+      if (c.isScoring() == false) {
+        if (needsScores) {
+          scorer = disableScoring(scorer);
+        }
+      } else {
+        assert maxCoord == 1;
+      }
+    }
+    return scorer;
+  }
+
+  /** Try to build a boolean scorer for this weight. Returns null if {@link BooleanScorer}
+   *  cannot be used. */
+  BulkScorer booleanScorer(LeafReaderContext context) throws IOException {
+    final int numOptionalClauses = query.getClauses(Occur.SHOULD).size();
+    final int numRequiredClauses = query.getClauses(Occur.MUST).size() + query.getClauses(Occur.FILTER).size();
+    
+    BulkScorer positiveScorer;
+    if (numRequiredClauses == 0) {
+      positiveScorer = optionalBulkScorer(context);
+      if (positiveScorer == null) {
+        return null;
+      }
+
       // TODO: what is the right heuristic here?
       final long costThreshold;
       if (query.getMinimumNumberShouldMatch() <= 1) {
@@ -249,59 +319,107 @@ final class BooleanWeight extends Weight {
         costThreshold = context.reader().maxDoc() / 3;
       }
 
-      if (bulkScorer.cost() > costThreshold) {
-        return bulkScorer;
+      if (positiveScorer.cost() < costThreshold) {
+        return null;
+      }
+
+    } else if (numRequiredClauses == 1
+        && numOptionalClauses == 0
+        && query.getMinimumNumberShouldMatch() == 0) {
+      positiveScorer = requiredBulkScorer(context);
+    } else {
+      // TODO: there are some cases where BooleanScorer
+      // would handle conjunctions faster than
+      // BooleanScorer2...
+      return null;
+    }
+
+    if (positiveScorer == null) {
+      return null;
+    }
+
+    List<Scorer> prohibited = new ArrayList<>();
+    Iterator<BooleanClause> cIter = query.iterator();
+    for (Weight w  : weights) {
+      BooleanClause c =  cIter.next();
+      if (c.isProhibited()) {
+        Scorer scorer = w.scorer(context);
+        if (scorer != null) {
+          prohibited.add(scorer);
+        }
       }
     }
-    return super.bulkScorer(context);
+
+    if (prohibited.isEmpty()) {
+      return positiveScorer;
+    } else {
+      Scorer prohibitedScorer = prohibited.size() == 1
+          ? prohibited.get(0)
+          : new DisjunctionSumScorer(this, prohibited, coords, false);
+      if (prohibitedScorer.twoPhaseIterator() != null) {
+        // ReqExclBulkScorer can't deal efficiently with two-phased prohibited clauses
+        return null;
+      }
+      return new ReqExclBulkScorer(positiveScorer, prohibitedScorer.iterator());
+    }
+  }
+
+  @Override
+  public BulkScorer bulkScorer(LeafReaderContext context) throws IOException {
+    final BulkScorer bulkScorer = booleanScorer(context);
+    if (bulkScorer != null) {
+      // bulk scoring is applicable, use it
+      return bulkScorer;
+    } else {
+      // use a Scorer-based impl (BS2)
+      return super.bulkScorer(context);
+    }
   }
 
   @Override
   public Scorer scorer(LeafReaderContext context) throws IOException {
-    // initially the user provided value,
-    // but if minNrShouldMatch == optional.size(),
-    // we will optimize and move these to required, making this 0
+    ScorerSupplier scorerSupplier = scorerSupplier(context);
+    if (scorerSupplier == null) {
+      return null;
+    }
+    return scorerSupplier.get(false);
+  }
+
+  @Override
+  public ScorerSupplier scorerSupplier(LeafReaderContext context) throws IOException {
     int minShouldMatch = query.getMinimumNumberShouldMatch();
 
-    List<Scorer> required = new ArrayList<>();
-    // clauses that are required AND participate in scoring, subset of 'required'
-    List<Scorer> requiredScoring = new ArrayList<>();
-    List<Scorer> prohibited = new ArrayList<>();
-    List<Scorer> optional = new ArrayList<>();
+    final Map<Occur, Collection<ScorerSupplier>> scorers = new EnumMap<>(Occur.class);
+    for (Occur occur : Occur.values()) {
+      scorers.put(occur, new ArrayList<>());
+    }
+
     Iterator<BooleanClause> cIter = query.iterator();
     for (Weight w  : weights) {
       BooleanClause c =  cIter.next();
-      Scorer subScorer = w.scorer(context);
+      ScorerSupplier subScorer = w.scorerSupplier(context);
       if (subScorer == null) {
         if (c.isRequired()) {
           return null;
         }
-      } else if (c.isRequired()) {
-        required.add(subScorer);
-        if (c.isScoring()) {
-          requiredScoring.add(subScorer);
-        }
-      } else if (c.isProhibited()) {
-        prohibited.add(subScorer);
       } else {
-        optional.add(subScorer);
+        scorers.get(c.getOccur()).add(subScorer);
       }
     }
-    
+
     // scorer simplifications:
     
-    if (optional.size() == minShouldMatch) {
+    if (scorers.get(Occur.SHOULD).size() == minShouldMatch) {
       // any optional clauses are in fact required
-      required.addAll(optional);
-      requiredScoring.addAll(optional);
-      optional.clear();
+      scorers.get(Occur.MUST).addAll(scorers.get(Occur.SHOULD));
+      scorers.get(Occur.SHOULD).clear();
       minShouldMatch = 0;
     }
     
-    if (required.isEmpty() && optional.isEmpty()) {
+    if (scorers.get(Occur.FILTER).isEmpty() && scorers.get(Occur.MUST).isEmpty() && scorers.get(Occur.SHOULD).isEmpty()) {
       // no required and optional clauses.
       return null;
-    } else if (optional.size() < minShouldMatch) {
+    } else if (scorers.get(Occur.SHOULD).size() < minShouldMatch) {
       // either >1 req scorer, or there are 0 req scorers and at least 1
       // optional scorer. Therefore if there are not enough optional scorers
       // no documents will be matched by the query
@@ -309,130 +427,10 @@ final class BooleanWeight extends Weight {
     }
 
     // we don't need scores, so if we have required clauses, drop optional clauses completely
-    if (!needsScores && minShouldMatch == 0 && required.size() > 0) {
-      optional.clear();
+    if (!needsScores && minShouldMatch == 0 && scorers.get(Occur.MUST).size() + scorers.get(Occur.FILTER).size() > 0) {
+      scorers.get(Occur.SHOULD).clear();
     }
-    
-    // three cases: conjunction, disjunction, or mix
-    
-    // pure conjunction
-    if (optional.isEmpty()) {
-      return excl(req(required, requiredScoring, disableCoord), prohibited);
-    }
-    
-    // pure disjunction
-    if (required.isEmpty()) {
-      return excl(opt(optional, minShouldMatch, disableCoord), prohibited);
-    }
-    
-    // conjunction-disjunction mix:
-    // we create the required and optional pieces with coord disabled, and then
-    // combine the two: if minNrShouldMatch > 0, then it's a conjunction: because the
-    // optional side must match. otherwise it's required + optional, factoring the
-    // number of optional terms into the coord calculation
-    
-    Scorer req = excl(req(required, requiredScoring, true), prohibited);
-    Scorer opt = opt(optional, minShouldMatch, true);
 
-    // TODO: clean this up: it's horrible
-    if (disableCoord) {
-      if (minShouldMatch > 0) {
-        return new ConjunctionScorer(this, Arrays.asList(req, opt), Arrays.asList(req, opt), 1F);
-      } else {
-        return new ReqOptSumScorer(req, opt);          
-      }
-    } else if (optional.size() == 1) {
-      if (minShouldMatch > 0) {
-        return new ConjunctionScorer(this, Arrays.asList(req, opt), Arrays.asList(req, opt), coord(requiredScoring.size()+1, maxCoord));
-      } else {
-        float coordReq = coord(requiredScoring.size(), maxCoord);
-        float coordBoth = coord(requiredScoring.size() + 1, maxCoord);
-        return new BooleanTopLevelScorers.ReqSingleOptScorer(req, opt, coordReq, coordBoth);
-      }
-    } else {
-      if (minShouldMatch > 0) {
-        return new BooleanTopLevelScorers.CoordinatingConjunctionScorer(this, coords, req, requiredScoring.size(), opt);
-      } else {
-        return new BooleanTopLevelScorers.ReqMultiOptScorer(req, opt, requiredScoring.size(), coords); 
-      }
-    }
-  }
-
-  /** Create a new scorer for the given required clauses. Note that
-   *  {@code requiredScoring} is a subset of {@code required} containing
-   *  required clauses that should participate in scoring. */
-  private Scorer req(List<Scorer> required, List<Scorer> requiredScoring, boolean disableCoord) {
-    if (required.size() == 1) {
-      Scorer req = required.get(0);
-
-      if (needsScores == false) {
-        return req;
-      }
-
-      if (requiredScoring.isEmpty()) {
-        // Scores are needed but we only have a filter clause
-        // BooleanWeight expects that calling score() is ok so we need to wrap
-        // to prevent score() from being propagated
-        return new FilterScorer(req) {
-          @Override
-          public float score() throws IOException {
-            return 0f;
-          }
-          @Override
-          public int freq() throws IOException {
-            return 0;
-          }
-        };
-      }
-      
-      float boost = 1f;
-      if (disableCoord == false) {
-        boost = coord(1, maxCoord);
-      }
-      if (boost == 1f) {
-        return req;
-      }
-      return new BooleanTopLevelScorers.BoostedScorer(req, boost);
-    } else {
-      return new ConjunctionScorer(this, required, requiredScoring,
-                                   disableCoord ? 1.0F : coord(requiredScoring.size(), maxCoord));
-    }
-  }
-  
-  private Scorer excl(Scorer main, List<Scorer> prohibited) throws IOException {
-    if (prohibited.isEmpty()) {
-      return main;
-    } else if (prohibited.size() == 1) {
-      return new ReqExclScorer(main, prohibited.get(0));
-    } else {
-      float coords[] = new float[prohibited.size()+1];
-      Arrays.fill(coords, 1F);
-      return new ReqExclScorer(main, new DisjunctionSumScorer(this, prohibited, coords, false));
-    }
-  }
-  
-  private Scorer opt(List<Scorer> optional, int minShouldMatch, boolean disableCoord) throws IOException {
-    if (optional.size() == 1) {
-      Scorer opt = optional.get(0);
-      if (!disableCoord && maxCoord > 1) {
-        return new BooleanTopLevelScorers.BoostedScorer(opt, coord(1, maxCoord));
-      } else {
-        return opt;
-      }
-    } else {
-      float coords[];
-      if (disableCoord) {
-        // sneaky: when we do a mixed conjunction/disjunction, we need a fake for the disjunction part.
-        coords = new float[optional.size()+1];
-        Arrays.fill(coords, 1F);
-      } else {
-        coords = this.coords;
-      }
-      if (minShouldMatch > 1) {
-        return new MinShouldMatchSumScorer(this, optional, minShouldMatch, coords);
-      } else {
-        return new DisjunctionSumScorer(this, optional, coords, needsScores);
-      }
-    }
+    return new Boolean2ScorerSupplier(this, scorers, disableCoord, coords, maxCoord, needsScores, minShouldMatch);
   }
 }

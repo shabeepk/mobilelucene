@@ -1,5 +1,3 @@
-package org.apache.lucene.search.suggest;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +14,7 @@ package org.apache.lucene.search.suggest;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.lucene.search.suggest;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -36,11 +35,14 @@ import org.apache.lucene.analysis.MockAnalyzer;
 import org.apache.lucene.analysis.MockTokenizer;
 import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
 import org.apache.lucene.search.suggest.analyzing.AnalyzingSuggester;
+import org.apache.lucene.search.suggest.analyzing.BlendedInfixSuggester;
+import org.apache.lucene.search.suggest.analyzing.FreeTextSuggester;
 import org.apache.lucene.search.suggest.analyzing.FuzzySuggester;
 import org.apache.lucene.search.suggest.fst.FSTCompletionLookup;
 import org.apache.lucene.search.suggest.fst.WFSTCompletionLookup;
 import org.apache.lucene.search.suggest.jaspell.JaspellLookup;
 import org.apache.lucene.search.suggest.tst.TSTLookup;
+import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.*;
 import org.junit.BeforeClass;
@@ -59,7 +61,9 @@ public class LookupBenchmarkTest extends LuceneTestCase {
       JaspellLookup.class, 
       TSTLookup.class,
       FSTCompletionLookup.class,
-      WFSTCompletionLookup.class
+      WFSTCompletionLookup.class,
+      BlendedInfixSuggester.class,
+      FreeTextSuggester.class
       );
 
   private final static int rounds = 15;
@@ -162,8 +166,9 @@ public class LookupBenchmarkTest extends LuceneTestCase {
       lookup = cls.newInstance();
     } catch (InstantiationException e) {
       Analyzer a = new MockAnalyzer(random, MockTokenizer.KEYWORD, false);
-      if (cls == AnalyzingInfixSuggester.class) {
-        lookup = new AnalyzingInfixSuggester(FSDirectory.open(createTempDir("LookupBenchmarkTest")), a);
+      if (cls == AnalyzingInfixSuggester.class || cls == BlendedInfixSuggester.class) {
+        Constructor<? extends Lookup> ctor = cls.getConstructor(Directory.class, Analyzer.class);
+        lookup = ctor.newInstance(FSDirectory.open(createTempDir("LookupBenchmarkTest")), a);
       } else {
         Constructor<? extends Lookup> ctor = cls.getConstructor(Analyzer.class);
         lookup = ctor.newInstance(a);
